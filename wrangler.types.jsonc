@@ -1,0 +1,12 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "opendex-ui-types",
+	"compatibility_date": "2026-07-01",
+	"compatibility_flags": [
+		"nodejs_als"
+	],
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	}
+}

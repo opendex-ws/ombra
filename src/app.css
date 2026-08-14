@@ -1,0 +1,709 @@
+@import 'tailwindcss';
+
+@theme {
+	--color-s0: var(--t-s0);
+	--color-s1: var(--t-s1);
+	--color-s2: var(--t-s2);
+	--color-s3: var(--t-s3);
+	--color-s4: var(--t-s4);
+	--color-s5: var(--t-s5);
+	--color-s6: var(--t-s6);
+	--color-s7: var(--t-s7);
+	--color-s8: var(--t-s8);
+	--color-s9: var(--t-s9);
+	--color-bd: var(--t-bd);
+	--color-bd2: var(--t-bd2);
+	--color-bd3: var(--t-bd3);
+	--color-g1: var(--t-g1);
+	--color-g2: var(--t-g2);
+	--color-g3: var(--t-g3);
+	--color-g4: var(--t-g4);
+	--color-g5: var(--t-g5);
+	--color-g6: var(--t-g6);
+	--color-g7: var(--t-g7);
+	--color-g8: var(--t-g8);
+	--color-g9: var(--t-g9);
+	--color-g10: var(--t-g10);
+	--color-g11: var(--t-g11);
+	--color-tx: var(--t-tx);
+	--color-wh: var(--t-wh);
+	--color-grn: var(--t-grn);
+	--color-grn-dim: var(--t-grn-dim);
+	--color-grn-dark: var(--t-grn-dark);
+	--color-grn-darker: var(--t-grn-darker);
+	--color-red: var(--t-red);
+	--color-red-bright: var(--t-red-bright);
+	--color-red-light: var(--t-red-light);
+	--color-red-light2: var(--t-red-light2);
+	--color-red-dark: var(--t-red-dark);
+	--color-yel: var(--t-yel);
+	--color-yel-dark: var(--t-yel-dark);
+	--color-org: var(--t-org);
+	--color-blu: var(--t-blu);
+	--color-blu-light: var(--t-blu-light);
+	--color-pnk: var(--t-pnk);
+}
+
+:root {
+	--t-s0: #000000;
+	--t-s1: #060606;
+	--t-s2: #0c0c0c;
+	--t-s3: #111111;
+	--t-s4: #161616;
+	--t-s5: #1a1a1a;
+	--t-s6: #1f1f1f;
+	--t-s7: #252525;
+	--t-s8: #2a2a2a;
+	--t-s9: #303030;
+	--t-bd: #2a2a2a;
+	--t-bd2: #333333;
+	--t-bd3: #3d3d3d;
+	--t-g1: #333333;
+	--t-g2: #3a3a3a;
+	--t-g3: #444444;
+	--t-g4: #555555;
+	--t-g5: #666666;
+	--t-g6: #777777;
+	--t-g7: #888888;
+	--t-g8: #999999;
+	--t-g9: #aaaaaa;
+	--t-g10: #bbbbbb;
+	--t-g11: #cccccc;
+	--t-tx: #e0e0e0;
+	--t-wh: #ffffff;
+	--t-hover: rgba(255, 255, 255, 0.05);
+	--t-grn: #00ff88;
+	--t-grn-dim: #00dd77;
+	--t-grn-dark: #00cc6a;
+	--t-grn-darker: #009955;
+	--t-red: #ff4466;
+	--t-red-bright: #ff3355;
+	--t-red-light: #ff6677;
+	--t-red-light2: #ff6688;
+	--t-red-dark: #aa2244;
+	--t-yel: #ffaa00;
+	--t-yel-dark: #cc8800;
+	--t-org: #ff8800;
+	--t-blu: #0088cc;
+	--t-blu-light: #00bbff;
+	--t-pnk: #ff6b9d;
+
+	--bg-primary: var(--t-s0);
+	--bg-secondary: var(--t-s4);
+	--bg-tertiary: var(--t-s8);
+	--border-color: var(--t-bd2);
+	--text-primary: var(--t-tx);
+	--text-secondary: var(--t-g7);
+	--text-muted: var(--t-g4);
+	--accent-green: var(--t-grn);
+	--accent-red: var(--t-red);
+	--accent-blue: var(--t-g11);
+	--accent-purple: var(--t-tx);
+	--accent-yellow: var(--t-yel);
+}
+
+[data-theme="light"] {
+	--t-s0: #ffffff;
+	--t-s1: #fafafa;
+	--t-s2: #f7f7f7;
+	--t-s3: #f5f5f5;
+	--t-s4: #f2f2f2;
+	--t-s5: #eeeeee;
+	--t-s6: #ebebeb;
+	--t-s7: #e8e8e8;
+	--t-s8: #e4e4e4;
+	--t-s9: #e2e2e2;
+	--t-bd: #d4d4d4;
+	--t-bd2: #c4c4c4;
+	--t-bd3: #b8b8b8;
+	--t-g1: #a0a0a0;
+	--t-g2: #969696;
+	--t-g3: #888888;
+	--t-g4: #777777;
+	--t-g5: #666666;
+	--t-g6: #555555;
+	--t-g7: #505050;
+	--t-g8: #444444;
+	--t-g9: #383838;
+	--t-g10: #303030;
+	--t-g11: #282828;
+	--t-tx: #1a1a1a;
+	--t-wh: #000000;
+	--t-hover: rgba(0, 0, 0, 0.04);
+	--t-grn: #00b860;
+	--t-grn-dim: #00a050;
+	--t-grn-dark: #008844;
+	--t-grn-darker: #006633;
+	--t-red: #dd2244;
+	--t-red-bright: #cc1133;
+	--t-red-light: #ee4466;
+	--t-red-light2: #ee5577;
+	--t-red-dark: #991133;
+	--t-yel: #cc8800;
+	--t-yel-dark: #aa6600;
+	--t-org: #dd6600;
+	--t-blu: #0077bb;
+	--t-blu-light: #0099dd;
+	--t-pnk: #dd4477;
+}
+
+html {
+	scroll-behavior: smooth;
+	/* Profile / Trader Analytics grow past the viewport; without a stable gutter the
+	   classic scrollbar steals width and justify-between shoves every tab left. */
+	overflow-y: scroll;
+	scrollbar-gutter: stable;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+input[type="number"] {
+	-moz-appearance: textfield;
+}
+
+.limit-slider {
+	-webkit-appearance: none;
+	appearance: none;
+	height: 6px;
+	border-radius: 3px;
+	outline: none;
+	cursor: pointer;
+}
+
+
+.slider-input::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	background: var(--t-grn);
+	cursor: pointer;
+	border: 2px solid var(--t-s0);
+	box-shadow: 0 0 6px color-mix(in srgb, var(--t-grn) 30%, transparent);
+}
+.slider-input::-moz-range-thumb {
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	background: var(--t-grn);
+	cursor: pointer;
+	border: 2px solid var(--t-s0);
+	box-shadow: 0 0 6px color-mix(in srgb, var(--t-grn) 30%, transparent);
+}
+.slider-input::-webkit-slider-runnable-track {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--t-bd2);
+}
+.slider-input::-moz-range-track {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--t-bd2);
+}
+
+html, body {
+	margin: 0;
+	padding: 0;
+	background: var(--t-s0);
+	color: var(--t-tx);
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+	min-height: 100dvh;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+/* Chat-style background image */
+html[data-bg="on"] {
+	--surface-alpha: 0.85;
+	--bg-dim: 0.4;
+	--bg-blur: 2px;
+}
+
+html[data-bg="on"] body {
+	background: transparent;
+}
+
+html[data-bg="on"] body::before {
+	content: '';
+	position: fixed;
+	inset: 0;
+	z-index: -2;
+	background-image: var(--bg-image);
+	background-size: cover;
+	background-position: center;
+	background-repeat: no-repeat;
+	filter: blur(var(--bg-blur));
+	transform: scale(1.06);
+	pointer-events: none;
+}
+
+html[data-bg="on"] body::after {
+	content: '';
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	background: color-mix(in srgb, var(--t-s0) calc(var(--bg-dim) * 100%), transparent);
+	pointer-events: none;
+}
+
+/* ── ELEVATION LAYER CONTRACT (under a wallpaper) ─────────────────────────────
+   Backgrounds map to a semantic elevation layer, not an arbitrary shade:
+
+     L0 Base / L1 Panel   bg-s0   translucent  — page, route roots, sidebars, columns, nav bars
+     L2 Card              bg-s1   translucent  — token/position cards, list containers
+     L3 Sunken            bg-s2   translucent  — inner detail boxes, nested info panels
+     L4 Control           bg-s4   near-solid   — inputs, selects, pill-group tracks
+     L5 Floating          bg-s5   OPAQUE       — popovers, dropdowns, modals, sheets, popouts, tooltips
+     Chip / image badge   bg-s6 / bg-s7  OPAQUE — small badges, avatar placeholders, overlay chips
+
+   Hard rules:  layers ≤ L3 show the wallpaper;  L4 is near-solid;  L5+ are fully opaque.
+   Anything that FLOATS over content (shadow-2xl, fixed/absolute menus) must be L5 (bg-s5).
+   ────────────────────────────────────────────────────────────────────────── */
+html[data-bg="on"] {
+	/* Elevation opacity ladder — spread so each layer reads distinctly:
+	   base see-through, cards clearly translucent, controls near-solid.
+	   surface-alpha (default 0.85) shifts the whole ladder up/down.
+	   s5+ (float/chip) are intentionally NOT overridden = fully opaque. */
+	--color-s0: color-mix(in srgb, var(--t-s0) calc((var(--surface-alpha) - 0.07) * 100%), transparent);
+	--color-s1: color-mix(in srgb, var(--t-s1) calc((var(--surface-alpha) - 0.01) * 100%), transparent);
+	--color-s2: color-mix(in srgb, var(--t-s2) calc((var(--surface-alpha) + 0.03) * 100%), transparent);
+	--color-s4: color-mix(in srgb, var(--t-s4) calc((var(--surface-alpha) + 0.10) * 100%), transparent);
+
+	/* Border softens to a translucent divider instead of a hard opaque line. */
+	--color-bd: color-mix(in srgb, var(--t-bd) 55%, transparent);
+}
+
+/* Glass panels: translucent surface + a soft wallpaper blur behind it. Apply to
+   the LARGE containers that sit directly on the wallpaper (panels, columns,
+   sidebars, popout windows) so the wallpaper reads as frosted, not raw pixels.
+   No-op when no wallpaper is active. */
+/* Firefox Android's WebRender fails to rasterize a bare `backdrop-filter: blur()`
+   value written directly in a stylesheet rule (works fine on desktop FF, Chrome,
+   Safari). Routing the value through Tailwind's composed backdrop utility via
+   @apply (identical to what the navbar/bottom-bar already use) makes it render
+   cross-browser. Do NOT inline a bare `backdrop-filter: blur(Npx)` here again. */
+html[data-bg="on"] .glass { @apply backdrop-blur-sm; }
+html[data-bg="on"] .glass-strong { @apply backdrop-blur-md; }
+
+/* text-s0 is the CONTRAST ink on accent fills (Buy/Sell, badges). bg-s0 goes
+   translucent under the wallpaper, but the TEXT must stay solid to read. */
+html[data-bg="on"] .text-s0 { color: var(--t-s0) !important; }
+
+/* Accent tints (faint 10 / soft 20 / strong 35) blend into the wallpaper at
+   their base opacity — boost each tier to a legible level. One rule per tier. */
+html[data-bg="on"] {
+	& .bg-grn\/10 { background-color: color-mix(in srgb, var(--t-grn) 22%, transparent) !important; }
+	& .bg-grn\/20 { background-color: color-mix(in srgb, var(--t-grn) 34%, transparent) !important; }
+	& .bg-grn\/35 { background-color: color-mix(in srgb, var(--t-grn) 48%, transparent) !important; }
+	& .bg-red\/10 { background-color: color-mix(in srgb, var(--t-red) 22%, transparent) !important; }
+	& .bg-red\/20 { background-color: color-mix(in srgb, var(--t-red) 34%, transparent) !important; }
+	& .bg-red\/35 { background-color: color-mix(in srgb, var(--t-red) 48%, transparent) !important; }
+	& .bg-yel\/10 { background-color: color-mix(in srgb, var(--t-yel) 24%, transparent) !important; }
+	& .bg-yel\/20 { background-color: color-mix(in srgb, var(--t-yel) 36%, transparent) !important; }
+	& .bg-blu\/10 { background-color: color-mix(in srgb, var(--t-blu) 24%, transparent) !important; }
+	& .bg-blu\/20 { background-color: color-mix(in srgb, var(--t-blu) 36%, transparent) !important; }
+	& .bg-org\/10 { background-color: color-mix(in srgb, var(--t-org) 24%, transparent) !important; }
+	& .bg-org\/20 { background-color: color-mix(in srgb, var(--t-org) 36%, transparent) !important; }
+	& .bg-pnk\/10 { background-color: color-mix(in srgb, var(--t-pnk) 24%, transparent) !important; }
+	& .bg-tx\/10  { background-color: color-mix(in srgb, var(--t-tx) 20%, transparent) !important; }
+	& .bg-tx\/20  { background-color: color-mix(in srgb, var(--t-tx) 32%, transparent) !important; }
+}
+
+/* Row / list-item hover — the ONE convention for translucent rows. Theme-aware
+   wash (light lift in dark themes, subtle darken in light themes) via --t-hover
+   so it never turns into a muddy dark band on light themes. */
+.hover\:bg-wh\/5:hover,
+.bg-wh\/5 {
+	background-color: var(--t-hover) !important;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+.scrollbar-none {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+	display: none;
+}
+
+::-webkit-scrollbar {
+	width: 5px;
+	height: 5px;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--t-bd);
+	border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--t-g1);
+}
+
+::selection {
+	background: color-mix(in srgb, var(--t-grn) 15%, transparent);
+	color: var(--t-wh);
+}
+
+[data-theme="light"] ::selection {
+	color: #000000;
+}
+
+input[type="range"] {
+	-webkit-appearance: none;
+	appearance: none;
+	height: 4px;
+	background: var(--t-bd2);
+	border-radius: 2px;
+	outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--t-grn);
+	cursor: pointer;
+	border: 2px solid var(--t-s0);
+	box-shadow: 0 0 8px color-mix(in srgb, var(--t-grn) 30%, transparent);
+	transition: box-shadow 0.2s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+	box-shadow: 0 0 12px color-mix(in srgb, var(--t-grn) 50%, transparent);
+}
+
+input[type="range"]::-moz-range-thumb {
+	width: 16px;
+	height: 16px;
+	border-radius: 50%;
+	background: var(--t-grn);
+	cursor: pointer;
+	border: 2px solid var(--t-s0);
+	box-shadow: 0 0 8px color-mix(in srgb, var(--t-grn) 30%, transparent);
+}
+
+select {
+	cursor: pointer;
+}
+
+button {
+	transition: all 0.15s ease;
+}
+
+a {
+	text-decoration: none;
+	transition: color 0.15s ease;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+@keyframes shimmer {
+	0% { background-position: -200% 0; }
+	100% { background-position: 200% 0; }
+}
+
+@keyframes fade-in {
+	from { opacity: 0; transform: translateY(6px) scale(0.98); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes slide-up {
+	from { opacity: 0; transform: translateY(12px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+	from { opacity: 0; transform: translateY(-8px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-glow {
+	0%, 100% { box-shadow: 0 0 0 0 transparent; }
+	50% { box-shadow: 0 0 16px 2px color-mix(in srgb, var(--t-grn) 10%, transparent); }
+}
+
+@keyframes pulse-dot {
+	0%, 100% { opacity: 1; transform: scale(1); }
+	50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes glow-green {
+	0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--t-grn) 20%, transparent); }
+	50% { box-shadow: 0 0 12px color-mix(in srgb, var(--t-grn) 40%, transparent); }
+}
+
+@keyframes glow-red {
+	0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--t-red) 20%, transparent); }
+	50% { box-shadow: 0 0 12px color-mix(in srgb, var(--t-red) 40%, transparent); }
+}
+
+@keyframes subtle-float {
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-2px); }
+}
+
+@keyframes flash-bg-up {
+	0% { background-color: color-mix(in srgb, var(--t-grn) 12%, transparent); }
+	100% { background-color: transparent; }
+}
+
+@keyframes flash-bg-down {
+	0% { background-color: color-mix(in srgb, var(--t-red) 12%, transparent); }
+	100% { background-color: transparent; }
+}
+
+@keyframes flash-arrow {
+	0%, 60% { opacity: 1; }
+	100% { opacity: 0; }
+}
+
+.flash-up,
+.flash-down {
+	position: relative;
+	border-radius: 3px;
+}
+
+.flash-up {
+	animation: flash-bg-up 0.8s ease-out;
+}
+
+.flash-down {
+	animation: flash-bg-down 0.8s ease-out;
+}
+
+.flash-up::after,
+.flash-down::after {
+	position: absolute;
+	left: 100%;
+	top: 50%;
+	transform: translateY(-50%);
+	margin-left: 1px;
+	font-size: 0.5em;
+	pointer-events: none;
+	white-space: nowrap;
+	animation: flash-arrow 0.8s ease-out forwards;
+}
+
+.flash-up::after {
+	content: '▲';
+	color: var(--t-grn);
+}
+
+.flash-down::after {
+	content: '▼';
+	color: var(--t-red);
+}
+
+@keyframes row-flash-update {
+	0% { background-color: color-mix(in srgb, var(--t-wh) 6%, transparent); }
+	100% { background-color: transparent; }
+}
+
+@keyframes row-flash-new {
+	0% { background-color: color-mix(in srgb, var(--t-grn) 12%, transparent); box-shadow: inset 0 0 20px color-mix(in srgb, var(--t-grn) 8%, transparent); }
+	100% { background-color: transparent; box-shadow: none; }
+}
+
+@keyframes row-flash-remove {
+	0% { background-color: color-mix(in srgb, var(--t-red) 15%, transparent); opacity: 1; }
+	70% { background-color: color-mix(in srgb, var(--t-red) 8%, transparent); opacity: 0.5; }
+	100% { background-color: transparent; opacity: 0; }
+}
+
+.row-flash-update {
+	animation: row-flash-update 1.2s ease-out;
+}
+
+.row-flash-new {
+	animation: row-flash-new 1.5s ease-out;
+}
+
+.row-flash-remove {
+	animation: row-flash-remove 0.8s ease-out forwards;
+}
+
+/* Overlay-based flashes for cards with their own bg (memescope) — never stomps bg-s1 */
+@keyframes card-flash-update-o {
+	0% { opacity: 1; background-color: color-mix(in srgb, var(--t-wh) 8%, transparent); }
+	100% { opacity: 0; background-color: transparent; }
+}
+@keyframes card-flash-new-o {
+	0% { opacity: 1; background-color: color-mix(in srgb, var(--t-grn) 14%, transparent); }
+	100% { opacity: 0; background-color: transparent; }
+}
+@keyframes card-flash-remove-o {
+	0% { opacity: 1; background-color: color-mix(in srgb, var(--t-red) 16%, transparent); }
+	100% { opacity: 0; background-color: transparent; }
+}
+.card-flash-update, .card-flash-new, .card-flash-remove {
+	position: relative;
+}
+.card-flash-update::after, .card-flash-new::after, .card-flash-remove::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	z-index: 1;
+}
+.card-flash-update::after { animation: card-flash-update-o 1.2s ease-out; }
+.card-flash-new::after { animation: card-flash-new-o 1.5s ease-out; }
+.card-flash-remove::after { animation: card-flash-remove-o 0.8s ease-out forwards; }
+
+.animate-fade-in {
+	animation: fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-slide-up {
+	animation: slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-slide-down {
+	animation: slide-down 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.skeleton {
+	background: linear-gradient(90deg, var(--t-s5) 25%, var(--t-bd) 50%, var(--t-s5) 75%);
+	background-size: 200% 100%;
+	animation: shimmer 1.5s ease-in-out infinite;
+	border-radius: 8px;
+	isolation: isolate;
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+	outline: 2px solid color-mix(in srgb, var(--t-grn) 40%, transparent);
+	outline-offset: 2px;
+}
+
+sub {
+	font-size: 0.65em;
+	vertical-align: baseline;
+	opacity: 0.6;
+}
+
+.backdrop-blur-modal {
+	backdrop-filter: blur(8px);
+}
+
+.glass-card {
+	background: color-mix(in srgb, var(--t-s4) 85%, transparent);
+	backdrop-filter: blur(12px);
+	border: 1px solid color-mix(in srgb, var(--t-bd2) 60%, transparent);
+}
+
+.hover-lift {
+	transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 20px color-mix(in srgb, var(--t-s0) 40%, transparent);
+}
+
+.border-glow-green:hover {
+	border-color: color-mix(in srgb, var(--t-grn) 30%, transparent);
+	box-shadow: 0 0 20px color-mix(in srgb, var(--t-grn) 6%, transparent);
+}
+
+.border-glow-red:hover {
+	border-color: color-mix(in srgb, var(--t-red) 30%, transparent);
+	box-shadow: 0 0 20px color-mix(in srgb, var(--t-red) 6%, transparent);
+}
+
+@keyframes toast-enter {
+	from { opacity: 0; transform: translateY(20px) scale(0.95); }
+	to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.toast-enter {
+	animation: toast-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stagger-1 { animation-delay: 0.03s; }
+.stagger-2 { animation-delay: 0.06s; }
+.stagger-3 { animation-delay: 0.09s; }
+.stagger-4 { animation-delay: 0.12s; }
+.stagger-5 { animation-delay: 0.15s; }
+.stagger-6 { animation-delay: 0.18s; }
+
+.mobile-safe-bottom {
+	padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (max-width: 767px) {
+	.hide-mobile { display: none !important; }
+	.mobile-scroll-x {
+		overflow-x: auto;
+		-webkit-overflow-scrolling: touch;
+	}
+}
+
+@media (min-width: 768px) {
+	.hide-desktop { display: none !important; }
+}
+
+@keyframes slide-in-bottom {
+	from { opacity: 0; transform: translateY(100%); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+.mobile-panel-enter {
+	animation: slide-in-bottom 0.2s ease-out;
+}
+
+@utility btn-primary {
+	cursor: pointer;
+	border-radius: var(--radius-lg);
+	background-color: var(--color-grn);
+	color: var(--t-s0);
+	font-weight: 700;
+	transition: all 0.15s;
+	&:disabled { opacity: 0.3; }
+}
+
+@utility btn-secondary {
+	cursor: pointer;
+	border-radius: var(--radius-lg);
+	border: 1px solid var(--color-bd);
+	background-color: var(--color-s4);
+	color: var(--color-g7);
+	font-weight: 500;
+	transition: all 0.15s;
+	&:hover { color: var(--color-tx); }
+}
+
+@utility btn-danger-outline {
+	cursor: pointer;
+	border-radius: var(--radius-lg);
+	background-color: color-mix(in srgb, var(--color-red) 10%, transparent);
+	color: var(--color-red);
+	font-weight: 500;
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-red) 20%, transparent);
+	transition: all 0.15s;
+	&:hover { background-color: color-mix(in srgb, var(--color-red) 20%, transparent); }
+}
+
+@utility btn-danger {
+	cursor: pointer;
+	border-radius: var(--radius-lg);
+	background-color: var(--color-red);
+	color: var(--t-s0);
+	font-weight: 700;
+	transition: all 0.15s;
+	&:disabled { opacity: 0.3; }
+}

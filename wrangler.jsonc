@@ -1,0 +1,27 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	// Rename this to your own worker/project name.
+	"name": "opendex-ui",
+	"compatibility_date": "2026-07-01",
+	"compatibility_flags": [
+		"nodejs_als"
+	],
+	"main": ".svelte-kit/cloudflare/_worker.js",
+	"assets": {
+		"binding": "ASSETS",
+		"directory": ".svelte-kit/cloudflare"
+	},
+	"workers_dev": true,
+	"preview_urls": true,
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1
+	},
+	"vars": {
+		// Your OpenDEX backend origin (scheme, no trailing slash).
+		"PUBLIC_API_BASE": "https://your-opendex-backend.example.com",
+		// "true" = same-origin proxy (this worker forwards /v2/* to the backend,
+		// no CORS). Omit/false = the browser calls PUBLIC_API_BASE directly.
+		"PUBLIC_API_PROXY": "true"
+	}
+}

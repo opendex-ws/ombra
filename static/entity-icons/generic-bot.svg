@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Generic trading bot">
+  <defs>
+    <linearGradient id="body" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#36d1dc"/>
+      <stop offset="1" stop-color="#5b86e5"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="32" fill="#101827"/>
+  <path d="M32 10v7" stroke="#9ae6ff" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="32" cy="8" r="3" fill="#f5c451"/>
+  <rect x="12" y="18" width="40" height="34" rx="10" fill="url(#body)"/>
+  <rect x="16" y="22" width="32" height="23" rx="7" fill="#0d1728"/>
+  <circle cx="25" cy="33" r="4" fill="#79f2e5"/>
+  <circle cx="39" cy="33" r="4" fill="#79f2e5"/>
+  <path d="M24 42h16" stroke="#d7fbff" stroke-width="3" stroke-linecap="round"/>
+  <path d="M8 30h4M52 30h4" stroke="#5b86e5" stroke-width="4" stroke-linecap="round"/>
+</svg>

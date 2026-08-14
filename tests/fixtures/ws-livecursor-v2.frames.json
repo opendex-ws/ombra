@@ -1,0 +1,59 @@
+[
+  {
+    "topic": "token:SOL:So11111111111111111111111111111111111111112:price",
+    "event": "TOKEN_PRICE",
+    "data": {
+      "quote": {
+        "priceUsd": 148.52,
+        "marketCapUsd": 1485200000,
+        "liquidityUsd": 25000000
+      }
+    }
+  },
+  {
+    "type": "subscribed",
+    "topic": "watchlist:all",
+    "subId": "sub_1",
+    "requestId": "ws_sub_1",
+    "windows": {
+      "watchlist:all": {
+        "windowId": "lw_watchlist_all",
+        "mode": "fixed",
+        "cursor": "eyJ2ZXJzaW9uIjoxLCJwb3NpdGlvbiI6Mn0",
+        "startCursor": "eyJ2ZXJzaW9uIjoxLCJwb3NpdGlvbiI6MX0"
+      }
+    }
+  },
+  {
+    "topic": "watchlist:all",
+    "event": "WATCHLIST_FEED",
+    "meta": {
+      "windowId": "lw_watchlist_all",
+      "cursor": "eyJ2ZXJzaW9uIjoxLCJwb3NpdGlvbiI6Mn0",
+      "startCursor": "eyJ2ZXJzaW9uIjoxLCJwb3NpdGlvbiI6MX0"
+    },
+    "data": {
+      "items": [],
+      "cursor": "eyJ2ZXJzaW9uIjoxLCJwb3NpdGlvbiI6MX0",
+      "nextCursor": "eyJ2ZXJzaW9uIjoxLCJwb3NpdGlvbiI6Mn0"
+    }
+  },
+  {
+    "topic": "trades:active:user_123",
+    "event": "USER_TRADES",
+    "meta": {
+      "windowId": "lw_trades_active_user_123",
+      "cursor": "eyJ2ZXJzaW9uIjoxLCJwb3NpdGlvbiI6Mn0"
+    },
+    "data": {
+      "trades": [],
+      "nextCursor": "eyJ2ZXJzaW9uIjoxLCJwb3NpdGlvbiI6Mn0"
+    }
+  },
+  {
+    "type": "error",
+    "requestId": "ws_sub_1",
+    "reason": "CURSOR_EXPIRED",
+    "message": "cursor expired"
+  }
+]

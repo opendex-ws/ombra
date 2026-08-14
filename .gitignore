@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+.svelte-kit/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.local
+.wrangler
+.codegraph
+test-results/
+scripts/sync-opensource.mjs
+

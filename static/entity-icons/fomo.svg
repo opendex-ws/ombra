@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="FOMO">
+  <rect width="32" height="32" rx="16" fill="#08090d"/>
+  <path fill="#fff" d="M8 7h12v4h-7v3h6v4h-6v7H8z"/>
+  <circle cx="22.5" cy="20.5" r="2.5" fill="#ff3b9d"/>
+</svg>

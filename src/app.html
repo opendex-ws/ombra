@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" href="%sveltekit.assets%/logo.svg" />
+		<link rel="manifest" href="%sveltekit.assets%/manifest.json" />
+		<meta name="theme-color" content="#00ff88" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<link rel="apple-touch-icon" href="%sveltekit.assets%/icon-192.png" />
+		<title>OMBRA</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+		%sveltekit.head%
+		<script>try{const t=localStorage.getItem('ombra_theme');if(t==='custom'){const v=localStorage.getItem('ombra_custom_vars');const s=localStorage.getItem('ombra_custom_theme');if(v){const vars=JSON.parse(v);const st=document.documentElement.style;for(const k in vars)st.setProperty(k,vars[k])}if(s){const d=JSON.parse(s);document.documentElement.setAttribute('data-theme',d.isDark?'dark':'light')}else{document.documentElement.setAttribute('data-theme','dark')}}else if(t){document.documentElement.setAttribute('data-theme',t)}}catch(e){}try{const b=localStorage.getItem('ombra_bg');if(b){const d=JSON.parse(b);if(d&&d.url){const st=document.documentElement.style;st.setProperty('--bg-image','url("'+d.url+'")');st.setProperty('--bg-dim',String(d.dim));st.setProperty('--bg-blur',(d.blur||0)+'px');st.setProperty('--surface-alpha',String(d.surfaceAlpha));document.documentElement.setAttribute('data-bg','on')}}}catch(e){}</script>
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>
