@@ -1,0 +1,57 @@
+name: Deploy to Cloudflare
+
+# Builds the terminal and deploys it to the Cloudflare Worker that serves
+# terminal.opendex.ws. Real deploy values (worker name, backend origin, CF
+# credentials) are injected from GitHub Actions secrets/variables so the public
+# repo keeps only sanitized example config in wrangler.jsonc.
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      # Build-time public env (SvelteKit reads PUBLIC_* via $env/dynamic/public,
+      # which on the CF adapter resolves at runtime from the worker vars set on
+      # deploy below — these also cover any build-time reads).
+      PUBLIC_API_BASE: ${{ vars.PUBLIC_API_BASE }}
+      PUBLIC_API_PROXY: ${{ vars.PUBLIC_API_PROXY }}
+      NODE_OPTIONS: --max-old-space-size=3536
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.20.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # Override the sanitized name/vars in wrangler.jsonc with the real
+          # deploy target + backend origin (never committed to the public repo).
+          command: >-
+            deploy
+            --name ${{ vars.CF_WORKER_NAME }}
+            --var PUBLIC_API_BASE:${{ vars.PUBLIC_API_BASE }}
+            --var PUBLIC_API_PROXY:${{ vars.PUBLIC_API_PROXY }}
