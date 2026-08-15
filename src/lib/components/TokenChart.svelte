@@ -40,6 +40,23 @@
 	import Crown from 'lucide-svelte/icons/crown';
 	import { tc, getTheme, getThemeVersion } from '$lib/stores/theme.svelte';
 
+	// Append a 2-char hex alpha to a color for lightweight-charts. The CSS
+	// minifier can shrink `#00ff88` → `#0f8`, so naive concatenation would produce
+	// invalid 5-char hex (`#0f84D`) → black. Expand shorthand hex first; for
+	// non-hex inputs, fall back to rgba() so alpha still applies.
+	function withHexAlpha(color: string, alphaHex: string): string {
+		const c = (color ?? '').trim();
+		if (/^#[0-9a-fA-F]{3}$/.test(c)) {
+			// #rgb → #rrggbb
+			return `#${c[1]}${c[1]}${c[2]}${c[2]}${c[3]}${c[3]}${alphaHex}`;
+		}
+		if (/^#[0-9a-fA-F]{6}$/.test(c)) return c + alphaHex;
+		if (/^#[0-9a-fA-F]{8}$/.test(c)) return c.slice(0, 7) + alphaHex; // replace existing alpha
+		// Unknown format (rgb()/hsl()/named/empty): approximate with rgba.
+		const a = (parseInt(alphaHex, 16) / 255).toFixed(3);
+		return `color-mix(in srgb, ${c || '#00ff88'} ${Math.round(Number(a) * 100)}%, transparent)`;
+	}
+
 	type Props = {
 		chain: Chain | string;
 		address: string;
@@ -126,7 +143,7 @@
 	// Seed with resolved theme colors (tc() falls back to the dark defaults even
 	// before the stylesheet applies) so candles normalized before onMount/theme
 	// effect run never get an empty ('4D'-only → black) volume color.
-	let candleColors: CandleColors = { upVolume: tc('--t-grn') + '4D', downVolume: tc('--t-red') + '4D' };
+	let candleColors: CandleColors = { upVolume: withHexAlpha(tc('--t-grn'), '4D'), downVolume: withHexAlpha(tc('--t-red'), '4D') };
 	let athSourceTime: number | null = null;
 	let pendingCandles = new Map<number, RawCandleUpdate>();
 	let candleFrameRequest = 0;
@@ -890,10 +907,8 @@
 		});
 	});
 
-	$effect(() => {
-		const _theme = getTheme();
-		const _ver = getThemeVersion();
-		candleColors = { upVolume: tc('--t-grn') + '4D', downVolume: tc('--t-red') + '4D' };
+	function applyThemeColors() {
+		candleColors = { upVolume: withHexAlpha(tc('--t-grn'), '4D'), downVolume: withHexAlpha(tc('--t-red'), '4D') };
 		// Recolor existing volume points immediately (even before the chart/series
 		// are ready) so a projection triggered by projectionDirty picks up the
 		// current theme colors — otherwise cold-load bars stay their stale color.
@@ -923,6 +938,16 @@
 			volumeSeries.setData(allVolumeData);
 		}
 		if (areaSeries) updateAreaGradient();
+		// Custom marker primitives read tc() at draw time — force a redraw so they
+		// pick up correct colors (fixes cold-load markers rendered before the
+		// stylesheet's CSS vars were resolvable).
+		updateMarkers();
+	}
+
+	$effect(() => {
+		const _theme = getTheme();
+		const _ver = getThemeVersion();
+		applyThemeColors();
 	});
 
 	function cleanupCandleWs() {
@@ -1231,8 +1256,8 @@
 		const g = tc('--t-grn');
 		const r = tc('--t-red');
 		areaSeries.applyOptions({
-			topColor: (isUp ? g : r) + '2E',
-			bottomColor: (isUp ? g : r) + '08',
+			topColor: withHexAlpha(isUp ? g : r, '2E'),
+			bottomColor: withHexAlpha(isUp ? g : r, '08'),
 		});
 	}
 
@@ -1285,6 +1310,11 @@
 			allCandleData = candleData;
 			allVolumeData = volumeData;
 			allAreaData = areaData;
+			// Re-derive theme colors now that we're on-screen (CSS vars are
+			// guaranteed resolvable here) and recolor the just-built volume points,
+			// so a prod build that read tc() before the stylesheet applied doesn't
+			// leave black volume bars until a theme toggle.
+			applyThemeColors();
 			candleIndexByTime = buildCandleIndex(candleData);
 			setCandleSeries(chain as string, address, frame, mcap ? 'marketCap' : 'price', candleData.map((candle) => ({ time: candle.time, close: candle.close })));
 			earliestTime = candleData[0].time;
@@ -1336,7 +1366,7 @@
 		const cBorder = tc('--t-bd2');
 			const cGrn = tc('--t-grn');
 			const cRed = tc('--t-red');
-			candleColors = { upVolume: cGrn + '4D', downVolume: cRed + '4D' };
+			candleColors = { upVolume: withHexAlpha(cGrn, '4D'), downVolume: withHexAlpha(cRed, '4D') };
 
 		chartInstance = createChart(chartContainer, {
 			width: chartContainer.clientWidth,
@@ -1401,7 +1431,7 @@
 		});
 
 		volumeSeries = chartInstance.addSeries(HistogramSeries, {
-			color: cGrn + '4D',
+			color: withHexAlpha(cGrn, '4D'),
 			priceFormat: { type: 'volume' },
 			priceScaleId: 'volume',
 			lastValueVisible: false,
@@ -1416,8 +1446,8 @@
 		areaSeries = chartInstance.addSeries(AreaSeries, {
 			lineWidth: 0,
 			lineColor: 'transparent',
-			topColor: cGrn + '2E',
-			bottomColor: cGrn + '08',
+			topColor: withHexAlpha(cGrn, '2E'),
+			bottomColor: withHexAlpha(cGrn, '08'),
 			lastValueVisible: false,
 			priceLineVisible: false,
 			crosshairMarkerVisible: false,
@@ -1446,6 +1476,17 @@
 			}
 		});
 		resizeObserver.observe(chartContainer);
+
+		// Cold-load fix: the chart/series/markers were created with tc() colors
+		// that may have resolved to fallbacks if this ran before the app's
+		// stylesheet applied its CSS vars. Re-apply colors after two frames, once
+		// the browser has recalculated styles, so volume bars + markers get the
+		// real theme colors without needing a manual theme toggle.
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				if (!disposed) applyThemeColors();
+			});
+		});
 		})();
 
 		return () => {

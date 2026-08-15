@@ -87,13 +87,22 @@ export function resetToBuiltin(mode: 'dark' | 'light'): void {
 	themeVersion++;
 }
 
+// Dark-theme (:root) defaults, used only when getComputedStyle can't yet resolve
+// a CSS var (e.g. a canvas chart reading colors before the stylesheet applies on
+// a cold load). Keep in sync with app.css :root.
 const TC_FALLBACKS: Record<string, string> = {
 	'--t-grn': '#00ff88',
 	'--t-red': '#ff4466',
-	'--t-s4': '#1a1a22',
-	'--t-s8': '#2a2a33',
-	'--t-g7': '#888888',
+	'--t-s0': '#000000',
+	'--t-s4': '#161616',
+	'--t-s5': '#1a1a1a',
+	'--t-s7': '#252525',
+	'--t-s8': '#2a2a2a',
+	'--t-bd': '#2a2a2a',
 	'--t-bd2': '#333333',
+	'--t-g7': '#888888',
+	'--t-g11': '#cccccc',
+	'--t-tx': '#e0e0e0',
 	'--t-yel': '#ffaa00',
 	'--t-yel-dark': '#cc8800',
 	'--t-blu-light': '#66bbff',
