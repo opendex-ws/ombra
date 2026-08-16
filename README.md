@@ -6,7 +6,7 @@
 
 **A fully-featured, open-source crypto trading terminal — built on the [OpenDEX](https://opendex.ws) API.**
 
-Scan, chart, trade, and track memecoins and DeFi tokens across **Solana · ETH · BASE · BSC** — with live WebSocket data end to end. Fork it, theme it, extend it, and ship your own terminal.
+Scan, chart, trade, and track memecoins and DeFi tokens across **Solana · ETH · BASE · BSC** — with live WebSocket data end to end. Use it, improve it, or make it your own.
 
 Svelte 5 · SvelteKit · Cloudflare Workers
 
@@ -14,7 +14,11 @@ Svelte 5 · SvelteKit · Cloudflare Workers
 
 ---
 
-Ombra is a reference frontend for the OpenDEX API: a real, production-grade trading UI you can run yourself and adapt to your own product. Everything is driven by the OpenDEX REST + WebSocket API, so the moment you point it at a backend it comes alive with real market data.
+Ombra is the open-source terminal running at [terminal.opendex.ws](https://terminal.opendex.ws/), built on the OpenDEX REST + WebSocket API. It is a real, production-grade trading UI with two goals: give you a complete foundation to fork and run as your own terminal, and give the community a direct way to improve the terminal everyone uses.
+
+Fork it, theme it, extend it, connect it to your OpenDEX backend, and ship a terminal tailored to your product. Or improve Ombra itself: better controls in Trenches, different tab layouts, more show/hide options, faster rendering, or something we have not thought of yet. [Open a pull request](https://github.com/opendex-ws/ombra); if it is useful and preserves existing flows, we will merge it—and the improvement will go live for everyone on the hosted terminal.
+
+We also want useful contributions to pay off for the people behind them, so contributors whose work improves Ombra may be rewarded with lower trading fees.
 
 ## Features
 
