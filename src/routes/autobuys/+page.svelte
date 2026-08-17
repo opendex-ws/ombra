@@ -13,6 +13,7 @@
 	import ArrowDown from 'lucide-svelte/icons/arrow-down';
 	import ChainIcon from '$lib/components/ChainIcon.svelte';
 	import { api } from '$lib/api/client';
+	import { liveAccumulatedParams } from '$lib/utils/livecursor';
 	import UserListModal from '$lib/components/UserListModal.svelte';
 	import StarRating from '$lib/components/StarRating.svelte';
 	import StarRatingInput from '$lib/components/StarRatingInput.svelte';
@@ -540,17 +541,36 @@
 			globalBotWsKeys.delete('list');
 		}
 		try {
-			const { data } = await api.GET('/v2/bots');
-			if (!isCurrentBotRealtime(generation) || listGeneration !== botListGeneration) return;
-			if (!data) {
+			// The bot list is cursor-paginated (max 100/page). Walk every page via
+			// nextCursor so all bots load, then subscribe the live window through the
+			// LAST page's tail cursor so the WS snapshot covers the full loaded range.
+			const allBots: Bot[] = [];
+			let tail: BotsResponse | null = null;
+			let cursor: string | undefined;
+			const seenCursors = new Set<string>();
+			do {
+				const { data } = await api.GET('/v2/bots', {
+					params: { query: cursor ? { limit: 100, cursor } : { limit: 100 } }
+				});
+				if (!isCurrentBotRealtime(generation) || listGeneration !== botListGeneration) return;
+				if (!data) break;
+				tail = data;
+				allBots.push(...(data.bots ?? []));
+				const next = data.nextCursor ?? undefined;
+				if (!next || seenCursors.has(next)) break;
+				seenCursors.add(next);
+				cursor = next;
+			} while (cursor);
+
+			if (!tail) {
 				bots = [];
 				return;
 			}
-			applyBotsSnapshot(data);
+			bots = allBots;
 			replaceGlobalBotSubscription('list', 'bots:list', 'BOTS', generation, (payload) => {
 				if (listGeneration !== botListGeneration) return;
 				applyBotsSnapshot(payload as BotsResponse);
-			}, { cursor: data.cursor });
+			}, liveAccumulatedParams(tail));
 		} catch {
 			if (isCurrentBotRealtime(generation) && listGeneration === botListGeneration) bots = [];
 		}

@@ -1292,6 +1292,7 @@
 											<div class="flex items-center gap-1">
 												<button onclick={() => (tcTargets = [...tcTargets, { triggerType: 'MULTIPLIER', value: '2', sellPct: '50', targetKind: 'TAKE_PROFIT', mode: 'NORMAL' }])} class="cursor-pointer rounded border border-bd px-2 py-0.5 text-[11px] text-grn transition-colors hover:border-grn/40 hover:bg-grn/10">+ TP</button>
 												<button onclick={() => (tcTargets = [...tcTargets, { triggerType: 'PERCENT', value: '50', sellPct: '100', targetKind: 'STOP_LOSS', mode: 'NORMAL' }])} class="cursor-pointer rounded border border-bd px-2 py-0.5 text-[11px] text-red transition-colors hover:border-red/40 hover:bg-red/10">+ SL</button>
+												<button onclick={() => (tcTargets = [...tcTargets, { triggerType: 'PERCENT', value: '20', sellPct: '100', targetKind: 'STOP_LOSS', mode: 'TRAILING' }])} class="cursor-pointer rounded border border-bd px-2 py-0.5 text-[11px] text-red transition-colors hover:border-red/40 hover:bg-red/10">+ Trailing SL</button>
 											</div>
 										</div>
 										<div class="grid auto-rows-max content-start gap-1.5 {tcTargets.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} {tcTargets.length > 4 ? 'max-h-[13rem] overflow-y-auto pr-1' : ''}">

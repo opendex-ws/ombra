@@ -118,8 +118,9 @@
 		resetForm();
 	}
 
-	function addSellTarget(targetKind: 'TAKE_PROFIT' | 'STOP_LOSS' = 'TAKE_PROFIT') {
-		form.sellTargets = [...form.sellTargets, { kind: targetKind === 'TAKE_PROFIT' ? 'MULTIPLE' : 'PERCENTAGE', triggerValue: targetKind === 'TAKE_PROFIT' ? '2' : '50', sellPercent: targetKind === 'TAKE_PROFIT' ? '50' : '100', targetKind, mode: 'NORMAL' }];
+	function addSellTarget(targetKind: 'TAKE_PROFIT' | 'STOP_LOSS' = 'TAKE_PROFIT', mode: 'NORMAL' | 'TRAILING' = 'NORMAL') {
+		const trailing = mode === 'TRAILING';
+		form.sellTargets = [...form.sellTargets, { kind: targetKind === 'TAKE_PROFIT' ? 'MULTIPLE' : 'PERCENTAGE', triggerValue: targetKind === 'TAKE_PROFIT' ? '2' : trailing ? '20' : '50', sellPercent: targetKind === 'TAKE_PROFIT' ? '50' : '100', targetKind: trailing ? 'STOP_LOSS' : targetKind, mode: trailing ? 'TRAILING' : 'NORMAL' }];
 	}
 
 	function updateSellTarget(idx: number, target: typeof form.sellTargets[number]) {
@@ -391,6 +392,7 @@
 						<div class="flex items-center gap-1">
 							<button onclick={() => addSellTarget('TAKE_PROFIT')} class="cursor-pointer rounded-md border border-bd px-2 py-0.5 text-[11px] text-grn transition-all hover:border-grn/40 hover:bg-grn/10">+ TP</button>
 							<button onclick={() => addSellTarget('STOP_LOSS')} class="cursor-pointer rounded-md border border-bd px-2 py-0.5 text-[11px] text-red transition-all hover:border-red/40 hover:bg-red/10">+ SL</button>
+							<button onclick={() => addSellTarget('STOP_LOSS', 'TRAILING')} class="cursor-pointer rounded-md border border-bd px-2 py-0.5 text-[11px] text-red transition-all hover:border-red/40 hover:bg-red/10">+ Trailing SL</button>
 						</div>
 					</div>
 					{#if form.sellTargets.length === 0}

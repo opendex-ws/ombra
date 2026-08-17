@@ -150,8 +150,9 @@
 		editStopLoss = { enabled: false, mode: 'NORMAL', type: 'PERCENTAGE', trigger: '50', sellPct: '100' };
 	}
 
-	function addEditTarget(kind: 'TAKE_PROFIT' | 'STOP_LOSS' = 'TAKE_PROFIT') {
-		editTargets = [...editTargets, { type: 'MULTIPLE', trigger: kind === 'TAKE_PROFIT' ? '2' : '50', sellPct: kind === 'TAKE_PROFIT' ? '50' : '100', targetKind: kind, mode: 'NORMAL' }];
+	function addEditTarget(kind: 'TAKE_PROFIT' | 'STOP_LOSS' = 'TAKE_PROFIT', mode: 'NORMAL' | 'TRAILING' = 'NORMAL') {
+		const trailing = mode === 'TRAILING';
+		editTargets = [...editTargets, { type: trailing ? 'PERCENTAGE' : 'MULTIPLE', trigger: kind === 'TAKE_PROFIT' ? '2' : trailing ? '20' : '50', sellPct: kind === 'TAKE_PROFIT' ? '50' : '100', targetKind: trailing ? 'STOP_LOSS' : kind, mode: trailing ? 'TRAILING' : 'NORMAL' }];
 	}
 
 	function removeEditTarget(idx: number) {
@@ -998,6 +999,12 @@
 									class="cursor-pointer rounded-lg bg-red/10 px-2.5 py-1 text-[11px] font-semibold text-red transition-all hover:bg-red/20"
 								>
 									+ SL
+								</button>
+								<button
+									onclick={() => addEditTarget('STOP_LOSS', 'TRAILING')}
+									class="cursor-pointer rounded-lg bg-red/10 px-2.5 py-1 text-[11px] font-semibold text-red transition-all hover:bg-red/20"
+								>
+									+ Trailing SL
 								</button>
 							</div>
 						</div>

@@ -666,6 +666,12 @@
 						>
 							+ SL
 						</button>
+						<button
+							onclick={() => addSellTarget('STOP_LOSS', 'TRAILING')}
+							class="cursor-pointer rounded-md border border-bd px-2 py-0.5 text-[11px] text-red transition-all hover:border-red/40 hover:bg-red/10"
+						>
+							+ Trailing SL
+						</button>
 					</div>
 				{/if}
 			</div>

@@ -316,7 +316,16 @@ function tradeFailureFallback(side: TradeFailureSide | undefined): string {
 }
 
 export function getSellTargets() { return sellTargets; }
-export function addSellTarget(targetKind: TargetKind = 'TAKE_PROFIT') { sellTargets = [...sellTargets, { kind: 'MULTIPLE', triggerValue: targetKind === 'TAKE_PROFIT' ? '2' : '50', sellPercent: targetKind === 'TAKE_PROFIT' ? '50' : '100', targetKind, mode: 'NORMAL' }]; }
+export function addSellTarget(targetKind: TargetKind = 'TAKE_PROFIT', mode: 'NORMAL' | 'TRAILING' = 'NORMAL') {
+  const trailing = mode === 'TRAILING';
+  sellTargets = [...sellTargets, {
+    kind: trailing ? 'PERCENTAGE' : 'MULTIPLE',
+    triggerValue: targetKind === 'TAKE_PROFIT' ? '2' : trailing ? '20' : '50',
+    sellPercent: targetKind === 'TAKE_PROFIT' ? '50' : '100',
+    targetKind: trailing ? 'STOP_LOSS' : targetKind,
+    mode: trailing ? 'TRAILING' : 'NORMAL'
+  }];
+}
 export function removeSellTarget(idx: number) { sellTargets = sellTargets.filter((_, i) => i !== idx); }
 export function updateSellTarget(idx: number, target: SellTargetRow) { sellTargets = sellTargets.map((t, i) => i === idx ? target : t); }
 export function getStopLoss() { return stopLoss; }
