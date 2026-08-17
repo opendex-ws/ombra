@@ -52,7 +52,12 @@
 
 	function close() { show = false; previewUrl = ''; selectedBg = 0; }
 
-	let isProfit = $derived(trade ? (trade.pnl.pct as number) >= 0 : true);
+	// Net of fees (API pnl is gross).
+	function netPnlUsdOf(t: { pnl: { usd: number }; totalFees?: { usd: number } }): number {
+		return (t.pnl.usd as number) - (t.totalFees?.usd ?? 0);
+	}
+
+	let isProfit = $derived(trade ? netPnlUsdOf(trade) >= 0 : true);
 	let bgOptions = $derived(isProfit ? PROFIT_BGS : LOSS_BGS);
 
 	function loadBgImage(src: string): Promise<HTMLImageElement> {
@@ -86,7 +91,7 @@
 	});
 
 	async function doRender(t: CompletedTrade, bgIdx: number) {
-		const opts = (t.pnl.pct as number) >= 0 ? PROFIT_BGS : LOSS_BGS;
+		const opts = netPnlUsdOf(t) >= 0 ? PROFIT_BGS : LOSS_BGS;
 		const bg = opts[bgIdx] ?? opts[0];
 		let bgImg: HTMLImageElement | null = null;
 		if (bg.src) {
@@ -327,10 +332,13 @@
 		ctx.fillStyle = bottomGrad;
 		ctx.fillRect(0, 0, w, h);
 
-		const pnlPctVal = t.pnl.pct as number;
-		const pnlUsdVal = t.pnl.usd as number;
-		const pnlMultVal = t.pnl.multiplier as number;
-		const profit = pnlPctVal >= 0;
+		// API pnl is gross (fees excluded) — show net of fees to match the rest of the UI.
+		const feeUsd = t.totalFees?.usd ?? 0;
+		const boughtUsd = t.totalBought?.usd ?? 0;
+		const pnlUsdVal = (t.pnl.usd as number) - feeUsd;
+		const pnlPctVal = boughtUsd > 0 ? (pnlUsdVal / boughtUsd) * 100 : (t.pnl.pct as number);
+		const pnlMultVal = boughtUsd > 0 ? Math.max(0, (boughtUsd + pnlUsdVal) / boughtUsd) : (t.pnl.multiplier as number);
+		const profit = pnlUsdVal >= 0;
 		const pnlColor = profit ? '#22c55e' : '#ef4444';
 		const sign = profit ? '+' : '';
 		const pad = 80;
@@ -451,8 +459,11 @@
 				await navigator.share({ files: [file], title: `${trade.tokenSymbol} PnL` });
 				return;
 			}
-			const pnlSign = trade.pnl.usd >= 0 ? '+' : '';
-			const text = `${trade.tokenSymbol} ${pnlSign}${Number(trade.pnl.pct).toFixed(1)}% PnL`;
+			const netUsd = netPnlUsdOf(trade);
+			const boughtUsd = trade.totalBought?.usd ?? 0;
+			const netPct = boughtUsd > 0 ? (netUsd / boughtUsd) * 100 : (trade.pnl.pct as number);
+			const pnlSign = netUsd >= 0 ? '+' : '';
+			const text = `${trade.tokenSymbol} ${pnlSign}${netPct.toFixed(1)}% PnL`;
 			if (navigator.canShare?.({ text })) {
 				await navigator.share({ text, title: `${trade.tokenSymbol} PnL` });
 				return;

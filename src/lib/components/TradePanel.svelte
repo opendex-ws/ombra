@@ -191,6 +191,13 @@
 
 	const nativeSymbol = $derived(chain === 'SOL' ? 'SOL' : chain === 'ETH' ? 'ETH' : chain === 'BASE' ? 'ETH' : chain === 'BSC' ? 'BNB' : 'ETH');
 	const existingTrade = $derived(getTradeForToken(chain, tokenAddress));
+	// API pnl is gross; show net of fees.
+	const existingNetPnlUsd = $derived(existingTrade ? existingTrade.pnl.usd - (existingTrade.totalFees?.usd ?? 0) : 0);
+	const existingNetPnlPct = $derived.by(() => {
+		if (!existingTrade) return 0;
+		const basis = existingTrade.totalBought?.usd ?? 0;
+		return basis > 0 ? (existingNetPnlUsd / basis) * 100 : existingTrade.pnl.pct;
+	});
 	$effect(() => {
 		if (!existingTrade && getActiveTradeTab() === 'sell') setActiveTradeTab('buy');
 	});
@@ -580,7 +587,7 @@
 						<div class="text-right">
 							<div class="text-[10px] text-g5">Value</div>
 							<div class="text-xs font-bold text-tx">{@html fmtVal(existingTrade.currentValue.usdStr, existingTrade.currentValue.nativeStr, chain)}
-								<span class="font-semibold {existingTrade.pnl.usd >= 0 ? 'text-grn' : 'text-red'}">({existingTrade.pnl.usd >= 0 ? '+' : ''}{Number(existingTrade.pnl.pct).toFixed(1)}%)</span>
+								<span class="font-semibold {existingNetPnlUsd >= 0 ? 'text-grn' : 'text-red'}">({existingNetPnlUsd >= 0 ? '+' : ''}{existingNetPnlPct.toFixed(1)}%)</span>
 							</div>
 						</div>
 					</div>

@@ -87,7 +87,20 @@
 
 	const position = $derived(getTradeForToken(popout.chain, popout.address));
 	const hasPosition = $derived(!!position && position.tokensRemaining > 0);
-	const pnlColor = $derived(position && (position.pnl.usd < 0 || position.pnl.pct < 0) ? 'text-red' : 'text-grn');
+	// API pnl is gross; show net of fees.
+	const netPnlUsd = $derived(position ? position.pnl.usd - (position.totalFees?.usd ?? 0) : 0);
+	const netPnlNative = $derived(position ? position.pnl.native - (position.totalFees?.native ?? 0) : 0);
+	const netPnlPct = $derived.by(() => {
+		if (!position) return 0;
+		const basis = position.totalBought?.usd ?? 0;
+		return basis > 0 ? (netPnlUsd / basis) * 100 : position.pnl.pct;
+	});
+	const netPnlMultiplier = $derived.by(() => {
+		if (!position) return 0;
+		const basis = position.totalBought?.usd ?? 0;
+		return basis > 0 ? Math.max(0, (basis + netPnlUsd) / basis) : position.pnl.multiplier;
+	});
+	const pnlColor = $derived(netPnlUsd < 0 ? 'text-red' : 'text-grn');
 
 	const buyLoading = $derived(getQuickTradeLoading(popout.chain, popout.address));
 	const tradeErr = $derived(getQuickTradeError(popout.chain, popout.address));
@@ -345,7 +358,7 @@
 			<div class="rounded-lg border border-bd bg-s1 p-2.5">
 				<div class="flex items-center justify-between">
 					<span class="text-[10px] font-medium uppercase tracking-wider text-g5">Position</span>
-					<span class="text-[11px] font-semibold {pnlColor}">{Number(position.pnl.pct).toFixed(1)}% {#if position.pnl.multiplier}<span class="text-yel">{Number(position.pnl.multiplier).toFixed(2)}x</span>{/if}</span>
+					<span class="text-[11px] font-semibold {pnlColor}">{netPnlPct.toFixed(1)}% {#if position.pnl.multiplier}<span class="text-yel">{netPnlMultiplier.toFixed(2)}x</span>{/if}</span>
 				</div>
 				<div class="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1.5">
 					<div>
@@ -354,7 +367,7 @@
 					</div>
 					<div>
 						<div class="text-[9px] uppercase tracking-wider text-g5">PnL</div>
-						<div class="text-xs font-semibold {pnlColor}">{fmtVal(String(position.pnl.usd), String(position.pnl.native), position.chain)}</div>
+						<div class="text-xs font-semibold {pnlColor}">{fmtVal(String(netPnlUsd), String(netPnlNative), position.chain)}</div>
 					</div>
 					<div>
 						<div class="text-[9px] uppercase tracking-wider text-g5">Holding</div>

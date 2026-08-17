@@ -326,9 +326,28 @@
 		cleanupCompletedTradesWs();
 	});
 
+	// API pnl is GROSS (fees excluded). Subtract cumulative trade fees so the UI
+	// reflects true net profit/loss. USD/native pnl are plain numbers; fees carry
+	// exact string + number — we use the numbers for display arithmetic.
+	function netPnlUsd(trade: TradeResponse): number {
+		return trade.pnl.usd - (trade.totalFees?.usd ?? 0);
+	}
+	function netPnlNative(trade: TradeResponse): number {
+		return trade.pnl.native - (trade.totalFees?.native ?? 0);
+	}
+	function netPnlPct(trade: TradeResponse): number {
+		const basis = trade.totalBought?.usd ?? 0;
+		if (basis <= 0) return trade.pnl.pct;
+		return (netPnlUsd(trade) / basis) * 100;
+	}
+	function netPnlMultiplier(trade: TradeResponse): number {
+		const basis = trade.totalBought?.usd ?? 0;
+		if (basis <= 0) return trade.pnl.multiplier;
+		const mult = (basis + netPnlUsd(trade)) / basis;
+		return mult > 0 ? mult : 0;
+	}
 	function pnlColor(trade: TradeResponse): string {
-		if (trade.pnl.usd < 0 || trade.pnl.pct < 0) return 'text-red';
-		return 'text-grn';
+		return netPnlUsd(trade) < 0 ? 'text-red' : 'text-grn';
 	}
 
 	const pegSymbol: Record<string, string> = { SOL: 'SOL', ETH: 'ETH', BASE: 'ETH', BSC: 'BNB', SEPOLIA: 'ETH' };
@@ -511,8 +530,8 @@
 							</div>
 						</div>
 						<div class="shrink-0 text-right">
-							<CurrencyValue usd={String(trade.pnl.usd)} native={String(trade.pnl.native)} chain={trade.chain} mode="value" class="{pnlColor(trade)} text-sm font-bold" iconClass="h-3.5 w-3.5" />
-							<div class="{pnlColor(trade)} text-[11px]">{Number(trade.pnl.pct).toFixed(1)}%</div>
+							<CurrencyValue usd={String(netPnlUsd(trade))} native={String(netPnlNative(trade))} chain={trade.chain} mode="value" class="{pnlColor(trade)} text-sm font-bold" iconClass="h-3.5 w-3.5" />
+							<div class="{pnlColor(trade)} text-[11px]">{netPnlPct(trade).toFixed(1)}%</div>
 						</div>
 						{#if activeTab === 'history'}
 							<button
@@ -579,12 +598,12 @@
 						{#if 'currentValue' in trade && trade.currentValue}
 							<div class="flex items-center justify-between">
 								<span class="text-g4">Value</span>
-								<span class="font-semibold text-tx"><CurrencyValue usd={String(trade.currentValue.usd)} native={String(trade.currentValue.native)} chain={trade.chain} mode="value" iconClass="h-3 w-3" /> {#if trade.pnl.multiplier}<span class="text-yel">{Number(trade.pnl.multiplier).toFixed(2)}x</span>{/if}</span>
+								<span class="font-semibold text-tx"><CurrencyValue usd={String(trade.currentValue.usd)} native={String(trade.currentValue.native)} chain={trade.chain} mode="value" iconClass="h-3 w-3" /> {#if trade.pnl.multiplier}<span class="text-yel">{netPnlMultiplier(trade).toFixed(2)}x</span>{/if}</span>
 							</div>
 						{:else if trade.pnl}
 							<div class="flex items-center justify-between">
 								<span class="text-g4">PnL</span>
-								<span class="font-semibold {pnlColor(trade)}"><CurrencyValue usd={String(trade.pnl.usd)} native={String(trade.pnl.native)} chain={trade.chain} mode="value" iconClass="h-3 w-3" /> {#if trade.pnl.multiplier}<span>{Number(trade.pnl.multiplier).toFixed(2)}x</span>{/if}</span>
+								<span class="font-semibold {pnlColor(trade)}"><CurrencyValue usd={String(netPnlUsd(trade))} native={String(netPnlNative(trade))} chain={trade.chain} mode="value" iconClass="h-3 w-3" /> {#if trade.pnl.multiplier}<span>{netPnlMultiplier(trade).toFixed(2)}x</span>{/if}</span>
 							</div>
 						{/if}
 					</div>
@@ -840,16 +859,16 @@
 					<div>
 						<div class="text-[10px] font-medium uppercase tracking-wider text-g5">Value</div>
 						<CurrencyValue usd={String(trade.currentValue.usd)} native={String(trade.currentValue.native)} chain={trade.chain} mode="value" class="mt-0.5 text-sm font-bold text-tx" iconClass="h-3.5 w-3.5" />
-						{#if trade.pnl.multiplier}<div class="text-xs text-yel">{Number(trade.pnl.multiplier).toFixed(2)}x</div>{/if}
+						{#if trade.pnl.multiplier}<div class="text-xs text-yel">{netPnlMultiplier(trade).toFixed(2)}x</div>{/if}
 					</div>
 				{/if}
 				<div>
-					<div class="text-[10px] font-medium uppercase tracking-wider text-g5">PnL</div>
+					<div class="text-[10px] font-medium uppercase tracking-wider text-g5">PnL <span class="text-g6 normal-case">(net of fees)</span></div>
 					<div class="mt-0.5 text-sm font-bold {pnlColor(trade)}">
-						<CurrencyValue usd={String(trade.pnl.usd)} native={String(trade.pnl.native)} chain={trade.chain} mode="value" iconClass="h-3.5 w-3.5" />
-						{#if trade.pnl.multiplier && !('currentValue' in trade && trade.currentValue)}<span class="ml-1 text-xs text-yel">{Number(trade.pnl.multiplier).toFixed(2)}x</span>{/if}
+						<CurrencyValue usd={String(netPnlUsd(trade))} native={String(netPnlNative(trade))} chain={trade.chain} mode="value" iconClass="h-3.5 w-3.5" />
+						{#if trade.pnl.multiplier && !('currentValue' in trade && trade.currentValue)}<span class="ml-1 text-xs text-yel">{netPnlMultiplier(trade).toFixed(2)}x</span>{/if}
 					</div>
-					<div class="text-xs {pnlColor(trade)}">{Number(trade.pnl.pct).toFixed(1)}%</div>
+					<div class="text-xs {pnlColor(trade)}">{netPnlPct(trade).toFixed(1)}%</div>
 				</div>
 			</div>
 
