@@ -116,6 +116,21 @@ const BACKLOG_BUSY_THRESHOLD = 200;
 const MAX_INBOUND_QUEUE_MESSAGES = 20000;
 const MAX_INBOUND_QUEUE_BYTES = 32 * 1024 * 1024;
 const RECOVERY_STALL_MS = 30000;
+// While the tab is hidden we STOP processing inbound frames (no parsing, no
+// coalescer buffering, no reactive churn) — the browser doesn't throttle the
+// socket/MessageChannel, so an hour in the background would otherwise build a
+// giant backlog that floods the main thread on return (sustained low FPS). We
+// keep only a small ring of the most recent frames while hidden, then drop it
+// entirely on resume and let the server re-seed every live window.
+const MAX_HIDDEN_QUEUE_MESSAGES = 2000;
+// On resume, if we dropped more than this many hidden-tab frames, the UI has
+// diverged enough that we force a reconnect + full server reseed. Below it, a
+// quick tab switch, we keep the existing socket + subscriptions and just probe.
+const RESUME_RESEED_BACKLOG = 100;
+
+function isDocHidden(): boolean {
+	return typeof document !== 'undefined' && document.visibilityState === 'hidden';
+}
 
 function getWsUrl(): string {
 	return `${wsBase()}/v2/ws`;
@@ -195,7 +210,10 @@ function compactInboundQueue() {
 }
 
 function scheduleInboundDrain() {
-	if (drainScheduled || inboundQueueSize() === 0) return;
+	// Don't process frames while hidden — they'd fan out into coalescers/reactive
+	// state and accumulate for the whole background period. Frames stay queued
+	// (bounded, see enqueueInbound) and are dropped on resume.
+	if (drainScheduled || inboundQueueSize() === 0 || isDocHidden()) return;
 	drainScheduled = true;
 	if (!drainChannel && typeof MessageChannel !== 'undefined') {
 		drainChannel = new MessageChannel();
@@ -238,6 +256,24 @@ function drainInboundQueue() {
 
 function enqueueInbound(generation: number, raw: string, process: (raw: string) => void) {
 	if (generation !== connectionGeneration) return;
+	// While hidden we don't drain; keep only a small ring of the newest frames so
+	// memory stays bounded no matter how long we're backgrounded. Dropping old
+	// frames is safe — on resume we discard the backlog and the server reseeds.
+	if (isDocHidden()) {
+		inboundQueue.push({ generation, raw, process });
+		inboundQueueBytes += raw.length;
+		while (inboundQueueSize() > MAX_HIDDEN_QUEUE_MESSAGES) {
+			const dropped = inboundQueue[inboundQueueHead++];
+			inboundQueueBytes = Math.max(0, inboundQueueBytes - dropped.raw.length);
+		}
+		// Reclaim the dropped prefix so the backing array can't grow unbounded
+		// over a long hidden period (head advances but slots stay allocated).
+		if (inboundQueueHead >= MAX_HIDDEN_QUEUE_MESSAGES) {
+			inboundQueue = inboundQueue.slice(inboundQueueHead);
+			inboundQueueHead = 0;
+		}
+		return;
+	}
 	if (inboundQueueSize() >= MAX_INBOUND_QUEUE_MESSAGES || inboundQueueBytes >= MAX_INBOUND_QUEUE_BYTES) {
 		wsLog('inbound:overflow', { queued: inboundQueueSize(), bytes: inboundQueueBytes });
 		forceReconnect('inbound queue overflow');
@@ -309,7 +345,20 @@ function forceReconnect(reason: string) {
 	clearRecoveryWatchdog();
 	resetInboundQueue();
 	socket = null;
+	if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
 	setConnectionState('closed');
+	// Bumping the generation above makes the stale socket's onclose handler
+	// early-return, so it will NOT clear the per-subscription server state. Clear
+	// it here so the next onopen actually re-subscribes every live topic (a stale
+	// subId would make onopen skip re-subscribing → silently missing feeds).
+	serverSubscriptions.forEach((serverSub) => {
+		serverSub.subId = undefined;
+		serverSub.displayTopic = undefined;
+		serverSub.pendingRequestId = undefined;
+		serverSub.windows = undefined;
+		serverSub.failed = false;
+	});
+	pendingAcks.clear();
 	wsLog('reconnect:forced', { reason, generation: connectionGeneration });
 	try { staleSocket?.close(); } catch { }
 	scheduleReconnect();
@@ -320,8 +369,26 @@ function handleVisibilityChange() {
 		clearRecoveryWatchdog();
 		return;
 	}
-	if (socket?.readyState === WebSocket.OPEN) startApplicationProbe('resume');
-	else ensureConnected();
+	// Returning to a visible tab. Two cases:
+	//  - Large backlog (long background period): drop it and force a clean
+	//    reconnect so the server re-seeds every live window from scratch —
+	//    replaying an hour of deltas would flood the main thread (low FPS), and
+	//    the reseed makes the dropped deltas irrelevant.
+	//  - Small backlog (a quick tab switch): just drain it normally on the
+	//    existing socket (no flood risk) so no updates are lost, then probe.
+	const staleBacklog = inboundQueueSize();
+	if (socket?.readyState === WebSocket.OPEN) {
+		if (staleBacklog >= RESUME_RESEED_BACKLOG) {
+			resetInboundQueue();
+			forceReconnect('resume with large stale backlog');
+		} else {
+			startApplicationProbe('resume');
+			scheduleInboundDrain();
+		}
+	} else {
+		resetInboundQueue();
+		ensureConnected();
+	}
 }
 
 function installLifecycleHandlers() {

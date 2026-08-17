@@ -805,9 +805,7 @@
 	{/if}
 
 	{#if showTypeFilter}
-		<!-- svelte-ignore a11y_click_events_have_key_events -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="fixed inset-0 z-30" onclick={() => (showTypeFilter = false)}></div>
+		<button class="fixed inset-0 z-30 cursor-default" onclick={() => (showTypeFilter = false)} aria-label="Close filter"></button>
 		<div class="absolute left-1 right-1 top-9 z-40 flex flex-col overflow-hidden rounded-xl border border-bd bg-s5 shadow-2xl shadow-s0/60 {compact ? 'max-h-[calc(100%-2.75rem)]' : ''}">
 			<div class="flex shrink-0 items-center justify-between border-b border-s7 px-4 py-2.5">
 				<span class="text-[11px] font-bold uppercase tracking-widest text-g7">Feed Filters</span>

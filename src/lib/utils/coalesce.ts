@@ -17,7 +17,11 @@ export interface Coalescer<T> {
 }
 
 export function createCoalescer<T>(flush: FlushFn<T>, options: CoalescerOptions = {}): Coalescer<T> {
-	const maxBatch = Number.isFinite(options.maxBatch) ? Math.max(1, Math.floor(options.maxBatch!)) : Infinity;
+	// Default to a finite cap so a coalescer can never accumulate unboundedly
+	// (e.g. if frames arrive while the flush timer is clamped/backgrounded). With
+	// no maxBatch the ring buffer previously grew without limit.
+	const DEFAULT_MAX_BATCH = 2000;
+	const maxBatch = Number.isFinite(options.maxBatch) ? Math.max(1, Math.floor(options.maxBatch!)) : DEFAULT_MAX_BATCH;
 	const hiddenDelayMs = options.hiddenDelayMs ?? 250;
 	const delayMs = options.delayMs;
 

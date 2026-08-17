@@ -1591,9 +1591,7 @@
 			</button>
 
 		{#if showFeedFilter}
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="fixed inset-0 z-30" onclick={() => { showFeedFilter = false; }}></div>
+			<button class="fixed inset-0 z-30 cursor-default" onclick={() => { showFeedFilter = false; }} aria-label="Close filter"></button>
 			{@const pillSelected = getSelectedSourceId()}
 				<div class="absolute right-1 top-full z-40 mt-1 w-72 rounded-xl border border-bd bg-s5 shadow-2xl shadow-s0/60">
 					<div class="border-b border-s7 px-4 py-2.5 flex items-center justify-between">

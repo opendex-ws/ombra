@@ -573,6 +573,8 @@
 					{/if}
 				</button>
 				{#if filtersOpen}
+					<!-- Outside-click catcher (desktop). Mobile uses the full-screen panel's ✕. -->
+					<button class="fixed inset-0 z-40 hidden md:block cursor-default" onclick={() => (filtersOpen = false)} aria-label="Close filters"></button>
 					<div class="fixed md:absolute inset-0 md:inset-auto md:left-0 md:top-full z-50 md:mt-1 md:w-80 rounded-none md:rounded-xl border-0 md:border border-bd bg-s5 shadow-2xl">
 						<div class="flex items-center justify-between px-5 py-3 border-b border-bd pt-[env(safe-area-inset-top,12px)] md:pt-3">
 							<div class="flex items-center gap-2.5">
