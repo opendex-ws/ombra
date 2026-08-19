@@ -90,6 +90,9 @@
 	];
 
 	let bots = $state<Bot[]>([]);
+	// Server-reported total (accurate immediately from page 1, before/while the
+	// cursor walk loads every bot). The list badge must use this, not bots.length.
+	let botsTotal = $state<number | null>(null);
 	let aggregateBotStats = $state<BotStats | null>(null);
 	let globalBotTrades = $state<{ active: ActiveTrade[]; completed: CompletedTrade[] }>({ active: [], completed: [] });
 	let globalBotLogs = $state<BotLog[]>([]);
@@ -157,6 +160,7 @@
 	let showAddWallet = $state(false);
 
 	let userLists = $state<(WatchlistSourceItem & { type: 'LIST' })[]>([]);
+	let userListsTotal = $state<number | null>(null);
 	let userListsLoading = $state(false);
 	let userListsFetched = $state(false);
 	let showUserListForm = $state(false);
@@ -523,6 +527,7 @@
 
 	function applyBotsSnapshot(data: BotsResponse) {
 		bots = data.bots;
+		if (typeof data.totalCount === 'number') botsTotal = data.totalCount;
 		const botIds = new Set(data.bots.map((bot) => bot.id));
 		const nextExpanded = new Set(expandedBotIds);
 		for (const botId of expandedBotIds) {
@@ -555,6 +560,7 @@
 				if (!isCurrentBotRealtime(generation) || listGeneration !== botListGeneration) return;
 				if (!data) break;
 				tail = data;
+				if (typeof data.totalCount === 'number') botsTotal = data.totalCount;
 				allBots.push(...(data.bots ?? []));
 				const next = data.nextCursor ?? undefined;
 				if (!next || seenCursors.has(next)) break;
@@ -564,6 +570,7 @@
 
 			if (!tail) {
 				bots = [];
+				botsTotal = 0;
 				return;
 			}
 			bots = allBots;
@@ -572,7 +579,7 @@
 				applyBotsSnapshot(payload as BotsResponse);
 			}, liveAccumulatedParams(tail));
 		} catch {
-			if (isCurrentBotRealtime(generation) && listGeneration === botListGeneration) bots = [];
+			if (isCurrentBotRealtime(generation) && listGeneration === botListGeneration) { bots = []; botsTotal = null; }
 		}
 	}
 
@@ -803,6 +810,7 @@
 		try {
 			const { data } = await api.GET('/v2/watchlist/sources/lists');
 			userLists = (data?.sources ?? []).filter((s): s is WatchlistSourceItem & { type: 'LIST' } => s.type === 'LIST');
+			userListsTotal = data?.totalCount ?? null;
 		} catch {} finally { userListsLoading = false; userListsFetched = true; }
 	}
 
@@ -1035,8 +1043,8 @@
 					>
 						<BotIcon class="hidden md:block h-3.5 w-3.5" strokeWidth={1.5} />
 						My Bots
-						{#if bots.length > 0}
-							<span class="rounded-full bg-s7 px-1.5 py-0.5 text-[10px] text-g5">{bots.length}</span>
+						{#if (botsTotal ?? bots.length) > 0}
+							<span class="rounded-full bg-s7 px-1.5 py-0.5 text-[10px] text-g5">{Math.max(botsTotal ?? 0, bots.length)}</span>
 						{/if}
 						{#if mainTab === 'bots'}<div class="absolute bottom-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-grn"></div>{/if}
 					</button>
@@ -1046,8 +1054,8 @@
 					>
 						<List class="hidden md:block h-3.5 w-3.5" strokeWidth={1.5} />
 						Lists
-						{#if userLists.length > 0}
-							<span class="rounded-full bg-s7 px-1.5 py-0.5 text-[10px] text-g5">{userLists.length}</span>
+						{#if (userListsTotal ?? userLists.length) > 0}
+							<span class="rounded-full bg-s7 px-1.5 py-0.5 text-[10px] text-g5">{userListsTotal ?? userLists.length}</span>
 						{/if}
 						{#if mainTab === 'userlists'}<div class="absolute bottom-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-grn"></div>{/if}
 					</button>

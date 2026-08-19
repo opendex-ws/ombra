@@ -26,15 +26,10 @@
 	import Bot from 'lucide-svelte/icons/bot';
 	import CircleUser from 'lucide-svelte/icons/circle-user';
 	import Palette from 'lucide-svelte/icons/palette';
-	import Smartphone from 'lucide-svelte/icons/smartphone';
+	import Settings from 'lucide-svelte/icons/settings';
+
 	import Camera from 'lucide-svelte/icons/camera';
-	import DollarSign from 'lucide-svelte/icons/dollar-sign';
-	import Coins from 'lucide-svelte/icons/coins';
-	import Rows3 from 'lucide-svelte/icons/rows-3';
-	import CircleDot from 'lucide-svelte/icons/circle-dot';
-	import { toggleCurrency, isUsd } from '$lib/stores/currency.svelte';
 	import { isDark } from '$lib/stores/theme.svelte';
-	import { getExpandPositions, toggleExpandPositions, getBubbleWatchlist, toggleBubbleWatchlist, getMultiTab, toggleMultiTab } from '$lib/stores/feSettings.svelte';
 	import OmbraLogo from './OmbraLogo.svelte';
 	import type { ComponentType } from 'svelte';
 	import { openTraderPortfolio } from '$lib/stores/traderAnalytics.svelte';
@@ -46,10 +41,17 @@
 	let MobileConnectModal = $state<any>(null);
 	let MobileScanModal = $state<any>(null);
 	let ThemeBuilderModal = $state<any>(null);
+	let SettingsModal = $state<any>(null);
 
 	let showMobileConnect = $state(false);
 	let showMobileScan = $state(false);
 	let showThemeBuilder = $state(false);
+	let showSettings = $state(false);
+
+	async function openSettings() {
+		if (!SettingsModal) SettingsModal = (await import('./SettingsModal.svelte')).default;
+		showSettings = true;
+	}
 
 	async function openMobileConnect() {
 		if (!MobileConnectModal) MobileConnectModal = (await import('./MobileConnectModal.svelte')).default;
@@ -63,7 +65,7 @@
 		if (!ThemeBuilderModal) ThemeBuilderModal = (await import('./ThemeBuilderModal.svelte')).default;
 		showThemeBuilder = true;
 	}
-	let walletTab = $state<'balances' | 'settings'>('balances');
+
 
 	let isMobile = $state(false);
 	function checkMobile() { isMobile = typeof window !== 'undefined' && window.innerWidth < 768; }
@@ -100,16 +102,6 @@
 	let walletCopied = $state<string | null>(null);
 	let walletPopoverEl: HTMLDivElement = $state(null!);
 	let expandedWallets = $state<Set<string>>(new Set());
-	let tabContentHeight = $state(0);
-	let tabContentEl: HTMLDivElement | undefined = $state(undefined);
-
-	function trackHeight(node: HTMLDivElement) {
-		const ro = new ResizeObserver(() => {
-			if (walletTab === 'balances') tabContentHeight = Math.max(tabContentHeight, node.offsetHeight);
-		});
-		ro.observe(node);
-		return { destroy() { ro.disconnect(); } };
-	}
 
 	let sellingToken = $state<string | null>(null);
 	let withdrawingAsset = $state<{ chain: Chain; asset: WalletAsset } | null>(null);
@@ -427,6 +419,9 @@
 	</div>
 
 	<div class="flex items-center gap-2">
+	<button onclick={openSettings} class="cursor-pointer rounded-lg border border-bd bg-s4 p-1.5 text-g7 transition-all hover:border-bd3 hover:bg-s7 hover:text-tx" title="Settings">
+		<Settings size={16} strokeWidth={1.5} />
+	</button>
 	<button onclick={openThemeBuilder} class="cursor-pointer rounded-lg border border-bd bg-s4 p-1.5 text-g7 transition-all hover:border-bd3 hover:bg-s7 hover:text-tx" title="Theme settings">
 		<Palette size={16} strokeWidth={1.5} />
 	</button>
@@ -466,19 +461,7 @@
 						</div>
 					</div>
 
-					<div class="flex border-b border-bd">
-						<button onclick={() => (walletTab = 'balances')} class="relative flex-1 cursor-pointer py-2 text-xs font-medium transition-colors {walletTab === 'balances' ? 'text-tx' : 'text-g5 hover:text-g8'}">
-							Balances
-							{#if walletTab === 'balances'}<span class="absolute bottom-0 left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-grn"></span>{/if}
-						</button>
-						<button onclick={() => (walletTab = 'settings')} class="relative flex-1 cursor-pointer py-2 text-xs font-medium transition-colors {walletTab === 'settings' ? 'text-tx' : 'text-g5 hover:text-g8'}">
-							Settings
-							{#if walletTab === 'settings'}<span class="absolute bottom-0 left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-grn"></span>{/if}
-						</button>
-					</div>
-
-					<div class="flex flex-col" style="min-height: {tabContentHeight}px" use:trackHeight>
-					{#if walletTab === 'balances'}
+					<div class="flex flex-col">
 						{#if userProfile}
 							<div class="grid grid-cols-3 gap-px border-b border-bd bg-bd/50 p-px">
 								<div class="bg-s5 px-3 py-2">
@@ -567,82 +550,6 @@
 								<div class="flex h-16 items-center justify-center text-xs text-g5">No managed wallets</div>
 							{/if}
 						</div>
-					{:else}
-						<div class="p-3 space-y-1">
-							<button
-								onclick={toggleCurrency}
-								class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium text-tx transition-all hover:bg-s7"
-							>
-								{#if isUsd()}
-									<Coins size={16} strokeWidth={1.5} class="text-g5" />
-									<div class="flex-1 text-left">
-										<div>Show as Native</div>
-										<div class="text-[10px] text-g5">Display values in SOL, ETH, BNB</div>
-									</div>
-								{:else}
-									<DollarSign size={16} strokeWidth={1.5} class="text-g5" />
-									<div class="flex-1 text-left">
-										<div>Show as USD</div>
-										<div class="text-[10px] text-g5">Display values in US dollars</div>
-									</div>
-								{/if}
-								<span class="rounded bg-s7 px-1.5 py-0.5 text-[10px] text-g6">{isUsd() ? 'USD' : 'Native'}</span>
-							</button>
-							<button
-								onclick={() => { showWalletPopover = false; openMobileConnect(); }}
-								class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium text-tx transition-all hover:bg-s7"
-							>
-								<Smartphone size={16} strokeWidth={1.5} class="text-g5" />
-								<div class="flex-1 text-left">
-									<div>Connect Mobile</div>
-									<div class="text-[10px] text-g5">Scan QR to link your phone</div>
-								</div>
-							</button>
-							<button
-								onclick={toggleExpandPositions}
-								class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium text-tx transition-all hover:bg-s7"
-							>
-								<Rows3 size={16} strokeWidth={1.5} class="text-g5" />
-								<div class="flex-1 text-left">
-									<div>Expand Positions</div>
-									<div class="text-[10px] text-g5">Show position details by default</div>
-								</div>
-								<span class="rounded bg-s7 px-1.5 py-0.5 text-[10px] text-g6">{getExpandPositions() ? 'On' : 'Off'}</span>
-							</button>
-							<button
-								onclick={toggleBubbleWatchlist}
-								class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium text-tx transition-all hover:bg-s7"
-							>
-								<CircleDot size={16} strokeWidth={1.5} class="text-g5" />
-								<div class="flex-1 text-left">
-									<div class="flex items-center gap-1.5">Bubble Watchlist <span class="rounded bg-blu/20 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-blu">Beta</span></div>
-									<div class="text-[10px] text-g5">Group calls into token bubbles</div>
-								</div>
-								<span class="rounded bg-s7 px-1.5 py-0.5 text-[10px] text-g6">{getBubbleWatchlist() ? 'On' : 'Off'}</span>
-							</button>
-							<button
-								onclick={toggleMultiTab}
-								class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium text-tx transition-all hover:bg-s7"
-							>
-								<Columns3 size={16} strokeWidth={1.5} class="text-g5" />
-								<div class="flex-1 text-left">
-									<div class="flex items-center gap-1.5">Multi-Tab Tokens <span class="rounded bg-blu/20 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-blu">Beta</span></div>
-									<div class="text-[10px] text-g5">Open tokens in tabs instead of replacing</div>
-								</div>
-								<span class="rounded bg-s7 px-1.5 py-0.5 text-[10px] text-g6">{getMultiTab() ? 'On' : 'Off'}</span>
-							</button>
-						</div>
-					{/if}
-					</div>
-
-					<div class="border-t border-bd p-2">
-						<button
-							onclick={() => { showWalletPopover = false; handleDisconnect(); }}
-							class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg py-2 text-xs font-medium text-red transition-all hover:bg-red/10"
-						>
-							<LogOut size={14} strokeWidth={1.5} />
-							Disconnect
-						</button>
 					</div>
 				</div>
 			{/if}
@@ -840,6 +747,9 @@
 {/if}
 {#if ThemeBuilderModal}
 	<ThemeBuilderModal bind:show={showThemeBuilder} />
+{/if}
+{#if SettingsModal}
+	<SettingsModal bind:show={showSettings} onConnectMobile={openMobileConnect} onDisconnect={handleDisconnect} />
 {/if}
 
 {#if withdrawingAsset}

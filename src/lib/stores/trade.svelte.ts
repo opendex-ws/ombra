@@ -62,6 +62,11 @@ let activeLoading = $state(false);
 let completedLoading = $state(false);
 let activeHasMore = $state(false);
 let completedHasMore = $state(false);
+// Server-reported totals (may exceed the loaded/paginated arrays). The active
+// endpoint reports ACTIVE and PENDING totals separately (they share one list).
+let activePositionsTotal = $state<number | null>(null);
+let pendingTradesTotal = $state<number | null>(null);
+let completedTotalCount = $state<number | null>(null);
 let activeCursor = $state<string | undefined>(undefined);
 let completedCursor = $state<string | undefined>(undefined);
 let activePrevCursor = $state<string | undefined>(undefined);
@@ -507,6 +512,20 @@ export function getActivePositions(): ActiveTrade[] {
   return activeTrades.filter(t => t.status === 'ACTIVE');
 }
 
+// Server totals for the tab badges. Floored to the loaded/filtered length so a
+// badge never shows fewer than what's actually rendered.
+export function getActivePositionsTotal(): number {
+  const loaded = activeTrades.filter(t => t.status === 'ACTIVE').length;
+  return activePositionsTotal != null ? Math.max(activePositionsTotal, loaded) : loaded;
+}
+export function getPendingTradesTotal(): number {
+  const loaded = activeTrades.filter(t => t.status === 'PENDING').length;
+  return pendingTradesTotal != null ? Math.max(pendingTradesTotal, loaded) : loaded;
+}
+export function getCompletedTotalCount(): number {
+  return completedTotalCount != null ? Math.max(completedTotalCount, completedTrades.length) : completedTrades.length;
+}
+
 export function getTradeForToken(chain: string, tokenAddress: string): ActiveTrade | undefined {
   return activeTrades.find(t =>
     t.chain === chain && t.tokenAddress.toLowerCase() === tokenAddress.toLowerCase() && t.status === 'ACTIVE'
@@ -618,9 +637,13 @@ export async function fetchActiveTrades(tokenAddress?: string, chain?: Chain) {
   try {
     const { data } = await api.GET('/v2/trade/active');
     activeTrades = data?.trades ?? [];
+    activePositionsTotal = data?.totalActiveCount ?? null;
+    pendingTradesTotal = data?.totalPendingCount ?? null;
     assignActiveCursorTriplet(data);
   } catch {
     activeTrades = [];
+    activePositionsTotal = null;
+    pendingTradesTotal = null;
     assignActiveCursorTriplet(undefined);
   } finally {
     activeLoading = false;
@@ -633,11 +656,13 @@ export async function fetchCompletedTrades(tokenAddress?: string, chain?: Chain)
   try {
     const { data } = await api.GET('/v2/trade/completed');
     completedTrades = sortCompletedTrades(data?.trades ?? []);
+    completedTotalCount = data?.totalCount ?? null;
     for (const t of data?.trades ?? []) markCompleted(t.id);
     assignCompletedCursorTriplet(data);
     completedFetched = true;
   } catch {
     completedTrades = [];
+    completedTotalCount = null;
     assignCompletedCursorTriplet(undefined);
     completedFetched = false;
   } finally {
@@ -975,7 +1000,7 @@ export async function dismissTrade(tradeId: number) {
 }
 
 export function handleTradesSnapshot(topic: string, data: ActiveTradesResponse | CompletedTradesResponse | unknown, _meta?: Record<string, unknown>) {
-  const page = data as { trades?: unknown[] } & CursorTriplet;
+  const page = data as { trades?: unknown[]; totalCount?: number | null; totalActiveCount?: number | null; totalPendingCount?: number | null } & CursorTriplet;
   if (!Array.isArray(page?.trades)) return;
   const trades = page.trades.filter(isTradeWsTrade);
   const hasCursor = typeof page.cursor === 'string';
@@ -983,6 +1008,7 @@ export function handleTradesSnapshot(topic: string, data: ActiveTradesResponse |
     completedTrades = sortCompletedTrades(
       trades.filter((trade): trade is CompletedTrade => trade.status === 'COMPLETED')
     );
+    if (typeof page.totalCount === 'number') completedTotalCount = page.totalCount;
     if (hasCursor) {
       assignCompletedCursorTriplet(page);
     }
@@ -990,6 +1016,8 @@ export function handleTradesSnapshot(topic: string, data: ActiveTradesResponse |
     return;
   }
   activeTrades = trades.filter((trade): trade is ActiveTrade => trade.status === 'ACTIVE' || trade.status === 'PENDING');
+  if (typeof page.totalActiveCount === 'number') activePositionsTotal = page.totalActiveCount;
+  if (typeof page.totalPendingCount === 'number') pendingTradesTotal = page.totalPendingCount;
   if (hasCursor) {
     assignActiveCursorTriplet(page);
   }

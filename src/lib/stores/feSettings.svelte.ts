@@ -14,6 +14,8 @@ interface FeSettings {
 	tradePanelFloat: { x: number; y: number; w: number; h: number };
 	bubbleWatchlist: boolean;
 	multiTab: boolean;
+	/** FE-only: watchlist source ids that fire a call toast (per-individual-source). */
+	callToastSourceIds: string[];
 }
 
 const defaults: FeSettings = {
@@ -28,6 +30,7 @@ const defaults: FeSettings = {
 	tradePanelFloat: { x: 120, y: 100, w: 340, h: 560 },
 	bubbleWatchlist: false,
 	multiTab: false,
+	callToastSourceIds: [],
 };
 
 let settings = $state<FeSettings>({ ...defaults });
@@ -156,6 +159,28 @@ export function setTradePanelFloatPos(x: number, y: number) {
 export function setTradePanelFloatSize(w: number, h: number) {
 	settings.tradePanelFloat = { ...settings.tradePanelFloat, w, h };
 	persist();
+}
+
+// --- Call toast source enablement (per-individual-source) ---------------------
+// Ids are namespaced by source type ("tg:<id>", "lists:<id>", "wallets:<id>") so
+// they can't collide across families.
+export function getCallToastSourceIds(): string[] {
+	return settings.callToastSourceIds;
+}
+
+export function isCallToastSourceEnabled(id: string): boolean {
+	return settings.callToastSourceIds.includes(id);
+}
+
+export function toggleCallToastSource(id: string) {
+	settings.callToastSourceIds = settings.callToastSourceIds.includes(id)
+		? settings.callToastSourceIds.filter((s) => s !== id)
+		: [...settings.callToastSourceIds, id];
+	persist();
+}
+
+export function getCallToastCount(): number {
+	return settings.callToastSourceIds.length;
 }
 
 let activeToken = $state('');

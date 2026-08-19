@@ -17,15 +17,17 @@
 	import { initTheme, getTheme, getThemeVersion, tc } from '$lib/stores/theme.svelte';
 	import { initThemeBg } from '$lib/stores/themeBg.svelte';
 	import { initCurrency } from '$lib/stores/currency.svelte';
-	import { initFeSettings, getWatchlistOpen, toggleWatchlistOpen, getActiveToken, getMultiTab } from '$lib/stores/feSettings.svelte';
+	import { initFeSettings, getWatchlistOpen, toggleWatchlistOpen, getActiveToken, getMultiTab, getCallToastSourceIds, isCallToastSourceEnabled } from '$lib/stores/feSettings.svelte';
 	import { initTokenTabs, getPopouts, openTokenAsPopout, consumePopoutRedirectSuppressed } from '$lib/stores/tokenTabs.svelte';
-	import { beforeNavigate, preloadCode } from '$app/navigation';
+	import { beforeNavigate, preloadCode, goto } from '$app/navigation';
+	import { tokenImage } from '$lib/api/config';
+	import { formatMarketCap } from '$lib/utils/format';
 	import type { Chain } from '$lib/api/types';
 	import { getIsDesktop } from '$lib/stores/viewport.svelte';
 	import { getIsLoggedIn, initAuth, onAuthTokenChange } from '$lib/stores/auth.svelte';
 	import { applyFavouritesSnapshot, applySettingsSnapshot } from '$lib/stores/settings.svelte';
 	import { applyTradePresetsSnapshot, handleBalanceUpdate, fetchManagedWallets } from '$lib/stores/trade.svelte';
-	import { addToast } from '$lib/stores/toast.svelte';
+	import { addToast, addActionToast } from '$lib/stores/toast.svelte';
 	import { subscribe, unsubscribe, authenticate } from '$lib/ws/client';
 	import { onDestroy, onMount } from 'svelte';
 	import { startPegPrices, stopPegPrices } from '$lib/stores/peg.svelte';
@@ -191,6 +193,59 @@
 		const label = data.rewardType === 'AFFILIATE' ? 'Affiliate' : 'Cashback';
 		addToast('success', `${label} reward claimed`, `${String(data.amount)} on ${data.chain}`);
 	}
+
+	// --- Watchlist call toasts (FE-only) ---------------------------------------
+	// Fire a clickable toast when one of the user's individually-enabled watchlist
+	// sources (telegram / list / wallet) calls a token. Subscribed app-wide so it
+	// works regardless of route or whether the watchlist sidebar is mounted.
+	const seenCallIds = new Set<string>();
+	const callFamilyById: Record<'TG' | 'LIST' | 'WALLET', string> = { TG: 'tg', LIST: 'lists', WALLET: 'wallets' };
+	function handleWatchlistCall(data: any, meta: any) {
+		const sourceType = meta?.sourceType as 'CALLER' | 'TG' | 'LIST' | 'WALLET' | undefined;
+		const sourceId = meta?.sourceId as string | null | undefined;
+		if (!sourceType || sourceType === 'CALLER' || !sourceId) return;
+		const nsId = `${callFamilyById[sourceType]}:${sourceId}`;
+		if (!isCallToastSourceEnabled(nsId)) return;
+		const call = data as any;
+		const d = call?.callDetails;
+		if (!d?.baseTokenAddress || !d?.baseTokenChain) return;
+		const dedupeKey = call.id ?? `${nsId}:${d.baseTokenChain}:${d.baseTokenAddress}:${d.calledAtTimestamp}`;
+		if (seenCallIds.has(dedupeKey)) return;
+		seenCallIds.add(dedupeKey);
+		if (seenCallIds.size > 500) { const oldest = seenCallIds.values().next().value; if (oldest) seenCallIds.delete(oldest); }
+
+		const caller = call?.caller;
+		const callerName = (caller && 'name' in caller && caller.name) ? caller.name : (sourceType === 'WALLET' ? 'Wallet' : sourceType === 'LIST' ? 'List' : 'Telegram');
+		const sym = d.baseTokenSymbol ? `$${d.baseTokenSymbol}` : (d.baseTokenName || 'token');
+		const mcap = d.marketCapUsd != null ? `MC ${formatMarketCap(String(d.marketCapUsd))}` : undefined;
+		const chain = d.baseTokenChain;
+		const address = d.baseTokenAddress;
+		addActionToast({
+			type: 'info',
+			title: `${callerName} called ${sym}`,
+			message: mcap,
+			iconUrl: tokenImage(chain, address),
+			onClick: () => goto(`/?chain=${chain}&token=${address}`, { noScroll: true })
+		});
+	}
+
+	// Ownership: this is the ONLY place that subscribes for WATCHLIST_CALL (toasts).
+	// It uses the bare family topics with NO params, so it has a different server
+	// key than WatchlistPanel's WATCHLIST_FEED subscription (which always carries a
+	// cursor window) — the two never share or tear down each other's subscription.
+	// We open at most 3 family subs (only when any source is enabled) and filter
+	// per-event by meta.sourceId, so enabling/disabling individual sources needs no
+	// resubscribe.
+	$effect(() => {
+		if (!getIsLoggedIn()) return;
+		if (getCallToastSourceIds().length === 0) return;
+		const families = ['watchlist:tg', 'watchlist:lists', 'watchlist:wallets'];
+		const keys = families.map((topic) => subscribe(topic, (event, data, _t, meta) => {
+			if (event !== 'WATCHLIST_CALL') return;
+			handleWatchlistCall(data, meta);
+		}));
+		return () => { for (const k of keys) unsubscribe(k); };
+	});
 
 	$effect(() => {
 		if (!getIsLoggedIn()) return;

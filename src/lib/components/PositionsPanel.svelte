@@ -22,7 +22,7 @@
 	import { getIsLoggedIn } from '$lib/stores/auth.svelte';
 	import { portal } from '$lib/actions/portal';
 	import {
-		getActivePositions, getPendingTrades, getCompletedTrades, getCompletedFetched,
+		getActivePositions, getPendingTrades, getCompletedTrades, getActivePositionsTotal, getPendingTradesTotal, getCompletedTotalCount, getCompletedFetched,
 		getActiveLoading, getCompletedLoading, getActiveHasMore, getCompletedHasMore,
 		getActiveCursor, getCompletedCursor, getActiveCursorTriplet, getCompletedCursorTriplet,
 		fetchActiveTrades, fetchCompletedTrades, fetchMoreActive, fetchMoreCompleted,
@@ -448,7 +448,7 @@
 <div class="flex h-full flex-col border-t border-bd bg-transparent">
 	<div class="flex border-b border-bd">
 		{#each tabs as tab}
-			{@const count = tab.value === 'active' ? getActivePositions().length : tab.value === 'pending' ? getPendingTrades().length : getCompletedTrades().length}
+			{@const count = tab.value === 'active' ? getActivePositionsTotal() : tab.value === 'pending' ? getPendingTradesTotal() : getCompletedTotalCount()}
 			<button
 				class="relative flex-1 px-2 py-2 text-xs font-semibold transition-all duration-200 {activeTab === tab.value
 					? 'text-tx'

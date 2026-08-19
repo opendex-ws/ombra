@@ -58,14 +58,21 @@
 	>
 		<div class="grid">
 			{#each visible as toast, i (toast.id)}
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 				<div
 					bind:clientHeight={heights[toast.id]}
-					class="toast-card animate-toast-in self-end rounded-lg border border-bd border-l-2 {borderColor(toast.type)} bg-s5 px-3 py-2 shadow-lg shadow-s0/40 backdrop-blur-md"
+					onclick={toast.onClick ? () => { toast.onClick?.(); removeToast(toast.id); } : undefined}
+					onkeydown={toast.onClick ? (e) => { if (e.key === 'Enter') { toast.onClick?.(); removeToast(toast.id); } } : undefined}
+					role={toast.onClick ? 'button' : undefined}
+					tabindex={toast.onClick ? 0 : undefined}
+					class="toast-card animate-toast-in self-end rounded-lg border border-bd border-l-2 {borderColor(toast.type)} bg-s5 px-3 py-2 shadow-lg shadow-s0/40 backdrop-blur-md {toast.onClick ? 'cursor-pointer transition-colors hover:bg-s6' : ''}"
 					style="grid-area: 1 / 1; {stackStyle(visible, i)}"
 				>
 					<div class="flex items-start gap-2">
 						<div class="mt-0.5 shrink-0">
-							{#if toast.type === 'success'}
+							{#if toast.iconUrl}
+								<img src={toast.iconUrl} alt="" class="h-5 w-5 rounded-full object-cover ring-1 ring-bd" onerror={(e: Event) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
+							{:else if toast.type === 'success'}
 								<CheckCircle class="h-3.5 w-3.5" style="color: {accentColor(toast.type)}" strokeWidth={2} />
 							{:else if toast.type === 'error'}
 								<XCircle class="h-3.5 w-3.5" style="color: {accentColor(toast.type)}" strokeWidth={2} />
@@ -79,7 +86,7 @@
 							<div class="flex items-center justify-between gap-2">
 								<span class="text-xs font-semibold text-tx">{toast.title}</span>
 								<button
-									onclick={() => removeToast(toast.id)}
+									onclick={(e) => { e.stopPropagation(); removeToast(toast.id); }}
 									class="shrink-0 cursor-pointer text-g3 transition-colors hover:text-g7"
 									aria-label="Dismiss"
 								>

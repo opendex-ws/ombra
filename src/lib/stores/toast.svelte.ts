@@ -14,6 +14,10 @@ export type Toast = {
 	message?: string;
 	details?: ToastDetail[];
 	duration: number;
+	/** Optional leading image (e.g. token logo) shown instead of the type icon. */
+	iconUrl?: string;
+	/** When set, the toast body becomes clickable and runs this on click. */
+	onClick?: () => void;
 };
 
 let counter = 0;
@@ -33,6 +37,30 @@ function scheduleDismiss(id: number, duration: number) {
 export function addToast(type: ToastType, title: string, message?: string, duration = 5000, details?: ToastDetail[]): number {
 	const id = ++counter;
 	toasts = [...toasts, { id, type, title, message, details, duration }];
+	scheduleDismiss(id, duration);
+	return id;
+}
+
+/** A richer toast with an optional leading image and a click action on the body. */
+export function addActionToast(opts: {
+	type?: ToastType;
+	title: string;
+	message?: string;
+	iconUrl?: string;
+	onClick?: () => void;
+	duration?: number;
+}): number {
+	const id = ++counter;
+	const duration = opts.duration ?? 8000;
+	toasts = [...toasts, {
+		id,
+		type: opts.type ?? 'info',
+		title: opts.title,
+		message: opts.message,
+		iconUrl: opts.iconUrl,
+		onClick: opts.onClick,
+		duration
+	}];
 	scheduleDismiss(id, duration);
 	return id;
 }
