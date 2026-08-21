@@ -6,6 +6,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { getIsLoggedIn, getWalletAddress, getIsConnecting, getAuthError, connectWallet, disconnect, isPhantomInstalled, getAuthToken } from '$lib/stores/auth.svelte';
 	import { authenticate, subscribe, unsubscribe } from '$lib/ws/client';
+	import { addToast } from '$lib/stores/toast.svelte';
 	import { ageFromSeconds, shortAddress, formatNumber, formatPrice, formatMarketCap, formatPercent, formatUsd, pctColor, avatarUrl, fmtVal } from '$lib/utils/format';
 	import { api } from '$lib/api/client';
 	import type { ManagedWallet, ScannerItem, components, Chain, WalletAsset, TraderRankItem } from '$lib/api/types';
@@ -164,7 +165,9 @@
 			authenticate(getAuthToken());
 			fetchSettings();
 			fetchFavourites();
-		} catch {}
+		} catch (e: unknown) {
+			addToast('error', 'Wallet connection failed', getAuthError() ?? (e instanceof Error ? e.message : 'Please try again'));
+		}
 	}
 
 	function handleDisconnect() {
@@ -585,12 +588,6 @@
 	</div>
 </nav>
 
-{#if getAuthError()}
-	<div class="animate-slide-down fixed top-14 right-4 z-50 flex items-center gap-2 rounded-lg border border-red/20 bg-s5 px-3 py-2 shadow-lg shadow-red/5 backdrop-blur-sm">
-		<div class="h-1.5 w-1.5 rounded-full bg-red"></div>
-		<span class="text-sm text-red">{getAuthError()}</span>
-	</div>
-{/if}
 
 {#if showSearch}
 	<div class="fixed inset-0 z-[100] flex items-start justify-center pt-[2vh] md:pt-[12vh]">
