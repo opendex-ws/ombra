@@ -526,12 +526,27 @@
 	}
 
 	function applyBotsSnapshot(data: BotsResponse) {
-		bots = data.bots;
+		// The WS window holds at most one page, so a snapshot may not include every
+		// bot the REST walk loaded (e.g. >100 bots, or the default-20 window). Merge
+		// by id — update/insert bots from the snapshot, keep the rest — so the list
+		// never shrinks below the full loaded set. Removals come via a re-fetch on
+		// delete. When the snapshot IS the whole set (loaded ≤ its size), replace.
 		if (typeof data.totalCount === 'number') botsTotal = data.totalCount;
-		const botIds = new Set(data.bots.map((bot) => bot.id));
+		const snapshotById = new Map(data.bots.map((b) => [b.id, b]));
+		if (data.bots.length >= bots.length) {
+			// Snapshot covers everything currently shown — take it as authoritative.
+			bots = data.bots;
+		} else {
+			// Partial window — update existing in place, append genuinely new bots.
+			const merged = bots.map((b) => snapshotById.get(b.id) ?? b);
+			const existing = new Set(merged.map((b) => b.id));
+			for (const b of data.bots) if (!existing.has(b.id)) merged.push(b);
+			bots = merged;
+		}
+		const liveIds = new Set(bots.map((bot) => bot.id));
 		const nextExpanded = new Set(expandedBotIds);
 		for (const botId of expandedBotIds) {
-			if (botIds.has(botId)) continue;
+			if (liveIds.has(botId)) continue;
 			clearScopedBotRealtime(botId);
 			nextExpanded.delete(botId);
 		}
@@ -547,8 +562,7 @@
 		}
 		try {
 			// The bot list is cursor-paginated (max 100/page). Walk every page via
-			// nextCursor so all bots load, then subscribe the live window through the
-			// LAST page's tail cursor so the WS snapshot covers the full loaded range.
+			// nextCursor so all bots load — handles >100 bots too.
 			const allBots: Bot[] = [];
 			let tail: BotsResponse | null = null;
 			let cursor: string | undefined;
@@ -574,10 +588,15 @@
 				return;
 			}
 			bots = allBots;
+			// The bots:list live window holds at most one page (default 20, max 100),
+			// so its snapshot can't represent >100 bots. Subscribe a limit-100 live
+			// window for live updates, and MERGE its snapshots into the REST-loaded
+			// full set by id (see applyBotsSnapshot) rather than replacing — so the
+			// list never shrinks below what was loaded. Deletes/toggles re-fetch.
 			replaceGlobalBotSubscription('list', 'bots:list', 'BOTS', generation, (payload) => {
 				if (listGeneration !== botListGeneration) return;
 				applyBotsSnapshot(payload as BotsResponse);
-			}, liveAccumulatedParams(tail));
+			}, { ...liveAccumulatedParams(tail), limit: 100 });
 		} catch {
 			if (isCurrentBotRealtime(generation) && listGeneration === botListGeneration) { bots = []; botsTotal = null; }
 		}

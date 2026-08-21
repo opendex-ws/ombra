@@ -376,11 +376,18 @@
 		if (botsFetched) return;
 		botsFetched = true;
 		try {
-			const { data } = await api.GET('/v2/bots');
+			// Walk all pages (default limit is 20) so every source's bot indicator shows.
 			const map = new Map<string, Bot>();
-			for (const bot of data?.bots ?? []) {
-				map.set(bot.source.id, bot);
-			}
+			let cursor: string | undefined;
+			const seen = new Set<string>();
+			do {
+				const { data } = await api.GET('/v2/bots', { params: { query: cursor ? { limit: 100, cursor } : { limit: 100 } } });
+				for (const bot of data?.bots ?? []) map.set(bot.source.id, bot);
+				const next = data?.nextCursor ?? undefined;
+				if (!next || seen.has(next)) break;
+				seen.add(next);
+				cursor = next;
+			} while (cursor);
 			botsBySourceId = map;
 		} catch {}
 	}
