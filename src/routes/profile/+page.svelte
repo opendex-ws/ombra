@@ -147,7 +147,7 @@
 		return { triggerType: KIND_TO_TRIGGER[r.kind], value: r.triggerValue, sellPct: r.sellPercent, targetKind: r.targetKind, mode: r.mode };
 	}
 
-	const chains: Chain[] = ['SOL', 'ETH', 'BASE', 'BSC'];
+	const chains: Chain[] = ['SOL'];
 	const gasOptions: { label: string; value: GasPreset }[] = [
 		{ label: 'Auto', value: 'AUTO' },
 		{ label: 'Low', value: 'LOW' },

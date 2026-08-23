@@ -1,10 +1,12 @@
 import type { components } from '$lib/api/v2.d.ts';
 import type { SellTargetKind, SellTargetRow } from '$lib/stores/trade.svelte';
+import { formatUsd } from './format';
 
 export type Bot = components['schemas']['Bot'];
 export type BotChainConfig = components['schemas']['BotChainConfig'];
 export type BotChainConfigDiff = components['schemas']['BotChainConfigDiff'];
 export type BotChainConfigRequest = components['schemas']['BotChainConfigRequest'];
+export type BotLimits = components['schemas']['BotLimits'];
 export type BotSourceStrategy = components['schemas']['BotSourceStrategy'];
 export type CallerSource = components['schemas']['CallerSource'];
 export type Chain = components['schemas']['Chain'];
@@ -46,6 +48,11 @@ export type BotConfigForm = {
 	sellSizing: SellSizingMode;
 	sellProportion: string;
 	sellPositionPct: string;
+	limitsCooldownSecs: string;
+	limitsDailySpendUsd: string;
+	limitsLifetimeSpendUsd: string;
+	limitsMaxExposureUsd: string;
+	limitsMaxOpenPositions: string;
 };
 
 export type BotConfigField = keyof BotConfigForm | `target.${number}.triggerValue` | `target.${number}.sellPercent`;
@@ -54,7 +61,7 @@ export type BotConfigErrors = Partial<Record<BotConfigField, string>>;
 type ParsedNumber = { value?: number; error?: string };
 
 export type BotConfigBuildResult =
-	| { ok: true; config: BotChainConfigRequest | BotChainConfigDiff }
+	| { ok: true; config: BotChainConfigRequest | BotChainConfigDiff; limits?: BotLimits }
 	| { ok: false; errors: BotConfigErrors };
 
 export type BotConfigSummary = {
@@ -88,7 +95,12 @@ export function createBotConfigForm(chain: Chain, amountType: AmountType, amount
 		buyBalancePct: '',
 		sellSizing: 'proportion',
 		sellProportion: '1',
-		sellPositionPct: ''
+		sellPositionPct: '',
+		limitsCooldownSecs: '',
+		limitsDailySpendUsd: '',
+		limitsLifetimeSpendUsd: '',
+		limitsMaxExposureUsd: '',
+		limitsMaxOpenPositions: ''
 	};
 }
 
@@ -143,6 +155,54 @@ export function hydrateBotConfig(chain: Chain, config: BotChainConfig): BotConfi
 	return form;
 }
 
+export function hydrateBotLimits(form: BotConfigForm, limits?: BotLimits | null): void {
+	form.limitsCooldownSecs = limits?.cooldownSecs !== undefined ? String(limits.cooldownSecs) : '';
+	form.limitsDailySpendUsd = limits?.dailySpendUsd !== undefined ? String(limits.dailySpendUsd) : '';
+	form.limitsLifetimeSpendUsd = limits?.lifetimeSpendUsd !== undefined ? String(limits.lifetimeSpendUsd) : '';
+	form.limitsMaxExposureUsd = limits?.maxExposureUsd !== undefined ? String(limits.maxExposureUsd) : '';
+	form.limitsMaxOpenPositions = limits?.maxOpenPositions !== undefined ? String(limits.maxOpenPositions) : '';
+}
+
+export function buildBotLimits(form: BotConfigForm, errors: BotConfigErrors): BotLimits | undefined {
+	const limits: BotLimits = {};
+
+	const applyInt = (raw: string, label: string, field: keyof BotConfigForm & string, key: 'cooldownSecs' | 'maxOpenPositions', min: number, max: number) => {
+		const parsed = parseOptional(raw, label, field, errors, { min, max });
+		if (parsed.value === undefined || parsed.error) return;
+		if (!Number.isInteger(parsed.value)) {
+			errors[field] = `${label} must be a whole number`;
+			return;
+		}
+		limits[key] = parsed.value;
+	};
+	const applyUsd = (raw: string, label: string, field: keyof BotConfigForm & string, key: 'dailySpendUsd' | 'lifetimeSpendUsd' | 'maxExposureUsd') => {
+		const parsed = parseOptional(raw, label, field, errors, { minExclusive: 0, maxScale: 2 });
+		if (parsed.value !== undefined && !parsed.error) limits[key] = parsed.value;
+	};
+
+	applyInt(form.limitsCooldownSecs, 'Cooldown', 'limitsCooldownSecs', 'cooldownSecs', 1, 604800);
+	applyInt(form.limitsMaxOpenPositions, 'Max open positions', 'limitsMaxOpenPositions', 'maxOpenPositions', 1, 1000);
+	applyUsd(form.limitsDailySpendUsd, 'Daily budget', 'limitsDailySpendUsd', 'dailySpendUsd');
+	applyUsd(form.limitsLifetimeSpendUsd, 'Total budget', 'limitsLifetimeSpendUsd', 'lifetimeSpendUsd');
+	applyUsd(form.limitsMaxExposureUsd, 'Max exposure', 'limitsMaxExposureUsd', 'maxExposureUsd');
+
+	const failed = Object.keys(errors).some((field) => field.startsWith('limits'));
+	return failed ? undefined : Object.keys(limits).length > 0 ? limits : undefined;
+}
+
+function parseOptional(
+	raw: string,
+	label: string,
+	field: keyof BotConfigForm & string,
+	errors: BotConfigErrors,
+	constraints: Omit<Parameters<typeof parseDecimal>[1], 'label'>
+): ParsedNumber {
+	if (!raw.trim()) return {};
+	const parsed = parseDecimal(raw, { label, ...constraints });
+	if (parsed.error) errors[field] = parsed.error;
+	return parsed;
+}
+
 export function buildBotConfig(
 	form: BotConfigForm,
 	walletAddress: string,
@@ -157,6 +217,7 @@ export function buildBotConfig(
 	const buySlippagePct = parseSlippage(form.buySlippage, 'buySlippage', errors);
 	const sellSlippagePct = parseSlippage(form.sellSlippage, 'sellSlippage', errors);
 	const sourceStrategy = isWallet ? buildSourceStrategy(form, errors) : undefined;
+	const limits = buildBotLimits(form, errors);
 	let amount: BotChainConfigRequest['buy']['amount'];
 
 	if (!isWallet || form.buySizing === 'fixed') {
@@ -185,7 +246,7 @@ export function buildBotConfig(
 			walletAddress
 		};
 		if (sourceStrategy) config.sourceStrategy = sourceStrategy;
-		return { ok: true, config };
+		return limits ? { ok: true, config, limits } : { ok: true, config };
 	}
 
 	const config: BotChainConfigDiff = {
@@ -197,7 +258,7 @@ export function buildBotConfig(
 		walletAddress,
 		sourceStrategy: sourceStrategy ?? null
 	};
-	return { ok: true, config };
+	return limits ? { ok: true, config, limits } : { ok: true, config };
 }
 
 export function summarizeBotConfig(chain: Chain, config: BotChainConfig, isWallet: boolean): BotConfigSummary {
@@ -240,6 +301,21 @@ export function summarizeBotConfig(chain: Chain, config: BotChainConfig, isWalle
 
 export function getBotChain(bot: Bot): Chain | null {
 	return (Object.keys(bot.chainConfigs)[0] as Chain | undefined) ?? null;
+}
+
+export function summarizeBotLimits(limits?: BotLimits | null): string[] {
+	const chips: string[] = [];
+	if (!limits) return chips;
+	if (limits.cooldownSecs !== undefined) {
+		const s = limits.cooldownSecs;
+		const text = s < 60 ? `${s}s` : s < 3600 ? `${s / 60}m` : s < 86400 ? `${s / 3600}h` : `${s / 86400}d`;
+		chips.push(`Cooldown ${text}`);
+	}
+	if (limits.maxOpenPositions !== undefined) chips.push(`Max ${limits.maxOpenPositions} positions`);
+	if (limits.dailySpendUsd !== undefined) chips.push(`${formatUsd(limits.dailySpendUsd)}/day`);
+	if (limits.lifetimeSpendUsd !== undefined) chips.push(`${formatUsd(limits.lifetimeSpendUsd)} total`);
+	if (limits.maxExposureUsd !== undefined) chips.push(`${formatUsd(limits.maxExposureUsd)} open max`);
+	return chips;
 }
 
 function hydrateGas(value: BotChainConfig['trade']['buyGas'], assign: (mode: GasMode, custom: string) => void) {

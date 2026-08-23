@@ -18,7 +18,7 @@
 
 	let { routeActive = true }: { routeActive?: boolean } = $props();
 
-	const chains: Array<'All' | Chain> = ['All', 'SOL', 'ETH', 'BASE', 'BSC'];
+	const chains: Array<'All' | Chain> = ['All', 'SOL'];
 	const timeFrames: TimeFrame[] = ['5M', '1H', '6H', '24H'];
 	const allPlatforms = [
 		'PUMPFUN', 'PUMPSWAP', 'RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'RAYDIUM_LAUNCH',

@@ -28,7 +28,7 @@
 	} = $props();
 
 	let open = $state(false);
-	const chains: Chain[] = ['SOL', 'ETH', 'BASE', 'BSC'];
+	const chains: Chain[] = ['SOL'];
 
 	function numberValue(value: string): number | undefined {
 		if (value.trim() === '') return undefined;

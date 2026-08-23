@@ -206,7 +206,7 @@
 	let txErrorsHasMore = $state(false);
 	let txErrorsBotFilter = $state<string | null>(null);
 
-	const chains: Chain[] = ['SOL', 'ETH', 'BASE', 'BSC'];
+	const chains: Chain[] = ['SOL'];
 
 	async function handleConnect() {
 		try {

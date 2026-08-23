@@ -193,7 +193,7 @@
 	let srcCallerLoadingMore = $state(false);
 
 	let selectedListIds = $state<Set<string>>(new Set());
-	const chains: Chain[] = ['SOL', 'ETH', 'BASE', 'BSC'];
+	const chains: Chain[] = ['SOL'];
 
 	let callerSources = $state<WatchlistSourceItem[]>([]);
 	let callerSourcesLoading = $state(false);

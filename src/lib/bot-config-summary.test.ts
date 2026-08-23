@@ -15,7 +15,7 @@ function walletBot(): Bot {
 			type: 'WALLET',
 			name: 'Tracked wallet',
 			photoId: null,
-			chain: 'ETH',
+			chain: 'SOL',
 			walletAddress: '0x1111111111111111111111111111111111111111'
 		},
 		stats: { boughtUsd: 0, soldUsd: 0, profitUsd: 0, feesUsd: 0, wins: 0, losses: 0, trades: 0 },

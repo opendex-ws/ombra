@@ -15,7 +15,7 @@
 
 	let { routeActive = true }: { routeActive?: boolean } = $props();
 
-	const validChains: Chain[] = ['SOL', 'ETH', 'BASE', 'BSC'];
+	const validChains: Chain[] = ['SOL'];
 	const validTimeRanges: WalletTimeRange[] = ['ONE_DAY', 'SEVEN_DAY', 'THIRTY_DAY', 'NINETY_DAY'];
 
 	let chain: Chain = $state('SOL');

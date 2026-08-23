@@ -11,6 +11,7 @@ vi.mock('$lib/source-transfers', async (importOriginal) => ({
 }));
 
 import WalletTransferTimeline from './components/WalletTransferTimeline.svelte';
+import type { Chain } from './api/types';
 
 function transfer(id: string, direction: 'incoming' | 'outgoing' | 'selfTransfer') {
 	return {
@@ -78,7 +79,7 @@ describe('wallet transfer timeline', () => {
 	});
 
 	test('keeps unsupported chains isolated from the API', async () => {
-		render(WalletTransferTimeline, { props: { chain: 'ETH', walletAddress: 'wallet' } });
+		render(WalletTransferTimeline, { props: { chain: 'ETH' as Chain, walletAddress: 'wallet' } });
 		await fireEvent.click(screen.getByRole('button', { name: /Transfer history/ }));
 		expect(screen.getByText('Transfer history is currently available for Solana wallets.')).toBeVisible();
 		await waitFor(() => expect(loadWalletTransfersMock).not.toHaveBeenCalled());

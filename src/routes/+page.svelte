@@ -24,7 +24,7 @@
 
 	const DEFAULT_CHAIN: Chain = 'SOL';
 	const DEFAULT_ADDRESS = 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm';
-	const VALID_CHAINS: Chain[] = ['SOL', 'ETH', 'BASE', 'BSC'];
+	const VALID_CHAINS: Chain[] = ['SOL'];
 
 	function getInitialChain(): Chain {
 		const p = $page.url.searchParams.get('chain')?.toUpperCase();

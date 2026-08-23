@@ -32,14 +32,14 @@ function editableWalletBot(): Bot {
 		source: {
 			id: 'wallet-source',
 			type: 'WALLET',
-			name: 'ETH whale',
+			name: 'SOL whale',
 			photoId: null,
-			chain: 'ETH',
+			chain: 'SOL',
 			walletAddress: '0x1111111111111111111111111111111111111111'
 		},
 		stats: { boughtUsd: 0, soldUsd: 0, profitUsd: 0, feesUsd: 0, wins: 0, losses: 0, trades: 0 },
 		chainConfigs: {
-			ETH: {
+			SOL: {
 				walletAddress: '0x2222222222222222222222222222222222222222',
 				buy: { strategy: { type: 'MARKET' } },
 				sourceStrategy: {
@@ -67,14 +67,13 @@ describe('create bot modal wallet settings', () => {
 				source: {
 					id: 'wallet-source',
 					type: 'WALLET',
-					name: 'ETH whale',
-					chain: 'ETH'
+					name: 'SOL whale',
+					chain: 'SOL'
 				}
 			}
 		});
 
-		expect(screen.getByText('Source chain').parentElement).toHaveTextContent('ETH');
-		expect(screen.queryByRole('button', { name: 'SOL' })).not.toBeInTheDocument();
+		expect(screen.getByText('Source chain').parentElement).toHaveTextContent('SOL');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Toggle copy sells' }));
 		await fireEvent.click(screen.getByRole('button', { name: '% Position' }));
@@ -87,7 +86,7 @@ describe('create bot modal wallet settings', () => {
 		expect(apiPost.mock.calls[0][1].body).toMatchObject({
 			source: { id: 'wallet-source', type: 'WALLET' },
 			chainConfigs: {
-				ETH: {
+				SOL: {
 					sourceStrategy: { sell: { type: 'BOT_POSITION_PERCENT', pct: 0 } }
 				}
 			}
@@ -99,7 +98,7 @@ describe('create bot modal wallet settings', () => {
 		render(CreateBotModal, {
 			props: {
 				show: true,
-				source: { id: bot.source.id, type: 'WALLET', name: bot.source.name, chain: 'ETH' },
+				source: { id: bot.source.id, type: 'WALLET', name: bot.source.name, chain: 'SOL' },
 				editBot: bot
 			}
 		});
@@ -116,7 +115,7 @@ describe('create bot modal wallet settings', () => {
 		expect(apiPost.mock.calls[0][0]).toBe('/v2/bots/{id}/update');
 		expect(apiPost.mock.calls[0][1].body).toMatchObject({
 			chainConfigs: {
-				ETH: {
+				SOL: {
 					sourceStrategy: {
 						buy: { type: 'SOURCE_TRADE_PROPORTION', proportion: 1.25 },
 						sell: { type: 'BOT_POSITION_PERCENT', pct: 25 }
@@ -132,7 +131,7 @@ describe('create bot modal wallet settings', () => {
 		render(CreateBotModal, {
 			props: {
 				show: true,
-				source: { id: 'wallet-source', type: 'WALLET', name: 'ETH whale', chain: 'ETH' }
+				source: { id: 'wallet-source', type: 'WALLET', name: 'SOL whale', chain: 'SOL' }
 			}
 		});
 

@@ -16,7 +16,7 @@
 
 	let { routeActive = true }: { routeActive?: boolean } = $props();
 
-	const chains: Array<'All' | Chain> = ['All', 'SOL', 'ETH', 'BASE', 'BSC'];
+	const chains: Array<'All' | Chain> = ['All', 'SOL'];
 	const timeFrames: TimeFrame[] = ['5M', '1H', '6H', '24H'];
 	const tfSuffix: Record<TimeFrame, string> = { '5M': '5m', '1H': '1h', '6H': '6h', '24H': '24h' };
 	const memePlatforms = [

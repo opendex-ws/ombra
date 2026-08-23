@@ -3,14 +3,16 @@ import {
 	buildBotConfig,
 	createBotConfigForm,
 	hydrateBotConfig,
+	hydrateBotLimits,
 	summarizeBotConfig,
+	summarizeBotLimits,
 	type BotChainConfig,
 	type BotChainConfigDiff,
 	type BotChainConfigRequest
 } from './utils/bot-settings';
 
 function validWalletForm() {
-	return createBotConfigForm('ETH', 'USD');
+	return createBotConfigForm('SOL', 'USD');
 }
 
 function responseConfig(overrides: Partial<BotChainConfig> = {}): BotChainConfig {
@@ -86,7 +88,7 @@ describe('bot settings adapter', () => {
 	});
 
 	test('round-trips custom gas and numeric slippage without coercion', () => {
-		const form = hydrateBotConfig('ETH', responseConfig({
+		const form = hydrateBotConfig('SOL', responseConfig({
 			trade: {
 				antiMev: true,
 				buyGas: 0,
@@ -219,6 +221,95 @@ describe('bot settings adapter', () => {
 			copySellCap: true,
 			zeroCopySell: true,
 			targetCount: 1
+		});
+	});
+
+	test('omits limits entirely when every field is blank', () => {
+		const result = buildBotConfig(validWalletForm(), 'wallet', true, 'create');
+		expect(result.ok).toBe(true);
+		expect(result).not.toHaveProperty('limits');
+	});
+
+	test('summarizes configured limits into display chips', () => {
+		expect(summarizeBotLimits(undefined)).toEqual([]);
+		expect(summarizeBotLimits(null)).toEqual([]);
+		expect(summarizeBotLimits({})).toEqual([]);
+		expect(summarizeBotLimits({
+			cooldownSecs: 7200,
+			maxOpenPositions: 10,
+			dailySpendUsd: 50,
+			lifetimeSpendUsd: 1500,
+			maxExposureUsd: 250.5
+		})).toEqual(['Cooldown 2h', 'Max 10 positions', '$50.00/day', '$1.50K total', '$250.50 open max']);
+	});
+
+	test('serializes configured limits and round-trips them through hydration', () => {
+		const form = validWalletForm();
+		form.limitsCooldownSecs = '300';
+		form.limitsDailySpendUsd = '50';
+		form.limitsLifetimeSpendUsd = '1000';
+		form.limitsMaxExposureUsd = '250.5';
+		form.limitsMaxOpenPositions = '10';
+		const result = buildBotConfig(form, 'wallet', true, 'create');
+		expect(result).toMatchObject({
+			ok: true,
+			limits: {
+				cooldownSecs: 300,
+				dailySpendUsd: 50,
+				lifetimeSpendUsd: 1000,
+				maxExposureUsd: 250.5,
+				maxOpenPositions: 10
+			}
+		});
+
+		const hydrated = validWalletForm();
+		hydrateBotLimits(hydrated, (result as { ok: true; limits: { cooldownSecs?: number; dailySpendUsd?: number; lifetimeSpendUsd?: number; maxExposureUsd?: number; maxOpenPositions?: number } }).limits);
+		expect(hydrated).toMatchObject({
+			limitsCooldownSecs: '300',
+			limitsDailySpendUsd: '50',
+			limitsLifetimeSpendUsd: '1000',
+			limitsMaxExposureUsd: '250.5',
+			limitsMaxOpenPositions: '10'
+		});
+
+		const cleared = validWalletForm();
+		hydrateBotLimits(cleared, null);
+		expect(cleared).toMatchObject({
+			limitsCooldownSecs: '',
+			limitsDailySpendUsd: '',
+			limitsLifetimeSpendUsd: '',
+			limitsMaxExposureUsd: '',
+			limitsMaxOpenPositions: ''
+		});
+	});
+
+	test('rejects out-of-bound and non-integer limit values', () => {
+		const form = validWalletForm();
+		form.limitsCooldownSecs = '0';
+		form.limitsMaxOpenPositions = '2.5';
+		form.limitsDailySpendUsd = '-5';
+		form.limitsLifetimeSpendUsd = '10.123';
+		form.limitsMaxExposureUsd = 'abc';
+		expect(buildBotConfig(form, 'wallet', true, 'create')).toMatchObject({
+			ok: false,
+			errors: {
+				limitsCooldownSecs: 'Cooldown must be at least 1',
+				limitsMaxOpenPositions: 'Max open positions must be a whole number',
+				limitsDailySpendUsd: 'Daily budget must be greater than 0',
+				limitsLifetimeSpendUsd: 'Total budget supports up to 2 decimal places',
+				limitsMaxExposureUsd: 'Max exposure must be a finite number'
+			}
+		});
+
+		const overBound = validWalletForm();
+		overBound.limitsCooldownSecs = '604801';
+		overBound.limitsMaxOpenPositions = '1001';
+		expect(buildBotConfig(overBound, 'wallet', true, 'update')).toMatchObject({
+			ok: false,
+			errors: {
+				limitsCooldownSecs: 'Cooldown must be at most 604800',
+				limitsMaxOpenPositions: 'Max open positions must be at most 1000'
+			}
 		});
 	});
 });

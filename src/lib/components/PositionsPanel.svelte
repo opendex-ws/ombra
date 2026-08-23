@@ -26,7 +26,7 @@
 		getActiveLoading, getCompletedLoading, getActiveHasMore, getCompletedHasMore,
 		getActiveCursor, getCompletedCursor, getActiveCursorTriplet, getCompletedCursorTriplet,
 		fetchActiveTrades, fetchCompletedTrades, fetchMoreActive, fetchMoreCompleted,
-		executeSell, abortTrade, dismissTrade, getSellLoading, setSellPercent,
+		executeSell, cancelSwap, dismissTrade, getSellLoading, setSellPercent,
 		handleTradeUpdate, handleBalanceUpdate, handleTradesSnapshot, type PositionTab
 	} from '$lib/stores/trade.svelte';
 	import { formatUsd, formatNumber, formatMarketCap, formatPriceText, shortAddress, timeAgo, fullDateTime, explorerTxUrl } from '$lib/utils/format';
@@ -68,6 +68,29 @@
 	let sellModalTrade = $state<ActiveTrade | null>(null);
 	let copiedTradeId = $state<number | null>(null);
 	let expandedTradeIds = $state<Set<number>>(new Set());
+	let cancellingSwapIds = $state<Set<number>>(new Set());
+
+	async function cancelPendingSwap(tradeId: number, swapId: number) {
+		if (cancellingSwapIds.has(swapId)) return;
+		cancellingSwapIds = new Set(cancellingSwapIds).add(swapId);
+		try {
+			await cancelSwap(tradeId, swapId);
+		} finally {
+			const next = new Set(cancellingSwapIds);
+			next.delete(swapId);
+			cancellingSwapIds = next;
+		}
+	}
+
+	function pendingBuyAmount(trade: ActiveTrade | CompletedTrade): { type: 'USD' | 'NATIVE'; value: number } | null {
+		if (activeTab !== 'pending') return null;
+		const buys = (((trade as ActiveTrade).pendingSwaps ?? []) as { side: 'BUY' | 'SELL'; amount?: { type: 'USD' | 'NATIVE'; value: number } }[]).filter((s) => s.side === 'BUY' && s.amount);
+		if (buys.length === 0) return null;
+		if (buys.every((b) => b.amount!.type === 'USD')) {
+			return { type: 'USD', value: buys.reduce((acc, b) => acc + b.amount!.value, 0) };
+		}
+		return buys[0].amount!;
+	}
 
 	function toggleExpand(tradeId: number, e: Event) {
 		e.stopPropagation();
@@ -530,8 +553,25 @@
 							</div>
 						</div>
 						<div class="shrink-0 text-right">
-							<CurrencyValue usd={String(netPnlUsd(trade))} native={String(netPnlNative(trade))} chain={trade.chain} mode="value" class="{pnlColor(trade)} text-sm font-bold" iconClass="h-3.5 w-3.5" />
-							<div class="{pnlColor(trade)} text-[11px]">{netPnlPct(trade).toFixed(1)}%</div>
+							{#if activeTab === 'pending'}
+								{@const pba = pendingBuyAmount(trade)}
+								<span class="inline-flex items-center gap-1 rounded-md bg-yel/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-yel">
+									<span class="h-1.5 w-1.5 rounded-full bg-yel animate-pulse"></span>
+									Pending
+								</span>
+								{#if pba}
+									<div class="mt-0.5 flex items-center justify-end gap-0.5 text-sm font-bold text-yel">
+										{#if pba.type === 'USD'}
+											{formatPriceText(pba.value)}
+										{:else}
+											{formatNumber(String(pba.value))} <ChainIcon chain={trade.chain} class="h-3.5 w-3.5" />
+										{/if}
+									</div>
+								{/if}
+							{:else}
+								<CurrencyValue usd={String(netPnlUsd(trade))} native={String(netPnlNative(trade))} chain={trade.chain} mode="value" class="{pnlColor(trade)} text-sm font-bold" iconClass="h-3.5 w-3.5" />
+								<div class="{pnlColor(trade)} text-[11px]">{netPnlPct(trade).toFixed(1)}%</div>
+							{/if}
 						</div>
 						{#if activeTab === 'history'}
 							<button
@@ -586,6 +626,7 @@
 							{/each}
 						</div>
 					{/if}
+					{#if activeTab !== 'pending'}
 					<div class="mt-1 rounded-lg border border-bd/30 bg-s2 p-2 space-y-1 text-[10px]">
 						<div class="flex items-center justify-between">
 							<span class="text-g4">Bought</span>
@@ -607,6 +648,7 @@
 							</div>
 						{/if}
 					</div>
+					{/if}
 
 					{#if activeTab === 'active' || activeTab === 'pending'}
 						{@const activeTrade = trade as ActiveTrade}
@@ -625,6 +667,15 @@
 									<span class="text-g4">Now</span>
 									<span class="font-semibold text-tx">{#if currentMc}{formatMarketCap(currentMc)}{/if} <span class="text-g4">(<CurrencyValue usd={String(activeTrade.currentPrice.usd)} native={String(activeTrade.currentPrice.native)} chain={trade.chain} mode="price" iconClass="h-3 w-3" />)</span></span>
 								</div>
+							{/if}
+							{#if activeTab === 'pending'}
+								{@const pb = activeTrade.pendingSwaps?.find(s => s.side === 'BUY')}
+								{#if pb && pb.side === 'BUY' && 'strategy' in pb && pb.strategy.type === 'LIMIT'}
+									<div class="flex items-center justify-between">
+										<span class="text-g4">Target</span>
+										<span class="font-semibold text-blu-light">{formatPriceText(pb.strategy.priceUsd)}</span>
+									</div>
+								{/if}
 							{/if}
 							{#if trade.tokensRemaining > 0}
 								<div class="flex items-center justify-between">
@@ -702,21 +753,44 @@
 									</div>
 								{/each}
 								{#if activeTab === 'pending' && activeTrade.pendingSwaps?.length > 0}
-									{@const pendingBuy = activeTrade.pendingSwaps.find(s => s.side === 'BUY')}
-									{#if pendingBuy}
-										<div class="flex items-center gap-1.5 rounded-lg bg-blu-light/8 px-2.5 py-1.5">
-											<span class="text-[11px] font-bold text-blu-light">BUY</span>
-											<span class="text-[13px] font-bold text-blu-light">
-												{#if pendingBuy.side === 'BUY' && 'strategy' in pendingBuy && pendingBuy.strategy.type === 'DIP'}
-													{pendingBuy.strategy.dipPct.toFixed(1)}% dip
-												{:else if pendingBuy.side === 'BUY' && 'strategy' in pendingBuy && pendingBuy.strategy.type === 'LIMIT'}
-													{formatUsd(String(pendingBuy.strategy.priceUsd))}
-												{:else}
-													Market
-												{/if}
-											</span>
-										</div>
-									{/if}
+									{#each activeTrade.pendingSwaps as pending (pending.id)}
+										{#if pending.side === 'BUY' && 'strategy' in pending}
+											<div class="flex items-center gap-1.5 rounded-lg bg-blu-light/8 px-2.5 py-1.5">
+												<span class="text-[11px] font-bold text-blu-light">BUY</span>
+												<span class="inline-flex items-center gap-1 text-[13px] font-bold text-blu-light">
+													{#if pending.amount.type === 'USD'}{formatPriceText(pending.amount.value)}{:else}{formatNumber(String(pending.amount.value))} <ChainIcon chain={trade.chain} class="h-3 w-3" />{/if}
+												</span>
+												<span class="text-[11px] font-semibold text-blu-light/60">
+													{#if pending.strategy.type === 'DIP'}
+														· DIP: {pending.strategy.dipPct.toFixed(1)}%
+													{:else if pending.strategy.type === 'LIMIT'}
+														AT {formatPriceText(pending.strategy.priceUsd)}
+													{:else}
+														· MARKET
+													{/if}
+												</span>
+												<button
+													onclick={(e) => { e.stopPropagation(); cancelPendingSwap(trade.id, pending.id); }}
+													disabled={cancellingSwapIds.has(pending.id)}
+													class="ml-1 shrink-0 cursor-pointer rounded border border-yel/40 bg-yel/10 px-1.5 py-0.5 text-[10px] font-medium text-yel transition-all hover:bg-yel/20 disabled:opacity-50"
+												>
+													{cancellingSwapIds.has(pending.id) ? '…' : 'Cancel'}
+												</button>
+											</div>
+										{:else}
+											<div class="flex items-center gap-1.5 rounded-lg bg-red/8 px-2.5 py-1.5">
+												<span class="text-[11px] font-bold text-red">SELL</span>
+												<span class="text-[13px] font-bold text-red">{Math.round(pending.pct)}%</span>
+												<button
+													onclick={(e) => { e.stopPropagation(); cancelPendingSwap(trade.id, pending.id); }}
+													disabled={cancellingSwapIds.has(pending.id)}
+													class="ml-1 shrink-0 cursor-pointer rounded border border-yel/40 bg-yel/10 px-1.5 py-0.5 text-[10px] font-medium text-yel transition-all hover:bg-yel/20 disabled:opacity-50"
+												>
+													{cancellingSwapIds.has(pending.id) ? '…' : 'Cancel'}
+												</button>
+											</div>
+										{/if}
+									{/each}
 								{/if}
 								</div>
 							{/if}
@@ -778,12 +852,6 @@
 							<button onclick={() => openSellModal(trade as ActiveTrade)} class="btn-danger-outline px-3 py-1.5 text-xs">Sell</button>
 							{:else if activeTab === 'pending'}
 								<button onclick={() => (selectedTrade = trade)} class="btn-secondary px-3 py-1.5 text-xs">Details</button>
-								<button
-									onclick={() => abortTrade(trade.id)}
-									class="cursor-pointer rounded-lg border border-yel/40 bg-yel/10 px-3 py-1.5 text-xs font-medium text-yel transition-all hover:bg-yel/20"
-								>
-									Cancel
-								</button>
 							{:else}
 								<button onclick={() => (selectedTrade = trade)} class="btn-secondary px-3 py-1.5 text-xs">
 									View

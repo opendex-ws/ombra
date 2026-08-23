@@ -961,7 +961,7 @@ export async function quickSell(chain: Chain, tokenAddress: string, pct: number)
   }
 }
 
-export async function abortTrade(tradeId: number) {
+export async function cancelSwap(tradeId: number, swapId: number) {
   tradeError = null;
   const trade = activeTrades.find(t => t.id === tradeId);
   if (!trade) {
@@ -971,12 +971,14 @@ export async function abortTrade(tradeId: number) {
   try {
     const { error } = await api.POST('/v2/trade/{chain}/{token}/cancel', {
       params: { path: { chain: trade.chain, token: trade.tokenAddress } },
-      body: { mode: 'PENDING' }
+      body: { swapId }
     });
-    if (error) throw new Error((error as ErrorResponse)?.message ?? 'Abort failed');
-    await fetchActiveTrades();
+    if (error) throw new Error((error as ErrorResponse)?.message ?? 'Cancel failed');
+    // Cancellation is asynchronous; the resulting pendingSwaps state arrives via
+    // the USER_TRADE_UPDATE (TRADE_ABORT_CONFIRMED) frame. An immediate REST
+    // refetch would race that frame and re-add the just-cancelled swap.
   } catch (e: unknown) {
-    tradeError = e instanceof Error ? e.message : 'Abort failed';
+    tradeError = e instanceof Error ? e.message : 'Cancel failed';
   }
 }
 
@@ -990,10 +992,12 @@ export async function dismissTrade(tradeId: number) {
   try {
     const { error } = await api.POST('/v2/trade/{chain}/{token}/cancel', {
       params: { path: { chain: trade.chain, token: trade.tokenAddress } },
-      body: { mode: 'TRACKING' }
+      body: { tradeId }
     });
     if (error) throw new Error((error as ErrorResponse)?.message ?? 'Dismiss failed');
-    await fetchActiveTrades();
+    // Abort + tracking stop is asynchronous; the trade removal arrives via the
+    // USER_TRADE_UPDATE frame (removedTradeIds / status change). An immediate
+    // REST refetch would race that and could momentarily restore the trade.
   } catch (e: unknown) {
     tradeError = e instanceof Error ? e.message : 'Dismiss failed';
   }

@@ -18,7 +18,7 @@
 	import { getIsLoggedIn } from '$lib/stores/auth.svelte';
 	import { connectWallet, getIsConnecting, isPhantomInstalled, getAuthToken } from '$lib/stores/auth.svelte';
 	import { authenticate } from '$lib/ws/client';
-	import { formatUsd, fmtVal, formatCompactNumber } from '$lib/utils/format';
+	import { formatUsd, fmtVal, formatCompactNumber, formatPriceText } from '$lib/utils/format';
 	import { isUsd } from '$lib/stores/currency.svelte';
 	import {
 		getActiveTradeTab, setActiveTradeTab, getOrderType, setOrderType,
@@ -508,7 +508,7 @@
 					<div class="mb-1 flex items-center justify-between">
 						<span class="text-[10px] font-semibold uppercase tracking-wider text-g6">Limit Price (USD)</span>
 						{#if currentPriceUsd > 0}
-							<button onclick={() => { setLimitPrice(String(currentPriceUsd)); limitPctOffset = 0; }} class="cursor-pointer text-[10px] text-grn hover:text-grn-dim">Current: ${currentPriceUsd < 0.01 ? currentPriceUsd.toPrecision(4) : currentPriceUsd.toFixed(4)}</button>
+							<button onclick={() => { setLimitPrice(String(currentPriceUsd)); limitPctOffset = 0; }} class="cursor-pointer text-[10px] text-grn hover:text-grn-dim">Current: {formatPriceText(currentPriceUsd)}</button>
 						{/if}
 					</div>
 					<input
@@ -712,7 +712,7 @@
 				{:else if getOrderType() === 'DIP'}
 					<span class="inline-flex items-center gap-1">Dip Buy {#if isUsd()}${getBuyAmount()}{:else}{getBuyAmount()} <ChainIcon chain={chain} class="h-4 w-4" />{/if} at -{getDipPercent()}%</span>
 				{:else if getOrderType() === 'LIMIT'}
-					<span class="inline-flex items-center gap-1">Limit Buy {#if isUsd()}${getBuyAmount()}{:else}{getBuyAmount()} <ChainIcon chain={chain} class="h-4 w-4" />{/if} at ${getLimitPrice() || '?'}</span>
+					<span class="inline-flex items-center gap-1">Limit Buy {#if isUsd()}${getBuyAmount()}{:else}{getBuyAmount()} <ChainIcon chain={chain} class="h-4 w-4" />{/if} at {getLimitPrice() ? formatPriceText(getLimitPrice()) : '$?'}</span>
 				{:else}
 					<span class="inline-flex items-center gap-1">Buy {#if isUsd()}${getBuyAmount()}{:else}{getBuyAmount()} <ChainIcon chain={chain} class="h-4 w-4" />{/if}</span>
 				{/if}

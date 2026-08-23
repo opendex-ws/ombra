@@ -195,7 +195,7 @@ export interface paths {
         put?: never;
         /**
          * Create or update a bot
-         * @description Creates or updates the authenticated user's bot identified by the submitted source. Use source types CALLER, TG, LIST, or WALLET and `chainConfigs` keyed by ETH, SOL, BASE, or BSC. Returns the resulting bot. Bearer authentication is required.
+         * @description Creates or updates the authenticated user's bot identified by the submitted source. Use source types CALLER, TG, LIST, or WALLET and `chainConfigs` keyed by SOL. Returns the resulting bot. Bearer authentication is required.
          */
         post: operations["bots_create"];
         delete?: never;
@@ -337,7 +337,7 @@ export interface paths {
         };
         /**
          * List a bot's activity logs
-         * @description Returns the bot’s activity logs in reverse chronological order as a cursor-paginated list. Omit cursor for the first page, then pass the response’s `nextCursor` value to retrieve later pages. If limit is omitted, 20 entries are returned; values must be from 1 through 100. Bearer-token authentication is required.
+         * @description Returns the bot’s activity logs in reverse chronological order as a cursor-paginated list. If limit is omitted, 20 entries are returned; values must be from 1 through 100. Bearer-token authentication is required.
          */
         get: operations["bots_get_logs"];
         put?: never;
@@ -623,7 +623,7 @@ export interface paths {
         put?: never;
         /**
          * Withdraw cashback earnings
-         * @description Requires a bearer JWT. Requests withdrawal of the authenticated user's cashback on ETH, SOL, BASE, or BSC to an authorized wallet. On success, returns a signed coupon for separate on-chain redemption; it does not submit the transfer itself.
+         * @description Requires a bearer JWT. Requests withdrawal of the authenticated user's cashback on SOL to an authorized wallet. On success, returns a signed coupon for separate on-chain redemption; it does not submit the transfer itself.
          */
         post: operations["referral_cashback"];
         delete?: never;
@@ -770,6 +770,57 @@ export interface paths {
          * @description Issues a signed coupon for withdrawing affiliate commission to a wallet the caller owns. Redeem the coupon on chain yourself: this endpoint does not submit or confirm any transaction. The amount is in the token's smallest unit and the coupon expires at its deadline.
          */
         post: operations["referral_withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/referral/withdrawal-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get managed Solana affiliate fee withdrawal balances */
+        get: operations["referral_withdrawal_summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/referral/withdrawals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw managed Solana affiliate SOL and USDC fees */
+        post: operations["referral_create_withdrawal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/referral/withdrawals/{idempotencyKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a managed affiliate fee withdrawal by idempotency key */
+        get: operations["referral_get_withdrawal"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1005,7 +1056,7 @@ export interface paths {
         };
         /**
          * Batch lookup multiple tokens
-         * @description Batch-resolves token or pair addresses across ETH, SOL, BASE, and BSC. Submit zero or more repeated `lookup=CHAIN:ADDRESS` query values; authentication is optional.
+         * @description Batch-resolves token or pair addresses across SOL. Submit zero or more repeated `lookup=CHAIN:ADDRESS` query values; authentication is optional.
          */
         get: operations["token_multi"];
         put?: never;
@@ -1025,7 +1076,7 @@ export interface paths {
         };
         /**
          * Get native token USD prices
-         * @description Returns the latest available USD prices for supported native tokens. The `prices` object is keyed by `ETH`, `SOL`, `BASE`, and `BSC`; chains without an available price are omitted.
+         * @description Returns the latest available USD prices for supported native tokens. The `prices` object is keyed by `SOL`; chains without an available price are omitted.
          */
         get: operations["token_native_prices"];
         put?: never;
@@ -1426,8 +1477,8 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Cancel a token-scoped trade. `PENDING` aborts pending/submitted swaps, `TRACKING` stops tracking without selling, and an omitted mode aborts pending/submitted swaps then stops tracking. Results are delivered asynchronously via Trading WebSocket updates.
-         * @description Requires bearer authentication. Cancels the authenticated user’s active trade for the specified chain and token. Use `PENDING` to abort pending or submitted swaps, `TRACKING` to stop tracking without selling, or `{}` to perform both actions. HTTP 200 confirms acceptance only; observe authenticated WebSocket updates for completion or failure.
+         * Cancel by id: `swapId` aborts one pending swap, `tradeId` aborts all pending swaps and removes the trade from the engine. Results are delivered asynchronously via Trading WebSocket updates.
+         * @description Requires bearer authentication. Cancels by id: send `swapId` to abort one pending swap, or `tradeId` to abort all pending swaps and remove the trade from the engine. HTTP 200 confirms acceptance only; observe authenticated WebSocket updates for completion or failure.
          */
         post: operations["trade_cancel"];
         delete?: never;
@@ -1445,7 +1496,7 @@ export interface paths {
         };
         /**
          * List completed trades for token
-         * @description Requires bearer authentication. Returns the authenticated user's completed trades for the specified chain and token in a cursor-paginated list. Omit `cursor` for the first page; for subsequent pages, pass a returned `nextCursor` or `prevCursor` unchanged. Each page contains up to 20 trades.
+         * @description Requires bearer authentication. Returns the authenticated user's completed trades for the specified chain and token in a cursor-paginated list. Each page contains up to 20 trades.
          */
         get: operations["trade_list_token_completed"];
         put?: never;
@@ -1565,7 +1616,7 @@ export interface paths {
         };
         /**
          * Get trader ranking
-         * @description Public leaderboard of traders for a chain and time range, best first. Optional filters narrow it by PnL, win rate, trade counts, and how recently the trader last swapped.
+         * @description Public leaderboard of traders for a chain and time range, ordered by the selected period’s PnL in USD, highest first (wallet address breaks ties). Optional filters narrow it by PnL, win rate, trade counts, and how recently the trader last swapped.
          */
         get: operations["traders_ranking"];
         put?: never;
@@ -1645,7 +1696,7 @@ export interface paths {
         };
         /**
          * Get trader swaps
-         * @description Returns the selected wallet’s swap history on `ETH`, `SOL`, `BASE`, or `BSC`, ordered newest first in pages of up to 20 records. Omit `cursor` for the first page, then pass returned cursors unchanged to navigate; authentication is not required.
+         * @description Returns the selected wallet’s swap history on `SOL`, ordered newest first in pages of up to 20 records.
          */
         get: operations["traders_swaps"];
         put?: never;
@@ -2018,7 +2069,7 @@ export interface paths {
         };
         /**
          * Get your trade statistics by chain
-         * @description Requires bearer authentication. Returns a snapshot of your aggregated trade statistics grouped by chain (`ETH`, `SOL`, `BASE`, and `BSC`) and up to 50 of your most recent confirmed swaps.
+         * @description Requires bearer authentication. Returns a snapshot of your aggregated trade statistics grouped by chain (`SOL`) and up to 50 of your most recent confirmed swaps.
          */
         get: operations["user_get_stats"];
         put?: never;
@@ -2078,7 +2129,7 @@ export interface paths {
         };
         /**
          * Get authenticated user wallets with assets
-         * @description Requires a Bearer JWT. Returns the authenticated user's application-managed wallets grouped by supported chain (`ETH`, `SOL`, `BASE`, or `BSC`), connected wallets, and the combined USD value of all returned assets.
+         * @description Requires a Bearer JWT. Returns the authenticated user's application-managed wallets grouped by supported chain (`SOL`), connected wallets, and the combined USD value of all returned assets.
          */
         get: operations["user_get_wallets"];
         put?: never;
@@ -2282,7 +2333,7 @@ export interface paths {
         };
         /**
          * Authenticated wallet-source feed
-         * @description Requires a bearer token. Returns up to 20 newest-first token-call rows from wallets tracked by the authenticated user. Optional query parameters filter by caller or source ID, chain, swap direction, current USD price, post-call ATH multiplier, or current USD market capitalization. Omit `cursor` for the first page and pass the returned `nextCursor` as `cursor` for the next page.
+         * @description Requires a bearer token. Returns up to 20 newest-first token-call rows from wallets tracked by the authenticated user. Optional query parameters filter by caller or source ID, chain, swap direction, current USD price, post-call ATH multiplier, or current USD market capitalization.
          */
         get: operations["get_wallets_feed"];
         put?: never;
@@ -2716,7 +2767,7 @@ export interface paths {
         };
         /**
          * Caller ranking (public)
-         * @description Returns a cursor-paginated performance ranking of public callers for the selected timeframe. Optional filters limit results by win rate, total calls, or performance score; `rankBy` and `orderBy` select the ranking metric and sort direction. Authentication is not required.
+         * @description Returns a cursor-paginated performance ranking of public callers for the selected timeframe. No authentication is required; a bearer token is accepted but does not change the result. Optional filters limit results by win rate, total calls, and performance score.
          */
         get: operations["get_caller_ranking"];
         put?: never;
@@ -2796,7 +2847,7 @@ export interface paths {
         };
         /**
          * `GET /v2/watchlist/ranking/{source}/{id}` — ranking for one source id.
-         * @description Returns the first ranking page for the selected source and timeframe. Use `callers` for public caller rankings, or `tg`, `lists`, and `wallets` for authenticated Telegram-filter, saved-list, and tracked-wallet rankings. `timeframe` accepts `1d`, `3d`, `7d`, or `30d` and defaults to `30d`.
+         * @description Returns the first ranking page for the selected source and timeframe. `callers` is public. `tg`, `lists`, and `wallets` require a bearer token (401 without one), and the id must identify an active source owned by the caller (404 otherwise).
          */
         get: operations["get_ranking_by_id"];
         put?: never;
@@ -2959,15 +3010,17 @@ export interface components {
              * @enum {string}
              */
             action: "ABORT_ALL";
-            /** @description Details of the cancel-all request. The `request` member is the empty object `{}`, representing the no-mode cancel form. */
+            /** @description Details of the cancel-by-trade request. The `request` member echoes the submitted `tradeId`. */
             detail: components["schemas"]["AbortAllExecutionDetail"];
             /** @description IDs of the pending or submitted swaps selected for the abort-all operation in the matched active trade. This server-selected array may be empty when no such swaps are available; it is not a caller-supplied filter. */
             swapIds: components["schemas"]["SwapId"][];
         };
-        /** @description Details echoed in an abort-all response. The required `request` member is an empty object because this cancellation mode has no configurable fields. */
+        /** @description Details echoed in an abort-all response. The `request` member echoes the accepted cancel body, including the targeted `tradeId`. */
         AbortAllExecutionDetail: {
-            /** @description Echo of the abort-all request body, which is always empty. */
-            request: Record<string, never>;
+            /** @description Echo of the accepted cancel body, identifying the targeted trade. */
+            request: {
+                tradeId: components["schemas"]["TradeId"];
+            };
         };
         /** @description Response returned when a cancel request aborts all pending swaps. It includes the accepted `ABORT_ALL` execution and the IDs of swaps selected for abortion; the abort and tracking cancellation continue asynchronously. */
         AbortAllTradeResponse: components["schemas"]["AbortAllExecution"];
@@ -2980,17 +3033,15 @@ export interface components {
             action: "ABORT";
             /** @description Details accompanying the abort request. See `AbortExecutionDetail` for the accepted structure and values. */
             detail: components["schemas"]["AbortExecutionDetail"];
-            /** @description Swap IDs selected for the accepted `ABORT` action. This array is always present and may be empty. An explicit `detail.request.swapId` selects one cancellable pending or submitted swap; omitting it selects all cancellable pending or submitted swaps for the trade. The IDs describe the requested scope, not completed aborts; completion or failure is reported asynchronously. An explicit ID that is not currently cancellable is rejected with HTTP 400 instead of returning this execution. */
+            /** @description Swap IDs selected for the accepted `ABORT` action. For a cancel-by-swap request this contains the requested `swapId`. The IDs describe the requested scope, not completed aborts; completion or failure is reported asynchronously. */
             swapIds: components["schemas"]["SwapId"][];
         };
-        /** @description Parameters identifying a pending cancellation request, including its cancellation mode and an optional swap to target. */
+        /** @description Parameters identifying a pending cancellation request: the targeted swap. */
         AbortExecutionDetail: {
             /** @description Echo of the accepted cancellation request. It does not confirm that cancellation finished. */
             request: {
-                /** @description Cancellation mode. The only accepted value is `PENDING`. */
-                mode: components["schemas"]["PendingCancelMode"];
-                /** @description Integer identifier of a specific cancellable pending or submitted swap. Omit it or set it to `null` to abort all cancellable pending or submitted swaps; an identifier that is not cancellable for the active trade is rejected. When the request is echoed without a specific identifier, this field is omitted. */
-                swapId?: null | components["schemas"]["SwapId"];
+                /** @description Integer identifier of the cancellable pending or submitted swap targeted by the request. An identifier that is not cancellable for the trade is rejected. */
+                swapId: components["schemas"]["SwapId"];
             };
         };
         /** @description Response returned when a pending trade-abort request is accepted. It includes an active-trade snapshot and an execution record for the asynchronous abort. */
@@ -3133,10 +3184,79 @@ export interface components {
             trade: components["schemas"]["ActiveTrade"];
         };
         /**
-         * @description Address on the relevant chain: a base58-encoded Solana address of up to 44 characters that decodes to exactly 32 bytes, or an EVM address with a lowercase `0x` prefix followed by exactly 40 hexadecimal characters.
+         * @description Address on the relevant chain: a base58-encoded Solana address of up to 44 characters that decodes to exactly 32 bytes.
          * @example So11111111111111111111111111111111111111112
          */
         Address: string;
+        /** @description One asset's available and reserved affiliate fee balance. */
+        AffiliateFeeAssetBalance: {
+            /** @description Smallest-unit amount currently withdrawable. */
+            availableAtomic: string;
+            /** @description Human-readable available amount. */
+            availableDisplay: string;
+            /**
+             * Format: int32
+             * @description Token decimals used for display.
+             */
+            decimals: number;
+            /** @description Smallest-unit amount already reserved by an active coupon. */
+            reservedAtomic: string;
+            /** @description Human-readable reserved amount. */
+            reservedDisplay: string;
+            /** @description Token mint or legacy zero-address representation from FeeBalance. */
+            tokenAddress: string;
+        };
+        /** @description One reserved coupon leg on a managed withdrawal request. */
+        AffiliateWithdrawalLeg: {
+            /** @description Smallest-unit claimed amount. */
+            amountAtomic: string;
+            /** @description Human-readable claimed amount. */
+            amountDisplay: string;
+            /**
+             * Format: uuid
+             * @description FeeCoupon id.
+             */
+            couponId: string;
+            /** @description CouponStatus text. */
+            couponStatus: string;
+            /** @description Token mint copied from FeeBalance. */
+            tokenAddress: string;
+        };
+        /** @description Result of POST /v2/referral/withdrawals or GET by idempotency key. */
+        AffiliateWithdrawalResponse: {
+            /** Format: int64 */
+            availableLamports?: number | null;
+            explorerUrl?: string | null;
+            failureCode?: string | null;
+            failureMessage?: string | null;
+            idempotencyKey: string;
+            recipient: string;
+            /** Format: int64 */
+            requiredLamports?: number | null;
+            sol?: null | components["schemas"]["AffiliateWithdrawalLeg"];
+            /** @description Request-level status. Not success merely because Engine accepted the RPC. */
+            status: string;
+            transactionSignature?: string | null;
+            usdc?: null | components["schemas"]["AffiliateWithdrawalLeg"];
+        };
+        /** @description Combined affiliate SOL and USDC balances for the managed wallet. */
+        AffiliateWithdrawalSummaryResponse: {
+            /** Format: int64 */
+            availableLamports: number;
+            explorerUrl?: string | null;
+            hasEnoughSol: boolean;
+            /** @description Idempotency key of the active managed request, when one exists. */
+            pendingIdempotencyKey?: string | null;
+            /** @description Canonical managed Solana wallet address. */
+            recipient: string;
+            /** Format: int64 */
+            requiredLamports: number;
+            sol: components["schemas"]["AffiliateFeeAssetBalance"];
+            /** @description AVAILABLE, EMPTY, PENDING, SUBMITTED, LEGACY_WITHDRAWAL_PENDING, or INSUFFICIENT_SOL. */
+            status: string;
+            transactionSignature?: string | null;
+            usdc: components["schemas"]["AffiliateFeeAssetBalance"];
+        };
         /**
          * @description Authentication challenge method. The only supported value is `web3`.
          * @enum {string}
@@ -3144,9 +3264,9 @@ export interface components {
         AuthChallengeMethod: "web3";
         /** @description Response containing the server-generated data needed to complete a Web3 wallet sign-in challenge. */
         AuthChallengeResponse: {
-            /** @description Normalized wallet address associated with the challenge. The signature must authenticate this address; EVM addresses are lowercase, while Solana addresses retain their base58 form. */
+            /** @description Normalized wallet address associated with the challenge. The signature must authenticate this address; Solana addresses retain their base58 form. */
             address: string;
-            /** @description Canonical decimal chain identifier, returned as a string: `1` for Ethereum, `900` for Solana, `8453` for Base, or `56` for BSC. Use the same identifier when completing Web3 sign-in. */
+            /** @description Canonical decimal chain identifier, returned as a string: `900` for Solana. Use the same identifier when completing Web3 sign-in. */
             chainId: string;
             /** @description Identifier for the stored, one-time Web3 challenge, when provided. Send it unchanged as `web3.challengeId` when completing the challenge; omission or `null` means no separate identifier was returned. */
             challengeId?: string | null;
@@ -3177,7 +3297,7 @@ export interface components {
         AuthChallengeWeb3OnlyRequest: {
             /** @description Must be `web3` to select wallet-signature challenge authentication. Partner JWT sign-in uses `AuthSigninRequest` instead. */
             method: components["schemas"]["AuthChallengeMethod"];
-            /** @description Wallet details for the Web3 challenge. Provide a valid `address`, a `chain` of `ETH`, `SOL`, `BASE`, or `BSC`, and a matching `signatureProtocol`: `evm_personal_sign` for EVM chains, or `solana_legacy` or `solana_siws` for `SOL`. `chainId` may be omitted; it defaults to the selected chain's ID (`1`, `900`, `8453`, or `56`). If provided, it must match the selected chain or the request is rejected. `domain` may be omitted. A non-empty request `Origin` takes precedence, followed by the supplied `domain`, then `Host`; the request is rejected if no domain is available. */
+            /** @description Wallet details for the Web3 challenge. Provide a valid `address`, a `chain` of `SOL`, and a `signatureProtocol` of `solana_legacy` or `solana_siws`. `chainId` may be omitted; it defaults to `900`. If provided, it must match the selected chain or the request is rejected. `domain` may be omitted. A non-empty request `Origin` takes precedence, followed by the supplied `domain`, then `Host`; the request is rejected if no domain is available. */
             web3: components["schemas"]["AuthChallengeWeb3Request"];
         };
         /** @description Wallet, network, and signature-protocol information used to request a Web3 authentication challenge. */
@@ -3186,7 +3306,7 @@ export interface components {
             address: string;
             /** @description Chain on which the wallet address exists. */
             chain: components["schemas"]["Chain"];
-            /** @description Optional chain identifier as a string. Omit it or set it to `null` to use the selected chain's default ID: `1` for `ETH`, `900` for `SOL`, `8453` for `BASE`, or `56` for `BSC`. When supplied, the value is trimmed and must parse to the selected chain's ID. */
+            /** @description Optional chain identifier as a string. Omit it or set it to `null` to use the default ID `900`. When supplied, the value is trimmed and must parse to the selected chain's ID. */
             chainId?: string | null;
             /** @description Optional domain or host associated with the challenge. A nonblank `Origin` header takes precedence. Otherwise, a nonblank value here is used; if neither is available, the request `Host` is used. The selected value is trimmed, trailing slashes are removed, URL hosts are extracted, and the result is lowercased. The request is rejected if no usable domain is available. */
             domain?: string | null;
@@ -3239,6 +3359,13 @@ export interface components {
              * @description Unique UUID identifying the bot.
              */
             id: string;
+            /**
+             * @description Start of the lifetime-spend window. Present only when a lifetime
+             *     budget is configured; defaults to the bot's creation time until reset.
+             */
+            lifetimeSince?: components["schemas"]["ReadableTimestamp"];
+            /** @description The bot's configured execution limits. Omitted when no limit is set. */
+            limits?: components["schemas"]["BotLimits"];
             /** @description What the bot follows: a caller, a Telegram chat, a list, or a wallet. */
             source: components["schemas"]["WatchlistSourceIdentity"];
             /** @description Trading performance of this bot. */
@@ -3493,6 +3620,42 @@ export interface components {
             /** @description Trading slot the bot executes from. It must be a slot the authenticated user is authorized for. */
             walletAddress: components["schemas"]["Address"];
         };
+        /**
+         * @description Per-bot execution limits. Every field is optional; an absent or `null`
+         *     field applies no limit for that dimension. A signal fires a buy only when
+         *     every configured limit passes; skipped signals are written to the bot's
+         *     logs with the limiting dimension and the current numbers.
+         */
+        BotLimits: {
+            /**
+             * Format: int32
+             * @description Minimum seconds between this bot's buys, from 1 through 604800 (7 days).
+             */
+            cooldownSecs?: number;
+            /**
+             * @description Rolling 24-hour buy-notional budget in USD. Counts committed buys
+             *     (pending, submitted, and confirmed); aborted and failed buys do not
+             *     count.
+             */
+            dailySpendUsd?: number;
+            /**
+             * @description Total buy-notional budget in USD measured since `lifetimeSince`.
+             *     Reset the window with `resetLifetimeSpend` on update.
+             */
+            lifetimeSpendUsd?: number;
+            /**
+             * @description Maximum open exposure in USD: the buy cost basis of the bot's
+             *     currently open positions.
+             */
+            maxExposureUsd?: number;
+            /**
+             * Format: int32
+             * @description Maximum concurrent bot positions, from 1 through 1000. Counts every
+             *     bot-attributed trade that is not closed, failed, or cancelled —
+             *     including trades whose only buys are still pending.
+             */
+            maxOpenPositions?: number;
+        };
         /** @description A bot event record containing its category, outcome, message, and creation time. Chain, token, and `tradeId` identify related chain activity when applicable. */
         BotLog: {
             /**
@@ -3509,7 +3672,7 @@ export interface components {
              * @description Chain the event happened on. Omitted when it has none, such as a configuration change.
              * @enum {string}
              */
-            chain?: "ETH" | "SOL" | "BASE" | "BSC";
+            chain?: "SOL";
             /** @description When the entry was recorded. */
             createdAt: components["schemas"]["ReadableTimestamp"];
             /** @description Opaque identifier of the log entry. Treat it as text. */
@@ -3629,7 +3792,7 @@ export interface components {
         /** @description Optional parameters for the authenticated global bot balance-change WebSocket feed, including filters, page size, and cursor controls. */
         BotsBalanceChangesLivecursorParams: {
             /** @description Return only balance changes on this chain. Omit it for every chain. */
-            chain?: ("ETH" | "SOL" | "BASE" | "BSC") | null;
+            chain?: "SOL" | null;
             /** @description End of the window. Omit it to start from the newest page. On its own it does not leave live mode. */
             endCursor?: string | null;
             /** @description Maximum balance changes per page. Defaults to 20 and is capped at 100. */
@@ -3641,7 +3804,7 @@ export interface components {
         };
         /** @description Pagination and filter settings for the bots page's balance-changes section. */
         BotsBalanceChangesPageSource: {
-            /** @description Filter balance changes by chain. Use ETH, SOL, BASE, or BSC; omit or set to `null` to apply no chain filter. */
+            /** @description Filter balance changes by chain. Use SOL; omit or set to `null` to apply no chain filter. */
             chain?: null | components["schemas"]["Chain"];
             /** @description Page to fetch. Omit it to start at the newest entries. */
             cursor?: string | null;
@@ -3655,7 +3818,7 @@ export interface components {
         };
         /** @description Optional pagination and filter parameters for listing the user's bots. */
         BotsListPageSource: {
-            /** @description Filters bots by chain. Accepted values are ETH, SOL, BASE, and BSC; `null` or omission applies no chain filter. */
+            /** @description Filters bots by chain. Accepted values are SOL; `null` or omission applies no chain filter. */
             chain?: null | components["schemas"]["Chain"];
             /** @description Opaque cursor identifying the position after which to continue the bots page. Null or omission starts from the beginning; an invalid cursor is rejected. */
             cursor?: string | null;
@@ -3688,7 +3851,7 @@ export interface components {
             /** @description Return only logs in this category. Omit it for every category. */
             category?: ("CONFIG" | "SOURCE_EVENT" | "EXECUTION" | "SYSTEM") | null;
             /** @description Return only logs from this chain. Omit it for every chain. */
-            chain?: ("ETH" | "SOL" | "BASE" | "BSC") | null;
+            chain?: "SOL" | null;
             /** @description End of the window. Omit it to start from the newest logs. */
             endCursor?: string | null;
             /** @description Maximum log entries per page. Defaults to 20 and is capped at 100. */
@@ -3978,46 +4141,20 @@ export interface components {
         CallerSource: "CALLER" | "TG" | "LIST" | "WALLET";
         /** @description Identifies a caller source by its ID and display name, with an optional photo ID. `photoId` is `null` when no photo is available. */
         CallerSourceIdentity: components["schemas"]["WatchlistSourceBase"];
-        /** @description An empty request object that selects cancellation of all currently pending or submitted swaps in the authenticated user’s active trade. Send `{}`; no configurable fields are supported. */
-        CancelAllRequest: Record<string, never>;
-        /** @description Execution returned for a tracking-only cancellation. It indicates that trade tracking was requested to stop; `swapIds` is an empty array because no swaps are aborted. */
-        CancelExecution: {
-            /**
-             * @description Always `CANCEL`, indicating that this execution represents a cancellation.
-             * @enum {string}
-             */
-            action: "CANCEL";
-            /** @description Details the cancellation request that produced this execution result, including its cancellation mode. */
-            detail: components["schemas"]["CancelExecutionDetail"];
-            /** @description IDs of the swaps affected by the cancellation. Each ID is a 64-bit integer. */
-            swapIds: components["schemas"]["SwapId"][];
+        /** @description Cancels a trade by id: aborts every currently pending or submitted swap on the trade, then removes the trade from the engine. */
+        CancelAllRequest: {
+            /** @description The trade to cancel. Take the id from the active trade list. */
+            tradeId: components["schemas"]["TradeId"];
         };
-        /** @description Details the cancellation request associated with a cancellation execution, including its cancellation mode. */
-        CancelExecutionDetail: {
-            /** @description Details the tracking-cancellation request. Its mode is `TRACKING`, which stops tracking the trade. */
-            request: {
-                /** @description Cancellation mode. `TRACKING` indicates that the request concerns tracking trades. */
-                mode: components["schemas"]["TrackingCancelMode"];
-            };
-        };
-        /** @description Requests cancellation of pending or submitted swaps. Set `mode` to `PENDING`. Provide `swapId` to target one cancellable swap, or omit it or set it to `null` to target all cancellable pending or submitted swaps in the active trade. */
+        /** @description Requests cancellation of one pending or submitted swap, identified by `swapId`. The owning trade is resolved from the swap, so the request stays unambiguous when a token carries several active trades. */
         CancelPendingRequest: {
-            /** @description Cancellation mode for pending trades. Must be set to `PENDING`. */
-            mode: components["schemas"]["PendingCancelMode"];
-            /** @description Swap to cancel. Omit it to target every cancellable pending or submitted swap in the trade. */
-            swapId?: null | components["schemas"]["SwapId"];
+            /** @description The pending or submitted swap to cancel. The owning trade keeps tracking. */
+            swapId: components["schemas"]["SwapId"];
         };
-        /** @description Requests cancellation of tracking trades. Set `mode` to `TRACKING`. */
-        CancelTrackingRequest: {
-            /** @description Set this field to `TRACKING` to cancel tracking trades. */
-            mode: components["schemas"]["TrackingCancelMode"];
-        };
-        /** @description Result of stopping trade tracking. The action is `CANCEL`, `detail` echoes the tracking request, and `swapIds` is currently always an empty array because this operation does not cancel swaps. */
-        CancelTrackingTradeResponse: components["schemas"]["CancelExecution"];
-        /** @description Selects how to cancel the authenticated user’s active trade for the requested chain and token: cancel pending swaps, stop tracking, or do both. */
-        CancelTradeRequest: components["schemas"]["CancelPendingRequest"] | components["schemas"]["CancelTrackingRequest"] | components["schemas"]["CancelAllRequest"];
-        /** @description Response for a trade-cancellation request. The response shape depends on the request mode: `PENDING` returns the trade with an `ABORT` execution, `TRACKING` returns a `CANCEL` execution, and an omitted mode returns an `ABORT_ALL` execution. */
-        CancelTradeResponse: components["schemas"]["AbortTradeResponse"] | components["schemas"]["CancelTrackingTradeResponse"] | components["schemas"]["AbortAllTradeResponse"];
+        /** @description Cancel request, addressed by id. Send exactly one of `swapId` (cancel one pending swap) or `tradeId` (abort all pending swaps, then remove the trade from the engine). */
+        CancelTradeRequest: components["schemas"]["CancelPendingRequest"] | components["schemas"]["CancelAllRequest"];
+        /** @description Response for a trade-cancellation request. The shape follows the request form: `swapId` returns the trade with an `ABORT` execution; `tradeId` returns an `ABORT_ALL` execution. */
+        CancelTradeResponse: components["schemas"]["AbortTradeResponse"] | components["schemas"]["AbortAllTradeResponse"];
         /**
          * @description Time interval represented by each OHLCV candle. Accepted values are `1s`, `5s`, `15s`, `30s`, `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `6h`, `12h`, and `24h`.
          * @enum {string}
@@ -4087,10 +4224,10 @@ export interface components {
             timeframe: "1s" | "5s" | "15s" | "30s" | "1m" | "5m" | "15m" | "30m" | "1h" | "4h" | "6h" | "12h" | "24h";
         };
         /**
-         * @description Chain associated with the resource. Accepted values are ETH, SOL, BASE, and BSC.
+         * @description Chain associated with the resource. Accepted values are SOL.
          * @enum {string}
          */
-        Chain: "ETH" | "SOL" | "BASE" | "BSC";
+        Chain: "SOL";
         /** @description Per-chain summary of the authenticated user's affiliate commission revenue. */
         ChainCommissionSummary: {
             /** @description Affiliate commission earned on this chain across all time, in USD. */
@@ -4099,10 +4236,10 @@ export interface components {
              * @description Chain this summary covers.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
         };
         /** @enum {string} */
-        ChainMeta: "ETH" | "SOL" | "BASE" | "BSC";
+        ChainMeta: "SOL";
         /** @description Signed percentage change relative to a baseline: 50 means a 50% increase, -25 means a 25% decrease, and 0 means no change. */
         ChangePercent: number;
         /**
@@ -4272,7 +4409,7 @@ export interface components {
              * @description Chain the wallet is on.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Combined value of the wallet's assets, in USD. */
             totalValueUsd: number;
         };
@@ -4282,6 +4419,7 @@ export interface components {
             chainConfigs: {
                 [key: string]: components["schemas"]["BotChainConfigRequest"];
             };
+            limits: components["schemas"]["BotLimits"] | null;
             /** @description What the bot follows: a caller, a Telegram chat, a list, or a wallet. */
             source: {
                 /** @description Identifier of the caller source to follow. The source must belong to the authenticated user; an unknown or unauthorized identifier is rejected as not found. */
@@ -4326,13 +4464,13 @@ export interface components {
             /** @description Token criteria saved with the list, in the same shape returned on read. */
             tokenFilter: components["schemas"]["TokenFilter"];
         };
-        /** @description Wallet source to create in a bulk request. Provide a valid `walletAddress` for the selected chain, use ETH, SOL, BASE, or BSC for chain, and provide a name containing at least one non-whitespace character. */
+        /** @description Wallet source to create in a bulk request. Provide a valid `walletAddress` for the selected chain, use SOL for chain, and provide a name containing at least one non-whitespace character. */
         CreateWalletSourceBulkItem: {
-            /** @description Chain associated with the wallet address. Accepted values are ETH, SOL, BASE, and BSC. */
+            /** @description Chain associated with the wallet address. Accepted values are SOL. */
             chain: components["schemas"]["Chain"];
             /** @description Display name for the wallet source. It cannot be blank. */
             name: string;
-            /** @description Address of the wallet to track. It must be valid for `chain`, or the result is `INVALID`. EVM addresses are checksummed. */
+            /** @description Address of the wallet to track. It must be valid for `chain`, or the result is `INVALID`. */
             walletAddress: string;
         };
         /** @description Request to create 1–50 wallet sources. Each item is processed independently, and the response reports outcomes in input order, so a batch can include both successful and failed items. */
@@ -4374,7 +4512,7 @@ export interface components {
             chain: components["schemas"]["Chain"];
             /** @description Display name for the wallet source. It cannot be blank. */
             name: string;
-            /** @description Address of the wallet to track. It must be valid for `chain`. EVM addresses are returned in checksum form. */
+            /** @description Address of the wallet to track. It must be valid for `chain`. */
             walletAddress: string;
         };
         /** @description Cursor source for an active-trades or completed-trades page. Omit the cursor or set it to `null` for the first page; otherwise provide the opaque cursor returned by the corresponding list response. */
@@ -4430,10 +4568,10 @@ export interface components {
         /** @description Token associated with a developer address, including its chain, creation time, migration status, current market valuation, and all-time-high market data. */
         DevTokenItem: components["schemas"]["TokenMigrationSummary"] & components["schemas"]["TokenMarketValuation"] & components["schemas"]["TokenMarketAth"] & {
             /**
-             * @description Chain on which the token exists. One of ETH, SOL, BASE, or BSC.
+             * @description Chain on which the token exists. One of SOL.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Elapsed age of the token creation time, in whole seconds, measured when the response is serialized. It may differ between otherwise identical responses. */
             createdAtAgeSeconds: number;
             /** @description Token creation time as Unix epoch milliseconds. */
@@ -4771,9 +4909,9 @@ export interface components {
         GasPreset: "AUTO" | "LOW" | "MEDIUM" | "HIGH";
         /** @description Gas setting as one of the AUTO, LOW, MEDIUM, or HIGH presets, or a non-negative custom priority-fee amount in native-token units. */
         GasSetting: components["schemas"]["GasPreset"] | components["schemas"]["NativePriorityFee"];
-        /** @description Parameters for filtering and cursor-based pagination of an active or completed global bot trade feed. Filter by chain (ETH, SOL, BASE, or BSC) and source type (CALLER, TG, LIST, or WALLET). The limit ranges from 1 to 100 and defaults to 20. */
+        /** @description Parameters for filtering and cursor-based pagination of an active or completed global bot trade feed. Filter by chain (SOL) and source type (CALLER, TG, LIST, or WALLET). The limit ranges from 1 to 100 and defaults to 20. */
         GlobalBotTradesPageSource: {
-            /** @description Optional chain filter. Accepted values are ETH, SOL, BASE, and BSC. Null or omission applies no chain filter. */
+            /** @description Optional chain filter. Accepted values are SOL. Null or omission applies no chain filter. */
             chain?: null | components["schemas"]["Chain"];
             /** @description Page to fetch. Omit it to start at the newest. Cursors are not interchangeable between the active and completed feeds. */
             cursor?: string | null;
@@ -4925,12 +5063,12 @@ export interface components {
         };
         /** @description Maps each supported native asset or network symbol to its current price in USD. */
         NativePricesResponse: {
-            /** @description Maps `ETH`, `SOL`, `BASE`, or `BSC` to that native asset's current price in USD in numeric and exact-string forms. */
+            /** @description Maps `SOL` to that native asset's current price in USD in numeric and exact-string forms. */
             prices: {
                 [key: string]: components["schemas"]["NativePriceValue"];
             };
         };
-        /** @description Custom priority-fee or tip budget in the selected chain’s native-token units. The value must be non-negative, may use up to 12 decimal places, has no publicly defined maximum, and is not a cap on the transaction’s total fee. */
+        /** @description Custom priority fee in the chain's native-token units: non-negative, at most 12 decimal places, no enforced maximum. It sets the priority fee or tip, not a cap on the transaction's total fee. */
         NativePriorityFee: components["schemas"]["DecimalNumber"];
         /** @description Request to prepare a native SOL withdrawal from the authenticated user's managed Solana wallet to a destination address. */
         NativeWalletWithdrawRequest: {
@@ -4940,7 +5078,7 @@ export interface components {
              */
             amount: number;
             /**
-             * @description Chain for the withdrawal. Set this field to `SOL`; native withdrawals on `ETH`, `BASE`, and `BSC` are not implemented and return HTTP 501.
+             * @description Chain for the withdrawal. Set this field to `SOL`.
              * @example SOL
              */
             chain: components["schemas"]["Chain"];
@@ -5002,7 +5140,7 @@ export interface components {
             retryable: boolean;
         };
         /**
-         * @description Explains why a page source could not be provided: `unauthorized` means access was not authorized, `notFound` means the requested source or resource was not found, `dependencyUnavailable` means a required dependency was unavailable, `timeout` means the source operation timed out, and `internal` means another operational failure occurred.
+         * @description Why the page source failed: `unauthorized`, `notFound`, `dependencyUnavailable`, `timeout`, or `internal` (any other operational failure).
          * @enum {string}
          */
         PageSourceFailureReason: "unauthorized" | "notFound" | "dependencyUnavailable" | "timeout" | "internal";
@@ -5066,11 +5204,6 @@ export interface components {
         };
         /** @description Request body for partner JWT sign-in. Send an empty object because it has no client-supplied fields. */
         PartnerJwtSigninRequest: Record<string, never>;
-        /**
-         * @description Cancellation mode for aborting pending or submitted swap execution. The only accepted value is `PENDING`.
-         * @enum {string}
-         */
-        PendingCancelMode: "PENDING";
         /** @description Lifecycle state of a pending trade swap. The response shape depends on status: PENDING includes the creation time, while SUBMITTED also includes the submission time and may include a transaction hash. */
         PendingTradeSwapLifecycle: {
             /** @description Time when the pending swap was created, before it is submitted. */
@@ -5359,7 +5492,7 @@ export interface components {
              * @description Chain these fee rates apply to.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
         };
         /** @description The authenticated user's referral identifier and whether it is their username or a separate referral code. */
         ReferralCodeResponse: {
@@ -5374,7 +5507,7 @@ export interface components {
              * @description Chain this revenue was earned on.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Commission earned from this referred user across all time, in USD. */
             revenueUsd: number;
             /** @description Username of the referred user, or their user ID when unset. */
@@ -5395,7 +5528,7 @@ export interface components {
              * @description Chain the balance is on.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
         };
         /** @description Information about the user who referred the authenticated user, including their identifier, optional username, and available wallet addresses. */
         ReferrerResponse: {
@@ -5478,7 +5611,7 @@ export interface components {
              * @description Chain the reward was claimed on.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description 32-byte hash of the coupon body, as an array of bytes. */
             couponHash: number[];
             /**
@@ -5496,7 +5629,7 @@ export interface components {
              * @enum {string}
              */
             rewardType: "AFFILIATE" | "CASHBACK";
-            /** @description Coupon signature, as an array of bytes. 65 bytes on EVM, 64 on Solana. */
+            /** @description Coupon signature, as an array of 64 bytes. */
             signature: number[];
             /**
              * @description Address of the token the reward is paid in. Affiliate rewards use the chain's fee-balance token, cashback its peg token.
@@ -5578,9 +5711,9 @@ export interface components {
         ScannerListResponse: components["schemas"]["ScannerTokensSnapshot"] & components["schemas"]["CursorPagination"];
         /** @description Identifies a scanner lookup by selecting a chain and a token or trading-pair address. */
         ScannerLookupKey: {
-            /** @description Chain associated with the lookup address, such as SOL, ETH, BASE, or BSC. */
+            /** @description Chain associated with the lookup address, such as SOL. */
             chain: components["schemas"]["Chain"];
-            /** @description address of the token or trading pair to look up on the selected chain. Use a base58 Solana address for SOL, or a lowercase `0x`-prefixed 40-hex-character address for ETH, BASE, or BSC. An unmatched address produces no lookup item. */
+            /** @description address of the token or trading pair to look up on the selected chain. Use a base58 Solana address. An unmatched address produces no lookup item. */
             tokenOrPairAddress: components["schemas"]["Address"];
         };
         /** @description Requests scanner items by one or more token or trading-pair addresses. */
@@ -5650,7 +5783,7 @@ export interface components {
         };
         /** @description Text-based scanner search criteria with a required query and optional chain and metric-window filters. */
         ScannerQueryMode: {
-            /** @description Optional chain restriction for text search. Accepted values are `ETH`, `SOL`, `BASE`, and `BSC`; `null` or omission searches across all supported chains. */
+            /** @description Optional chain restriction for text search. Accepted values are `SOL`; `null` or omission searches across all supported chains. */
             chain?: null | components["schemas"]["Chain"];
             /** @description Text used to search for a token name, symbol, token address, or pair address. */
             query: string;
@@ -5661,11 +5794,11 @@ export interface components {
         ScannerSearchMode: components["schemas"]["ScannerQueryMode"] | components["schemas"]["ScannerLookupMode"];
         /** @description Optional parameters for scanner token or pair text searches and direct address lookups, including chain and metrics-timeframe filters and an opaque pagination cursor. */
         ScannerSearchQueryParams: {
-            /** @description Optional chain restriction for text searches. Accepted values are `ETH`, `SOL`, `BASE`, and `BSC`; `null` means no chain restriction. Ignored for lookup requests, which use the chain in each lookup key. */
+            /** @description Optional chain restriction for text searches. Accepted values are `SOL`; `null` means no chain restriction. Ignored for lookup requests, which use the chain in each lookup key. */
             chain?: null | components["schemas"]["Chain"];
             /** @description Opaque continuation cursor from a prior text-search response. Omit it for the first page; use the returned cursor with the same search parameters to request another page. Cursors are not used for direct lookup results. */
             cursor?: string | null;
-            /** @description Repeatable direct-lookup keys in `CHAIN:ADDRESS` format, using `ETH`, `SOL`, `BASE`, or `BSC`; send no more than 50 keys. Do not combine `lookup` with a non-empty `query`. Invalid formats or unsupported chains, and more than 50 keys, return HTTP 400. Lookup mode ignores `chain` and `timeFrame`, always uses `24H` metrics, returns results in one response, and does not paginate or provide a next cursor. */
+            /** @description Repeatable direct-lookup keys in `CHAIN:ADDRESS` format, using `SOL`; send no more than 50 keys. Do not combine `lookup` with a non-empty `query`. Invalid formats or unsupported chains, and more than 50 keys, return HTTP 400. Lookup mode ignores `chain` and `timeFrame`, always uses `24H` metrics, returns results in one response, and does not paginate or provide a next cursor. */
             lookup?: string[];
             /** @description Optional token name, symbol, token address, or pair address text query. Leading and trailing whitespace is removed; a missing or whitespace-only value with no `lookup` keys returns an empty page, and a non-empty value cannot be combined with `lookup`. */
             query?: string | null;
@@ -5922,10 +6055,10 @@ export interface components {
             request: components["schemas"]["UpdateSettingsRequest"];
         };
         /**
-         * @description Identifies the wallet-signature protocol used for Web3 authentication. Use `evm_personal_sign` for ETH, BASE, or BSC, and `solana_siws` or `solana_legacy` for SOL. Incompatible chain and protocol combinations are rejected.
+         * @description Identifies the wallet-signature protocol used for Web3 authentication. Use `solana_siws` or `solana_legacy`.
          * @enum {string}
          */
-        SignatureProtocol: "evm_personal_sign" | "solana_siws" | "solana_legacy";
+        SignatureProtocol: "solana_siws" | "solana_legacy";
         /**
          * @description Method used to sign in. `web3` uses a wallet signature; `partner_jwt` uses a partner-provided JWT.
          * @enum {string}
@@ -6001,7 +6134,7 @@ export interface components {
          * @enum {string}
          */
         SlippageAuto: "AUTO";
-        /** @description Swap slippage tolerance: use `AUTO` to let the server choose, or a numeric percentage from `0` to `100`. Numeric values are expressed in percentage points, so `3` means `3%`, and must use increments of `0.001` percentage points. */
+        /** @description Slippage tolerance: `AUTO` lets the server choose; numeric values are percentage points from `0` to `100` in steps of `0.001` (`3` means 3%). */
         SlippageSetting: components["schemas"]["SlippageAuto"] | components["schemas"]["Percent"];
         /** @description A Twitter community built around the token. */
         SocialCommunity: {
@@ -6812,7 +6945,7 @@ export interface components {
              * @description Chain containing the subscribed token or pair.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /**
              * @description Measurement represented by each candle: `price` for token price candles or `marketCap` for token market-capitalization candles.
              * @enum {string}
@@ -6837,7 +6970,7 @@ export interface components {
              * @description Chain containing the token and pair.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Always `false` on live updates, which carry only the current candle. */
             hasMore: boolean;
             /**
@@ -6915,7 +7048,7 @@ export interface components {
         /** @description Identifies a WebSocket event category and the associated chain and address. */
         TokenEventMeta: {
             /**
-             * @description Token address associated with the event. Its format depends on `chain`: Solana uses a base58-encoded 32-byte address of up to 44 characters; ETH, BASE, and BSC use a `0x`-prefixed address containing 40 hexadecimal digits.
+             * @description Token address associated with the event: a base58-encoded 32-byte Solana address of up to 44 characters.
              * @example So11111111111111111111111111111111111111112
              */
             address: string;
@@ -6923,7 +7056,7 @@ export interface components {
              * @description Chain containing the token.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /**
              * @description WebSocket event category associated with this metadata. Accepted values are PEG_PRICES, TOKEN_CANDLE, TOKEN_PRICE, TOKEN_STATS, TOKEN_SWAPS, TOKEN_HOLDER_COUNT, TOKEN_HOLDER_BALANCES, TOKEN_HOLDERS_CHANGE, TOKEN_TOP_TRADERS, TOKEN_MIGRATION, SCANNER_TOKENS, and SCANNER_UPDATE.
              * @enum {string}
@@ -7051,7 +7184,7 @@ export interface components {
             /** @description Updated holder counts and the share of supply each group holds. */
             holders: components["schemas"]["TokenMarketHolderInfo"];
         };
-        /** @description Optional filters for the number of token holders and the percentage of total token supply held by holder categories. Each range can specify an inclusive minimum, maximum, or both; count bounds are non-negative integers. Omit a range or set it to `null` to leave that criterion unrestricted. */
+        /** @description Filters on holder count and the share of supply held by holder categories. Each range takes an inclusive `min`, `max`, or both; count bounds are non-negative integers. Omitted or `null` ranges are unrestricted. */
         TokenHolderFilter: {
             /** @description Range for the share of supply held by bundler wallets. Unavailable data counts as below zero, so a `min` rejects the token but a `max` alone does not. */
             bundlerPct?: null | {
@@ -7196,7 +7329,7 @@ export interface components {
              * @description Chain on which the token exists.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /**
              * Format: int32
              * @description Decimals the token uses on chain.
@@ -7230,7 +7363,7 @@ export interface components {
         };
         /** @description Token contract, trading-risk, promotion, and liquidity audit indicators. Percentage fields use public percent units: 50 means 50%, not 0.5. They reject negative values and are not capped at 100%. Missing audit inputs may be reported as `false` or 0, with no separate availability indicator. */
         TokenMarketAudit: {
-            /** @description Whether the token's source code is verified. Applies mainly to EVM contracts, where `false` only means no verification was reported. */
+            /** @description Whether the token's source code is verified; `false` only means no verification was reported. */
             contractVerified: boolean;
             /** @description Whether DexScreener reports a paid status for the token. */
             dexScreenerPaid: boolean;
@@ -7439,10 +7572,10 @@ export interface components {
         /** @description Live market snapshot for a token pair, emitted with TOKEN_PRICE events. It includes pair identity, creation timing, platform and status information, the current quote, and trading statistics. */
         TokenMarketLiveSnapshot: components["schemas"]["PlatformInfo"] & components["schemas"]["TokenStatusFlags"] & {
             /**
-             * @description Chain on which the token and its trading pair exist: ETH, SOL, BASE, or BSC.
+             * @description Chain on which the token and its trading pair exist: SOL.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Nonnegative age of the token pair in whole seconds when the response is produced. Fractional seconds are truncated; negative ages are returned as 0. */
             createdAtAgeSeconds: number;
             /** @description Creation time of the token pair as a Unix epoch milliseconds. */
@@ -7640,10 +7773,10 @@ export interface components {
         /** @description Identifies a token’s migration from its previous trading pair to a destination pair and platform. */
         TokenMigrationDelta: {
             /**
-             * @description Chain on which the migration is recorded: ETH (Ethereum), SOL (Solana), BASE (Base), or BSC (BNB Smart Chain).
+             * @description Chain on which the migration is recorded: SOL (Solana).
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /**
              * @description Address of the pair the token migrated to.
              * @example So11111111111111111111111111111111111111112
@@ -7675,7 +7808,7 @@ export interface components {
          */
         TokenMigrationMarker: {
             /**
-             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
+             * @description address, in Solana base58 format.
              * @example So11111111111111111111111111111111111111112
              */
             fromPair: string;
@@ -7686,7 +7819,7 @@ export interface components {
             /** @description ISO 8601 timestamp string. */
             migratedAtTimestampStr: string;
             /**
-             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
+             * @description address, in Solana base58 format.
              * @example So11111111111111111111111111111111111111112
              */
             toPair: string;
@@ -7709,7 +7842,7 @@ export interface components {
         TokenMultiLookupKey: {
             /** @description Contract or mint address of the token on the specified chain. */
             address: components["schemas"]["Address"];
-            /** @description Chain for the token address. Accepted values are ETH, SOL, BASE, and BSC. */
+            /** @description Chain for the token address. Accepted values are SOL. */
             chain: components["schemas"]["Chain"];
         };
         /** @description Query parameters for batch lookup of token snapshots by chain-qualified token or pair address. */
@@ -7727,12 +7860,12 @@ export interface components {
             /** @description Token used as the base currency for the pair, including its address, chain, decimals, name, and symbol. */
             baseToken: components["schemas"]["TokenIdentity"];
             /**
-             * @description Chain on which the trading pair exists. Allowed values are ETH, SOL, BASE, and BSC. Must match the pair and token addresses.
+             * @description Chain on which the trading pair exists. Allowed values are SOL. Must match the pair and token addresses.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /**
-             * @description Address of the trading pair on its chain. For Solana, this is a base58 address of up to 44 characters; for EVM chains, it is a 42-character, 0x-prefixed hexadecimal address.
+             * @description Address of the trading pair on its chain: a base58 Solana address of up to 44 characters.
              * @example So11111111111111111111111111111111111111112
              */
             pairAddress: string;
@@ -7756,10 +7889,10 @@ export interface components {
             /** @description Ticker symbol of the pair's base token. */
             baseTokenSymbol: string;
             /**
-             * @description Chain containing the trading pair: ETH, SOL, BASE, or BSC.
+             * @description Chain containing the trading pair: SOL.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Non-negative age of the pair in whole seconds when the response is generated. A creation timestamp in the future is reported as `0`. */
             createdAtAgeSeconds: number;
             /** @description Pair creation time as a Unix epoch milliseconds. */
@@ -7820,7 +7953,7 @@ export interface components {
         };
         /** @description Optional security criteria for scanner token filters. Omit a property or set it to `null` to leave that criterion unset. */
         TokenSecurityFilter: {
-            /** @description Set `true` to require a verified contract. `false` adds no constraint, and non-EVM tokens always pass. */
+            /** @description Set `true` to require a verified contract. `false` adds no constraint. */
             contractVerified?: boolean | null;
             /** @description Set `false` to require a disabled or renounced freeze authority. `true` adds no constraint, and non-Solana tokens always pass. */
             freezable?: boolean | null;
@@ -7834,7 +7967,7 @@ export interface components {
             mintable?: boolean | null;
             /** @description Set `false` to exclude proxy contracts. `true` is rejected. */
             proxy?: boolean | null;
-            /** @description Set `true` to require renounced contract ownership. `false` adds no constraint, and non-EVM tokens always pass. */
+            /** @description Set `true` to require renounced contract ownership. `false` adds no constraint. */
             renounced?: boolean | null;
         };
         /** @description Complete token snapshot with shared identity, market, status, statistics, holder, social, audit, favourite-state, automatic-slippage, and all-time-high data. */
@@ -7852,10 +7985,10 @@ export interface components {
              */
             calls: number;
             /**
-             * @description Chain for the token and pair: `ETH`, `SOL`, `BASE`, or `BSC`.
+             * @description Chain for the token and pair: `SOL`.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Elapsed age of the token's creation time, in whole seconds when the response is serialized. */
             createdAtAgeSeconds: number;
             /** @description Token creation time as a Unix epoch milliseconds. */
@@ -7875,7 +8008,7 @@ export interface components {
             pairAddress: string;
             /** @description Price, market cap, liquidity, supply, and pooled amounts for the pair, with their initial baselines and the change since. */
             quote: components["schemas"]["TokenMarketQuote"];
-            /** @description Symbol of the pair's quote token. Falls back to the chain's own quote token, such as `SOL`, `WETH`, or `WBNB`. */
+            /** @description Symbol of the pair's quote token. Falls back to the chain's own quote token, such as `SOL`. */
             quoteTokenSymbol: string;
             /** @description Social links and scraped social metadata for the token, merged into one set. */
             socials?: components["schemas"]["TokenSocialData"];
@@ -7928,7 +8061,7 @@ export interface components {
             /** @description Set `true` to require a website link. */
             hasWebsite?: boolean | null;
         };
-        /** @description Optional criteria for matching token sources by caller ID, Telegram connection, Telegram sender ID, or wallet. Caller IDs and Telegram sender IDs are supplied as decimal strings or integers, respectively; connections and wallets use UUIDs. A `null`, omitted, or empty list does not activate its source family. */
+        /** @description Matches tokens called by the listed sources: caller IDs (decimal strings), Telegram sender IDs (integers), and connection or wallet UUIDs. A `null`, omitted, or empty list does not activate that source family. */
         TokenSourceFilter: {
             /** @description Caller IDs, as strings holding 64-bit integers. A value that does not parse never matches. */
             callers?: string[] | null;
@@ -7985,7 +8118,7 @@ export interface components {
         };
         /** @description Status flags derived from the market values in the enclosing token or pair response. */
         TokenStatusFlags: {
-            /** @description Whether both the associated response's `marketCap` and `priceUsd` values are zero. */
+            /** @description True when the token’s tracked current market cap and current price are both zero — the practical signature of a drained token. Computed the same way on REST and live rows; it is not a hard-coded value. */
             rugged: boolean;
         };
         /** @description A token swap record containing swap, transaction, and fee details, participating wallet and pair addresses, the trading platform, an outlier flag, and an optional bot-program identifier. */
@@ -8321,7 +8454,7 @@ export interface components {
              */
             amount: number;
             /**
-             * @description Chain on which the token and destination address are resolved. Accepted values are ETH, SOL, BASE, and BSC. Withdrawal preparation is currently implemented only for SOL; requests for other accepted values return not implemented.
+             * @description Chain on which the token and destination address are resolved. The accepted value is SOL.
              * @example SOL
              */
             chain: components["schemas"]["Chain"];
@@ -8341,13 +8474,8 @@ export interface components {
              * @description Chain for the token-scoped watchlist feed. Use it with `address` to identify the feed's token.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
         };
-        /**
-         * @description Cancellation mode that stops tracking an active trade without aborting pending swaps or selling or transferring tokens. The only accepted value is `TRACKING`.
-         * @enum {string}
-         */
-        TrackingCancelMode: "TRACKING";
         /** @description WebSocket lifecycle detail for an abort or cancellation, including the action, affected swap IDs, and whether tracking stopped. */
         TradeAbortCancelDetail: {
             /**
@@ -8409,7 +8537,7 @@ export interface components {
              * @description Chain the trade happened on.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Seconds elapsed since `createdAtTimestamp` when the response was built. */
             createdAtAgeSeconds: number;
             /** @description Trade creation time as Unix epoch milliseconds. */
@@ -9082,7 +9210,7 @@ export interface components {
              * @description Distinct tokens bought in the period. Buying the same token again does not add to it.
              */
             uniqueTokensBought: number;
-            /** @description Share of decided trades that were profitable. Reports 0 when none are decided. */
+            /** @description Win rate in percentage points over decided token positions in the selected window. The unit is a token, not a swap: a token position is a win when its net PnL is positive, a loss when negative, and break-even tokens are excluded from the denominator entirely (`winRatePct = wins / (wins + losses)`). */
             winRatePct: number;
         };
         /** @description A ranked trader overview with statistics for the selected time range and an aggregate of the trader’s baseline trading activity. */
@@ -9160,7 +9288,7 @@ export interface components {
              * @description Chain the trader's wallet is on.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Wallet that funded this one, when it can be attributed. Solana only. */
             fundingSource: components["schemas"]["FundingSourcePreview"] | null;
             /** @description Human labels attached to this wallet (empty when unlabeled). */
@@ -9319,7 +9447,7 @@ export interface components {
              * @description Chain used for this snapshot.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Human labels attached to this wallet (empty when unlabeled). */
             labels?: components["schemas"]["WalletLabelInfo"][];
             /** @description Daily cumulative PnL in USD over the selected range. */
@@ -9777,10 +9905,10 @@ export interface components {
             /** @description Token address on the specified chain. */
             address: string | null;
             /**
-             * @description Chain containing the token: `ETH`, `SOL`, `BASE`, or `BSC`.
+             * @description Chain containing the token: `SOL`.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Image for the token, or `null` when unavailable. */
             image: string | null;
             /** @description Token market capitalization in USD. Null when unavailable or invalid. */
@@ -9809,6 +9937,8 @@ export interface components {
             chainConfigs?: {
                 [key: string]: components["schemas"]["BotChainConfigDiff"];
             } | null;
+            limits?: components["schemas"]["BotLimits"] | null;
+            resetLifetimeSpend?: boolean | null;
         };
         /** @description Request body for setting a bot’s status. */
         UpdateBotStatusRequest: {
@@ -10077,7 +10207,7 @@ export interface components {
              * @description Chain the wallet is on.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Address of the wallet whose balances changed. */
             walletAddress: components["schemas"]["Address"];
         };
@@ -10117,7 +10247,7 @@ export interface components {
              * @description Recovery ID for the signature. `0` can also mean a reused coupon stored none.
              */
             recoveryId: number;
-            /** @description Signature authorizing the withdrawal, as an array of bytes. 65 bytes on EVM, 64 on Solana. */
+            /** @description Signature authorizing the withdrawal, as an array of 64 bytes. */
             signature: number[];
             /** @description Address of the token the coupon authorizes transferring. */
             token: components["schemas"]["Address"];
@@ -10160,12 +10290,12 @@ export interface components {
         };
         /** @description Identifies a wallet by its chain identifier and public key. */
         WaasWalletDto: {
-            /** @description Decimal string identifying the chain: "900" for Solana, "1" for Ethereum, or "137" for Polygon. */
+            /** @description Decimal string identifying the chain: "900" for Solana, or "137" for Polygon. */
             chainId: string;
             /** @description Public key identifying the wallet on the specified chain. */
             publicKey: string;
         };
-        /** @description A wallet address: base58-encoded for Solana or 0x-prefixed hexadecimal for EVM-compatible chains. */
+        /** @description A wallet address, base58-encoded for Solana. */
         WalletAddress: components["schemas"]["Address"];
         /** @description A wallet asset holding that identifies the asset and reports its balance, USD price, and total USD value. Numeric fields provide number display values, while corresponding `*Str` fields provide exact decimal representations. */
         WalletAsset: {
@@ -10214,7 +10344,7 @@ export interface components {
              * @description Chain the wallet is on.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Funding transfers for this page, newest first. */
             items: components["schemas"]["FundingEvent"][];
             summary: components["schemas"]["FundingSummary"] | null;
@@ -10263,7 +10393,7 @@ export interface components {
              * @description Chain containing the wallet address.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Address of the wallet. */
             walletAddress: components["schemas"]["Address"];
         };
@@ -10364,7 +10494,7 @@ export interface components {
              * @description Chain the wallet is on.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             committedThrough: components["schemas"]["ReadableTimestamp"] | null;
             /**
              * @description How far back the history reaches. Transfers before this are not
@@ -10443,10 +10573,10 @@ export interface components {
              */
             baseTokenAddress: string;
             /**
-             * @description Chain containing the base token: `ETH`, `SOL`, `BASE`, or `BSC`.
+             * @description Chain containing the base token: `SOL`.
              * @enum {string}
              */
-            baseTokenChain: "ETH" | "SOL" | "BASE" | "BSC";
+            baseTokenChain: "SOL";
             /**
              * Format: int32
              * @description Decimals the base token uses on chain.
@@ -10463,10 +10593,10 @@ export interface components {
             /** @description ISO 8601 representation of the watchlist call time. */
             calledAtTimestampStr: string;
             /**
-             * @description Chain where the trading pair is located: `ETH`, `SOL`, `BASE`, or `BSC`.
+             * @description Chain where the trading pair is located: `SOL`.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Market cap now, divided by market cap when the call was made. `2` means it doubled. */
             currentMultiplier: number;
             /** @description Market capitalization when the call was made. */
@@ -10494,10 +10624,10 @@ export interface components {
              */
             quoteTokenAddress: string;
             /**
-             * @description Chain containing the quote token: `ETH`, `SOL`, `BASE`, or `BSC`.
+             * @description Chain containing the quote token: `SOL`.
              * @enum {string}
              */
-            quoteTokenChain: "ETH" | "SOL" | "BASE" | "BSC";
+            quoteTokenChain: "SOL";
             /**
              * Format: int32
              * @description Decimals the quote token uses on chain.
@@ -10657,11 +10787,11 @@ export interface components {
             /** @description Filters and pagination cursor for the wallet-source watchlist feed. Null or omission uses the default query. This feed requires authentication. */
             wallets?: null | components["schemas"]["WatchlistFeedQuery"];
         };
-        /** @description Optional filters and pagination for watchlist feeds. Filter by caller, chain, swap direction, price, market cap, or multiplier. Supported chains are ETH, SOL, BASE, and BSC; supported swap directions are BUY and SELL. */
+        /** @description Optional filters and pagination for watchlist feeds. Filter by caller, chain, swap direction, price, market cap, or multiplier. Supported chains are SOL; supported swap directions are BUY and SELL. */
         WatchlistFeedQuery: {
             /** @description Caller IDs to filter by, repeated or comma-separated. The filter only applies when exactly one distinct ID remains. */
             callerIds?: string[];
-            /** @description Limits results to the specified chains: `ETH`, `SOL`, `BASE`, or `BSC`. */
+            /** @description Limits results to the specified chains: `SOL`. */
             chains?: components["schemas"]["Chain"][];
             /** @description Page to fetch. Omit it for the first page. A cursor only works with the filters it was issued for. */
             cursor?: string | null;
@@ -10687,7 +10817,7 @@ export interface components {
         };
         /** @description Optional filters for watchlist feeds and live subscriptions. They can restrict chains, current token price and USD market capitalization, the token’s since-call all-time-high multiplier, and wallet swap direction. */
         WatchlistFiltersCore: {
-            /** @description Restricts results to the specified chains. Supported values are `ETH`, `SOL`, `BASE`, and `BSC`. */
+            /** @description Restricts results to the specified chains. Supported values are `SOL`. */
             chains?: components["schemas"]["Chain"][];
             /** @description Inclusive upper bound for current market capitalization in USD, encoded as a decimal string. Omitted, `null`, blank, or whitespace-only values leave the bound unset. In HTTP feed search, 0 disables the bound and range values must be non-negative and ordered; in WebSocket live matching, 0 is an active bound and values are compared inclusively without those range checks. */
             maxMarketcap?: string | null;
@@ -10772,7 +10902,7 @@ export interface components {
             marketCapUsd: number;
             /** @description Exact decimal representation of the token market capitalization at the wallet transaction, in USD. Use this field to preserve or display the value without numeric rounding. */
             marketCapUsdStr: string;
-            /** @description Price of one traded token at the wallet-triggered swap event, expressed in the chain's native or quote-token currency. The numeric value uses 12 decimal places for display; use `priceNativeStr` for the exact decimal representation. If the recorded token amount is zero or negative, the API returns 0. */
+            /** @description Price of one traded token at the swap event, in the chain's native or quote-token currency; `priceNativeStr` carries the exact decimal. Returns 0 when the recorded token amount is zero or negative. */
             priceNative: number;
             /** @description Exact decimal representation of the token price at the wallet transaction, in the chain’s native or quote-token currency. Use this field to preserve or display the value without numeric rounding. */
             priceNativeStr: string;
@@ -10883,28 +11013,28 @@ export interface components {
             highestMultiplier: number;
             /** @description How long ago the latest call was made. */
             latestCallAgeSeconds: number;
-            /** @description Time of the latest call as Unix epoch milliseconds. */
+            /** @description Time of the source’s most recent tracked call, in Unix epoch milliseconds. `0` (rendered as the 1970 epoch in `latestCallTimestampStr`) is a real value: the tracking service has no dated call for the source. Treat epoch-zero as "unknown", not as a call at the epoch. */
             latestCallTimestamp: number;
             /** @description Time of the latest call as an ISO 8601 timestamp string. */
             latestCallTimestampStr: string;
             /**
              * Format: int64
-             * @description Number of calls counted as losses in the timeframe.
+             * @description Number of tracked calls whose since-call high stayed below 2x. Always equals the `<2x` multiplier bucket’s count.
              */
             losses: number;
-            /** @description Number of calls in each multiplier tier, highest tier first. Every tier is present, including empty ones. */
+            /** @description Complete distribution of the source’s tracked calls across fixed multiplier tiers. Win tiers (`100x` down to `2x`) count calls by the highest tier their since-call high reached; the `<2x` tier carries the losses — calls that never reached 2x. Every tier is always present (empty tiers have `count: 0`), and the tier counts sum to `totalCalls`. */
             multiplierBuckets: {
                 /**
                  * Format: int64
                  * @description Number of calls assigned to the enclosing multiplier tier.
                  */
                 count: number;
-                /** @description Multiplier band this bucket counts. A call lands in the highest band it reaches; anything under 2x lands in `<2x`. */
+                /** @description Multiplier tier label. The full set, always present in this order: `100x`, `50x`, `25x`, `15x`, `10x`, `5x`, `2x`, `<2x`. A winning call lands in the highest tier its since-call high reached; the `<2x` tier equals the source’s `losses`. */
                 tier: string;
             }[];
             /**
              * Format: int32
-             * @description Overall score from 0 to 30, built from win rate, average return, and highest return.
+             * @description Composite quality score from 0 through 30, computed by the price-tracking service from the source’s win rate, average return, and highest return. The exact weighting is internal; treat the score as an opaque ranking value where higher is better. Score bounds are independent of the selected timeframe.
              */
             performanceScore: number;
             /** @description Identity of the ranked source. Use `type` to tell the source family. */
@@ -10923,11 +11053,11 @@ export interface components {
              * @description Number of calls included for the source within the selected ranking timeframe.
              */
             totalCalls: number;
-            /** @description Share of calls in the timeframe counted as wins. */
+            /** @description Share of tracked calls that count as wins, in percentage points (`42` means 42%). A call is a win when its since-call high reaches at least 2x its call-time price; every other tracked call counts as a loss. Uses the selected timeframe’s calls. */
             winRatePct: number;
             /**
              * Format: int64
-             * @description Number of calls counted as wins in the timeframe.
+             * @description Number of tracked calls whose since-call high reached at least 2x. Matches the sum of the `2x` and higher multiplier buckets.
              */
             wins: number;
         };
@@ -10942,7 +11072,7 @@ export interface components {
              * @description Chain for the token.
              * @enum {string}
              */
-            chain: "ETH" | "SOL" | "BASE" | "BSC";
+            chain: "SOL";
             /** @description Display symbol for the token. */
             symbol: string;
         };
@@ -11254,13 +11384,13 @@ export interface components {
              */
             totalCount?: number;
         };
-        /** @description Request payload for completing wallet sign-in. It must use one of two supported formats: Solana Sign-In with Solana (SIWS), or EVM personal-sign/legacy Solana signing. */
+        /** @description Request payload for completing wallet sign-in. It must use one of two supported formats: Sign-In with Solana (SIWS), or legacy Solana signing. */
         Web3SigninRequest: {
             /** @description Wallet address that produced the signature. */
             address: string;
-            /** @description Chain for the wallet signature: ETH, SOL, BASE, or BSC. */
+            /** @description Chain for the wallet signature: SOL. */
             chain: components["schemas"]["Chain"];
-            /** @description Optional decimal chain ID as a string. Surrounding whitespace is ignored, and the value must parse as an integer matching the selected chain; for this Solana SIWS branch, it must be `900`. If `null` or omitted, the selected chain’s expected ID is used. Sign-in is rejected for a non-integer or mismatched value. Supported chain IDs are ETH `1`, SOL `900`, BASE `8453`, and BSC `56`. */
+            /** @description Optional decimal chain ID as a string. Surrounding whitespace is ignored, and the value must parse as an integer matching the selected chain; for this Solana SIWS branch, it must be `900`. If `null` or omitted, the selected chain’s expected ID is used. Sign-in is rejected for a non-integer or mismatched value. The supported chain ID is SOL `900`. */
             chainId?: string | null;
             /** @description Identifier of the sign-in challenge being completed. */
             challengeId: string;
@@ -11282,9 +11412,9 @@ export interface components {
         } | {
             /** @description Wallet address that produced the signature. */
             address: string;
-            /** @description Chain for the wallet signature, such as ETH, SOL, BASE, or BSC. */
+            /** @description Chain for the wallet signature, such as SOL. */
             chain: components["schemas"]["Chain"];
-            /** @description Optional chain ID as a base-10 integer encoded as a string. Surrounding whitespace is trimmed before parsing, and the value must match the selected chain: ETH=1, SOL=900, BASE=8453, or BSC=56. If omitted or `null`, the selected chain's ID is used; non-integer or mismatched values are rejected. */
+            /** @description Optional chain ID as a base-10 integer encoded as a string. Surrounding whitespace is trimmed before parsing, and the value must match the selected chain: SOL=900. If omitted or `null`, the selected chain's ID is used; non-integer or mismatched values are rejected. */
             chainId?: string | null;
             /** @description Identifier of the sign-in challenge being completed. */
             challengeId: string;
@@ -11295,13 +11425,13 @@ export interface components {
             /** @description Wallet signature proving that the wallet signed the supplied message. */
             signature: string;
             /**
-             * @description Signature format used for this request: evm_personal_sign or solana_legacy.
+             * @description Signature format used for this request: solana_legacy.
              * @enum {string}
              */
-            signatureProtocol: "evm_personal_sign" | "solana_legacy";
-            /** @description Ignored and may be omitted for evm_personal_sign and solana_legacy. For solana_siws, this structured SIWS input is required: domain, address, nonce, and `chainId` must be present and match the challenge; `chainId` must be mainnet, solana:mainnet, or 900. If provided, version must be 1, statement must not contain newlines, and uri must be a valid URL for the challenge domain. The SIWS message built from this input must equal the top-level message. */
+            signatureProtocol: "solana_legacy";
+            /** @description Ignored and may be omitted for solana_legacy. For solana_siws, this structured SIWS input is required: domain, address, nonce, and `chainId` must be present and match the challenge; `chainId` must be mainnet, solana:mainnet, or 900. If provided, version must be 1, statement must not contain newlines, and uri must be a valid URL for the challenge domain. The SIWS message built from this input must equal the top-level message. */
             siwsInput?: components["schemas"]["SiwsInput"];
-            /** @description Ignored and may be omitted for evm_personal_sign and solana_legacy. For solana_siws, this structured SIWS output is required: account must identify the requested wallet, `signedMessage` must decode to the exact signed message, and signature must represent the same bytes as the top-level signature. If supplied, `signatureType` must be ed25519, case-insensitively. */
+            /** @description Ignored and may be omitted for solana_legacy. For solana_siws, this structured SIWS output is required: account must identify the requested wallet, `signedMessage` must decode to the exact signed message, and signature must represent the same bytes as the top-level signature. If supplied, `signatureType` must be ed25519, case-insensitively. */
             siwsOutput?: components["schemas"]["SiwsOutput"];
         };
         /** @description Request to withdraw affiliate commissions or cashback to an authorized wallet on a supported chain. */
@@ -11362,7 +11492,7 @@ export interface components {
              * @enum {string}
              */
             event: "BOTS_BALANCE_CHANGES";
-            /** @description Metadata for the subscribed balance-changes window. `windowId` identifies the window; `endCursor` is the subscription’s end selector and is `""` when none was supplied. `startCursor` is omitted when unset; providing it requires `endCursor` and creates a fixed window, while omitting it selects live mode. */
+            /** @description Live-window metadata: `windowId` identifies the window, `endCursor` echoes the subscribed end selector independently of snapshot pagination, and `startCursor` appears only for fixed windows. */
             meta: components["schemas"]["LivecursorWindowMeta"];
             /** @description Topic for the bot data being broadcast. Valid forms include `bots:list`, `bots:stats`, `bots:logs`, `bots:balance-changes`, `bots:trades:active`, `bots:trades:completed`, or the corresponding bot-specific forms `<botId>:logs`, `<botId>:balance-changes`, `<botId>:trades:active`, and `<botId>:trades:completed`. */
             topic: string;
@@ -11396,7 +11526,7 @@ export interface components {
              * @enum {string}
              */
             event: "BOTS_LOGS";
-            /** @description Metadata for the live subscription window. `windowId` identifies the window, and `endCursor` is its subscribed end boundary, retained independently of snapshot pagination. `startCursor` is the optional lower boundary for a fixed window and is omitted or `null` when none was subscribed. */
+            /** @description Live-window metadata: `windowId` identifies the window, `endCursor` echoes the subscribed end selector independently of snapshot pagination, and `startCursor` appears only for fixed windows. */
             meta: components["schemas"]["LivecursorWindowMeta"];
             /** @description Topic for the bot data being broadcast. Supported forms include `bots:list`, `bots:stats`, `bots:logs`, `bots:balance-changes`, `bots:trades:active`, `bots:trades:completed`, and bot-specific forms using `<botId>:` before `logs`, `balance-changes`, or `trades:active|completed`. */
             topic: string;
@@ -11482,7 +11612,7 @@ export interface components {
          * @description Live WebSocket frame emitted on the `peg-prices` topic when native-token prices are broadcast.
          */
         WsBroadcastPegPricesEvent: {
-            /** @description Native-token price data keyed by supported chain symbol: `ETH`, `SOL`, `BASE`, or `BSC`. See `NativePricesResponse`. */
+            /** @description Native-token price data keyed by supported chain symbol: `SOL`. See `NativePricesResponse`. */
             data: components["schemas"]["NativePricesResponse"];
             /**
              * @description Always `PEG_PRICES`; identifies this frame as a native-token price update on the v2 WebSocket.
@@ -11507,7 +11637,7 @@ export interface components {
              * @enum {string}
              */
             event: "REFERRAL_CODE";
-            /** @description Metadata for the live subscription window. `windowId` identifies the window, `endCursor` is the subscribed end selector, and `startCursor` is the optional lower selector. When no lower selector is configured, `startCursor` is omitted and should be treated as unset if received as `null`. */
+            /** @description Live-window metadata: `windowId` identifies the window, `endCursor` echoes the subscribed end selector independently of snapshot pagination, and `startCursor` appears only for fixed windows. */
             meta: components["schemas"]["LivecursorWindowMeta"];
             /** @description Identifier for the authenticated user's private broadcast stream, formatted as `user:{userId}`, where `userId` is the user's UUID. */
             topic: string;
@@ -11624,7 +11754,7 @@ export interface components {
              * @enum {string}
              */
             event: "TOKEN_FEED_CALL";
-            /** @description Identifies the token and feed context for this event, including the chain (`ETH`, `SOL`, `BASE`, or `BSC`) and token address. */
+            /** @description Identifies the token and feed context for this event, including the chain (`SOL`) and token address. */
             meta: components["schemas"]["TokenWatchlistFeedMeta"];
             /** @description Token-scoped feed topic for this frame, formatted as `token:{chain}:{address}:feed`, where `{chain}` identifies the chain and `{address}` identifies the token represented by `data`. */
             topic: string;
@@ -11641,7 +11771,7 @@ export interface components {
              * @enum {string}
              */
             event: "TOKEN_FEED";
-            /** @description Metadata for the subscribed token-feed window. `windowId` identifies the window, `endCursor` is its opaque subscribed end cursor, and `startCursor` is an optional opaque start cursor; when no start cursor was subscribed, frames omit `startCursor`, though clients should also accept `null` and treat it as no start cursor. A present start cursor denotes a fixed window; an absent or `null` start cursor uses live-window behavior. */
+            /** @description Live-window metadata: `windowId` identifies the window, `endCursor` echoes the subscribed end selector independently of snapshot pagination, and `startCursor` appears only for fixed windows. */
             meta: components["schemas"]["LivecursorWindowMeta"];
             /** @description Token feed topic in the form `token:{chain}:{address}:feed`, where `{chain}` and `{address}` identify the subscribed token. */
             topic: string;
@@ -11726,7 +11856,7 @@ export interface components {
              * @enum {string}
              */
             event: "TOKEN_HOLDERS";
-            /** @description Identifies the live holders subscription window. `windowId` identifies the window, `endCursor` is its subscribed end boundary and is independent of the pagination cursors in `data`, and `startCursor` is the fixed start boundary when present; `startCursor` is omitted when no fixed start boundary exists. */
+            /** @description Live-window metadata: `windowId` identifies the window, `endCursor` echoes the subscribed end selector independently of snapshot pagination, and `startCursor` appears only for fixed windows. */
             meta: components["schemas"]["LivecursorWindowMeta"];
             /** @description Identifies the token whose holder data is being broadcast, in the format `token:{chain}:{address}:holders`, where `chain` is the supported chain name and `address` is the token address. */
             topic: string;
@@ -11745,7 +11875,7 @@ export interface components {
             event: "TOKEN_MIGRATION";
             /** @description Chain and token address identifying the token associated with this migration broadcast. */
             meta: components["schemas"]["TokenTopicMeta"];
-            /** @description Token migration stream topic formatted as `token:{chain}:{address}:migration`. `{chain}` is `ETH`, `SOL`, `BASE`, or `BSC`; `{address}` is the canonical token address. Subscribe to this exact topic to receive `TOKEN_MIGRATION` frames. */
+            /** @description Token migration stream topic formatted as `token:{chain}:{address}:migration`. `{chain}` is `SOL`; `{address}` is the canonical token address. Subscribe to this exact topic to receive `TOKEN_MIGRATION` frames. */
             topic: string;
         };
         /**
@@ -11777,7 +11907,7 @@ export interface components {
              * @enum {string}
              */
             event: "TOKEN_SAFETY";
-            /** @description Metadata identifying the subscribed `TOKEN_SAFETY` live window. `windowId` identifies the window; `endCursor` is an empty string because this topic rejects cursor parameters. When unavailable, `startCursor` is omitted, though clients should also accept `null`. */
+            /** @description Live-window metadata: `windowId` identifies the window, `endCursor` echoes the subscribed end selector independently of snapshot pagination, and `startCursor` appears only for fixed windows. */
             meta: components["schemas"]["LivecursorWindowMeta"];
             /** @description Subscribed token safety topic in the form `token:{chain}:{address}:{page}`, where `page` is `dev_tokens` or `safety`. */
             topic: string;
@@ -12871,7 +13001,7 @@ export interface components {
             event: "TRADER_OVERVIEW";
             /** @description Metadata for the active live-update subscription window. `windowId` identifies the resolved window; `endCursor` is an empty string, and `startCursor` is omitted because trader overview subscriptions have no cursor selectors. */
             meta: components["schemas"]["LivecursorWindowMeta"];
-            /** @description Subscribed trader overview topic, formatted as `traders:{chain}:{wallet}:overview`, where `{chain}` is an uppercase supported symbol (`ETH`, `SOL`, `BASE`, or `BSC`) and `{wallet}` is the normalized trader wallet address. */
+            /** @description Subscribed trader overview topic, formatted as `traders:{chain}:{wallet}:overview`, where `{chain}` is an uppercase supported symbol (`SOL`) and `{wallet}` is the normalized trader wallet address. */
             topic: string;
         };
         /**
@@ -12906,7 +13036,7 @@ export interface components {
              * @enum {string}
              */
             event: "TRADER_SWAPS";
-            /** @description Metadata included in every `TRADER_SWAPS` frame for the subscribed trader-swaps live-update window. `windowId` identifies the window, and `endCursor` preserves its subscribed end selector separately from snapshot pagination. `startCursor` is unavailable for these frames and is omitted. */
+            /** @description Live-window metadata: `windowId` identifies the window, `endCursor` echoes the subscribed end selector independently of snapshot pagination, and `startCursor` appears only for fixed windows. */
             meta: components["schemas"]["LivecursorWindowMeta"];
             /** @description Exact topic identifying the subscribed trader swap stream, normally `traders:{chain}:{wallet}:swaps`. */
             topic: string;
@@ -12940,7 +13070,7 @@ export interface components {
              * @enum {string}
              */
             event: "TRADER_TOKEN_PNL";
-            /** @description Metadata identifying the live data window that produced this update. `windowId` correlates updates for the subscription, `endCursor` is the opaque subscribed end selector retained independently from `data` pagination, and `startCursor` may be omitted. */
+            /** @description Live-window metadata: `windowId` identifies the window, `endCursor` echoes the subscribed end selector independently of snapshot pagination, and `startCursor` appears only for fixed windows. */
             meta: components["schemas"]["LivecursorWindowMeta"];
             /** @description Topic identifying the subscribed trader and token analytics stream. It has the form `traders:{traderKey}:{tokenKey}:{view}`, where `view` is `overview`, `swaps`, `tokens`, `tokens:{tokenKey}:swaps`, or `tokens:{tokenKey}:pnl`. */
             topic: string;
@@ -13267,7 +13397,7 @@ export interface components {
              * @enum {string}
              */
             reason?: "CURSOR_EXPIRED" | "CURSOR_KEY_MISMATCH" | "CURSOR_INVALID" | "PARAMS_INVALID" | "TOPIC_INVALID" | "SEED_TIMEOUT" | "NOT_FOUND" | "UNAUTHORIZED" | "INTERNAL";
-            /** @description For errors associated with a valid control command, echoes the supplied string `requestId` unchanged so clients can correlate the response. For invalid command payloads, echoes a string identifier from `requestId` or the legacy `request_id` when available; non-string values are ignored. Omitted when no identifier is available or the error is not associated with a command. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
              * @description Message discriminator. This error frame always has the value `error`.
@@ -13359,9 +13489,9 @@ export interface components {
          * @description Authenticated WebSocket command that subscribes to balance-change events for the bot UUID specified in `bots:{botId}:balance-changes`.
          */
         WsSubscribeBotBalanceChangesCommand: {
-            /** @description Optional parameters for the initial balance-change window. Omit it or set it to `null` to use the default live window with a limit of 20. When provided as an object, `limit` must be greater than zero and is capped at 100; `startCursor` requires `endCursor`. Providing `startCursor` creates a fixed window; otherwise, the window remains live. */
+            /** @description Optional parameters for the initial balance-change window. Providing `startCursor` creates a fixed window; otherwise, the window remains live. */
             params?: components["schemas"]["BotBalanceChangesLivecursorParams"] | null;
-            /** @description Optional client-defined string used to correlate this subscribe command with its acknowledgement or an error response. When provided, the server echoes it as `requestId`; when omitted, those responses do not include the field. The input alias `request_id` is also accepted. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
              * @description Bot-specific balance-change subscription topic in the form `bots:{botId}:balance-changes`, where `{botId}` is the bot's UUID. For example: `bots:550e8400-e29b-41d4-a716-446655440000:balance-changes`.
@@ -13379,7 +13509,7 @@ export interface components {
          * @description Authenticated WebSocket command that subscribes to log updates for a specific bot topic, optionally with an initial cursor window.
          */
         WsSubscribeBotLogsCommand: {
-            /** @description Optional initial cursor window for the bot log stream. Omit it or set it to `null` to use a live window with a default limit of 20; otherwise provide only `limit`, `startCursor`, and/or `endCursor`. `limit` must be positive and is capped at 100. `startCursor` requires `endCursor` and selects a fixed window; `null` option values are ignored. Invalid fields, limits, or cursors reject the subscription. */
+            /** @description Optional initial cursor window for the bot log stream. */
             params?: components["schemas"]["BotLogsLivecursorParams"] | null;
             /** @description Optional client-supplied correlation value. When provided, it is echoed unchanged in the `subscribed` acknowledgement or subscribe error; when omitted, the response omits it. The legacy `request_id` spelling is also accepted. */
             requestId?: string;
@@ -13399,7 +13529,7 @@ export interface components {
          * @description Command that subscribes the authenticated connection to live active-trade updates for one bot.
          */
         WsSubscribeBotTradesActiveCommand: {
-            /** @description Optional cursor bounds for the bot’s active-trades subscription. Omit it or set it to `null` for a live window. Provide `endCursor` to select the tail, or provide both `startCursor` and `endCursor` to select a fixed window. Invalid cursors, or a `startCursor` without an `endCursor`, cause the subscription to fail. */
+            /** @description Optional cursor bounds for the bot’s active-trades subscription. Provide `endCursor` to select the tail, or provide both `startCursor` and `endCursor` to select a fixed window. */
             params?: components["schemas"]["LivecursorWindowParams"] | null;
             /** @description Optional client-provided identifier echoed in the `subscribed` acknowledgement or in an error for this subscribe request. Use it to correlate the server’s response with the request; it does not identify the subscription. */
             requestId?: string;
@@ -13419,7 +13549,7 @@ export interface components {
          * @description WebSocket command that subscribes an authenticated client to completed-trade updates for one bot.
          */
         WsSubscribeBotTradesCompletedCommand: {
-            /** @description Optional cursor window for the subscription. Omit it or set it to `null` for a live window, optionally bounded by `endCursor`. Provide both `startCursor` and `endCursor` for a fixed completed-trades range; `startCursor` without `endCursor` is rejected. The completed bot-trades topic requires authentication. */
+            /** @description Optional cursor window for the subscription. Provide both `startCursor` and `endCursor` for a fixed completed-trades range. The completed bot-trades topic requires authentication. */
             params?: components["schemas"]["LivecursorWindowParams"] | null;
             /** @description Optional client-supplied correlation identifier. When provided, the server echoes it in the `subscribed` acknowledgement or in an error response for this subscription request. */
             requestId?: string;
@@ -13439,9 +13569,9 @@ export interface components {
          * @description Authenticated WebSocket command for subscribing to the `bots:balance-changes` stream. Set `type` to `subscribe` and `topic` to `bots:balance-changes`. The optional `params` object may be omitted or set to `null`; both select the default live window.
          */
         WsSubscribeBotsBalanceChangesCommand: {
-            /** @description Optional parameters for the global `bots:balance-changes` subscription. Send an object with optional `limit` (a positive integer, from 1 through 100 and defaulting to 20), `chain` (`ETH`, `SOL`, `BASE`, or `BSC`), `sourceType` (`CALLER`, `TG`, `LIST`, or `WALLET`), and opaque `startCursor` and `endCursor` values; non-positive limits are rejected. `startCursor` must be paired with `endCursor` and selects a fixed window; without `startCursor`, the subscription is live. Omit `params` or send `null` to use the defaults. */
+            /** @description Optional parameters for the global `bots:balance-changes` subscription. Send an object with optional `limit` (a positive integer, from 1 through 100 and defaulting to 20), `chain` (`SOL`), `sourceType` (`CALLER`, `TG`, `LIST`, or `WALLET`), and opaque `startCursor` and `endCursor` values; non-positive limits are rejected. */
             params?: components["schemas"]["BotsBalanceChangesLivecursorParams"] | null;
-            /** @description Optional client-defined correlation identifier. When supplied, it is echoed unchanged in the `subscribed` acknowledgment or an error for this command; when omitted, the response has no request identifier. No length, character, or uniqueness validation is applied. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. No format or length constraint applies. */
             requestId?: string;
             /**
              * @description Subscription topic.
@@ -13459,9 +13589,9 @@ export interface components {
          * @description Command to subscribe to the authenticated `bots:list` stream.
          */
         WsSubscribeBotsListCommand: {
-            /** @description Filters and cursor boundaries for the `bots:list` subscription. Omit this field, set it to `null`, or send an empty object for an unfiltered live window with a default limit of 20. Supported members are `limit`, `sourceType`, `chain`, `endCursor`, and `startCursor`; `null`-valued members are ignored. `limit` must be positive, and values must be from 1 through 100. `sourceType` accepts `CALLER`, `TG`, `LIST`, or `WALLET`; `chain` accepts `ETH`, `SOL`, `BASE`, or `BSC`. An `endCursor` alone selects a live window, while both cursors select a fixed window; `startCursor` requires `endCursor`. Unknown members, invalid values, and malformed cursors cause the subscription to fail before activation. */
+            /** @description Filters and cursor boundaries for the `bots:list` subscription. Supported members are `limit`, `sourceType`, `chain`, `endCursor`, and `startCursor`. `sourceType` accepts `CALLER`, `TG`, `LIST`, or `WALLET`. `chain` accepts `SOL`. An `endCursor` alone selects a live window, while both cursors select a fixed window. */
             params?: components["schemas"]["BotsLivecursorParams"] | null;
-            /** @description Optional client-supplied string used to correlate the subscription request. When provided, it is echoed unchanged in the `subscribed` acknowledgement or an error response. When omitted or `null`, the response contains no `requestId`. The legacy `request_id` spelling is also accepted. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
              * @description Subscription topic.
@@ -13479,9 +13609,9 @@ export interface components {
          * @description WebSocket command that subscribes an authenticated client to bot-log updates on the `bots:logs` topic. Send `type: "subscribe"` and `topic: "bots:logs"`; omit `params` for the default live window or provide log filters and cursor options.
          */
         WsSubscribeBotsLogsCommand: {
-            /** @description Optional parameters for filtering the authenticated `bots:logs` subscription and selecting its cursor window. Omit this field for a live window with a default limit of 20; `startCursor` requires `endCursor`, and specifying both selects a fixed window. `limit` must be positive and must be from 1 through 100. Send an object; `null` and unknown parameters are rejected. */
+            /** @description Optional parameters for filtering the authenticated `bots:logs` subscription and selecting its cursor window. Send an object. */
             params?: components["schemas"]["BotsLogsLivecursorParams"] | null;
-            /** @description Optional client-provided string used to correlate this subscribe command with the server response. When supplied, it is echoed in the `subscribed` acknowledgement and subscription errors; when not supplied, it is omitted from those messages. No format or length constraints apply. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. No format or length constraint applies. */
             requestId?: string;
             /**
              * @description Subscription topic.
@@ -13499,7 +13629,7 @@ export interface components {
          * @description Authenticated WebSocket command that subscribes to the fixed `bots:stats` topic. A successful subscription delivers matching bot-statistics updates as `BOTS_STATS` messages.
          */
         WsSubscribeBotsStatsCommand: {
-            /** @description Optional filters for the authenticated `bots:stats` subscription. Omit `params` or send `null` for unfiltered statistics; otherwise provide optional `sourceType` and `chain` values defined by `BotsStatsPageSource`. Invalid values or unknown properties cause the subscription to fail. Cursor parameters are not accepted. */
+            /** @description Optional filters for the authenticated `bots:stats` subscription. Omit `params` or send `null` for unfiltered statistics; otherwise provide optional `sourceType` and `chain` values defined by `BotsStatsPageSource`. Cursor parameters are not accepted. */
             params?: components["schemas"]["BotsStatsPageSource"] | null;
             /** @description Optional client-supplied identifier echoed unchanged in the `subscribed` acknowledgement or any immediate subscription error. It does not affect the subscription topic or parameters. */
             requestId?: string;
@@ -13519,7 +13649,7 @@ export interface components {
          * @description WebSocket command that starts an authenticated subscription to the `bots:trades:active` topic, optionally filtered and paginated with `params`.
          */
         WsSubscribeBotsTradesActiveCommand: {
-            /** @description Optional filters and cursor boundaries for the active bot-trades stream. Omit this field, send `null`, or send `{}` for an unfiltered live window with a default `limit` of 20. Filters are `sourceType` (`CALLER`, `TG`, `LIST`, or `WALLET`) and `chain` (`ETH`, `SOL`, `BASE`, or `BSC`). `limit` must be a positive integer and must be from 1 through 100. Send `endCursor` alone for a live window, or both `startCursor` and `endCursor` for a fixed window; `startCursor` alone is rejected. Null-valued members are ignored, while unknown members, `cursor`, invalid values, and malformed cursors reject the subscription. */
+            /** @description Optional filters and cursor boundaries for the active bot-trades stream. Filters are `sourceType` (`CALLER`, `TG`, `LIST`, or `WALLET`) and `chain` (`SOL`). `startCursor` alone is rejected. */
             params?: components["schemas"]["BotsLivecursorParams"] | null;
             /** @description Optional client-supplied identifier. The server echoes it in the `subscribed` acknowledgment and in errors generated while processing this command. */
             requestId?: string;
@@ -13539,9 +13669,9 @@ export interface components {
          * @description WebSocket command for subscribing an authenticated client to completed bot trades on the `bots:trades:completed` topic.
          */
         WsSubscribeBotsTradesCompletedCommand: {
-            /** @description Pagination and filters for completed bot trades. Omit it or set it to `null` for a live window limited to 20 items, or send an object with `limit`, `sourceType`, `chain`, `startCursor`, and/or `endCursor`; `limit` must be a positive integer and must be from 1 through 100. `endCursor` alone resumes a live window, while both cursors select a fixed window. `startCursor` alone, invalid filters or cursors, and unsupported non-`null` properties reject the subscription; `null`-valued object properties are ignored. */
+            /** @description Pagination and filters for completed bot trades. Omit it or set it to `null` for a live window limited to 20 items, or send an object with `limit`, `sourceType`, `chain`, `startCursor`, and/or `endCursor`. `endCursor` alone resumes a live window, while both cursors select a fixed window. */
             params?: components["schemas"]["BotsLivecursorParams"] | null;
-            /** @description Optional client-supplied string used to correlate this subscription request with the server response. When provided, it is echoed in the `subscribed` acknowledgement and in any error response caused by the request. No format or length restriction is enforced. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. No format or length constraint applies. */
             requestId?: string;
             /**
              * @description Subscription topic. Set this value to `bots:trades:completed`.
@@ -13584,7 +13714,7 @@ export interface components {
         WsSubscribePageBotsCommand: {
             /** @description Optional parameters for the `page:bots` subscription. Omit it or set it to `null` to use the page's default source set. Send a `BotsPageRequest` object to provide source-specific filters or cursors; unknown or invalid fields reject the subscription. */
             params?: components["schemas"]["BotsPageRequest"] | null;
-            /** @description Optional client-supplied string used to correlate the subscription command with server responses. When provided, it is echoed in the `subscribed` acknowledgment and subscription error responses. No format or length constraint is enforced; `requestId` and the input alias `request_id` are accepted. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
              * @description Subscription topic.
@@ -13642,9 +13772,9 @@ export interface components {
          * @description WebSocket command that subscribes the connection to live updates for the search page. Send `type` as `subscribe` and `topic` as `page:search`.
          */
         WsSubscribePageSearchCommand: {
-            /** @description Optional search parameters for the `page:search` subscription. Omit it or set it to `null` to use an empty search request; otherwise send a `SearchPageRequest` object with any of `query`, `chain`, `timeFrame`, `cursor`, and `lookup`. Supported chains are `ETH`, `SOL`, `BASE`, and `BSC`; supported time frames are `5M`, `1H`, `6H`, and `24H`, with `24H` as the default for queries. Whitespace-only queries are treated as absent. A non-empty `lookup` takes precedence over `query`; entries must use `CHAIN:ADDRESS` format, with at most 50 entries, and lookup metrics always use a fixed `24H` window. The cursor continues the live search window. Invalid parameter types or enum values, malformed lookup entries, unknown fields, or invalid cursor values can cause the subscription to be rejected. */
+            /** @description Optional search parameters for the `page:search` subscription. Omit it or set it to `null` to use an empty search request; otherwise send a `SearchPageRequest` object with any of `query`, `chain`, `timeFrame`, `cursor`, and `lookup`. Supported chains are `SOL`; supported time frames are `5M`, `1H`, `6H`, and `24H`, with `24H` as the default for queries. Whitespace-only queries are treated as absent. A non-empty `lookup` takes precedence over `query`; entries must use `CHAIN:ADDRESS` format, with at most 50 entries, and lookup metrics always use a fixed `24H` window. The cursor continues the live search window. */
             params?: components["schemas"]["SearchPageRequest"] | null;
-            /** @description Optional client-supplied correlation value. When provided, the server echoes it unchanged as `requestId` in the `subscribed` acknowledgement or `error` response. When omitted, those responses omit `requestId`. The legacy `request_id` spelling is also accepted on input. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
              * @description Topic for subscribing to live search-page updates.
@@ -13667,7 +13797,7 @@ export interface components {
             /** @description Optional client-supplied string identifier. When provided, the server echoes it in the subscription acknowledgment or related error response. */
             requestId?: string;
             /**
-             * @description Terminal subscription topic in the form `page:terminal:{chain}:{address}`. `{chain}` must be `ETH`, `SOL`, `BASE`, or `BSC`; `{address}` must be non-empty and contain no `:`.
+             * @description Terminal subscription topic in the form `page:terminal:{chain}:{address}`. `{chain}` must be `SOL`; `{address}` must be non-empty and contain no `:`.
              * @example page:terminal:SOL:<address>
              */
             topic: string;
@@ -13682,9 +13812,9 @@ export interface components {
          * @description Authenticated WebSocket command that subscribes to live trading-page updates, including active and completed trades, trade presets, user settings, and wallets.
          */
         WsSubscribePageTradingCommand: {
-            /** @description Optional trading-page source parameters. Omit it or set it to `null` to use the default empty `TradingPageRequest`; otherwise provide a `TradingPageRequest`, optionally including cursors under `sources.activeTrades` and `sources.completedTrades`. Omitted source entries use their default configuration, and unknown or invalid fields are rejected. */
+            /** @description Optional trading-page source parameters. Omit it or set it to `null` to use the default empty `TradingPageRequest`; otherwise provide a `TradingPageRequest`, optionally including cursors under `sources.activeTrades` and `sources.completedTrades`. */
             params?: components["schemas"]["TradingPageRequest"] | null;
-            /** @description Optional client-supplied string echoed in the corresponding `subscribed` acknowledgement or `error` response. It has no format or length validation and is separate from the server-generated subscription ID; use the returned `subId` to identify the subscription. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. No format or length constraint applies. */
             requestId?: string;
             /**
              * @description Subscription topic.
@@ -13704,7 +13834,7 @@ export interface components {
         WsSubscribePageUserCommand: {
             /** @description Optional user-page source parameters. Omit it or set it to `null` to use the default empty `UserPageRequest`; otherwise, provide a `UserPageRequest` object. Unknown fields are rejected. */
             params?: components["schemas"]["UserPageRequest"] | null;
-            /** @description Optional client-supplied string identifier for the subscribe command. When supplied, it is echoed in the subscription acknowledgement or error response; when omitted, those responses omit `requestId`. The server does not validate its format or length. `request_id` is accepted as an input alias. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
              * @description Subscription topic for live updates to the authenticated user page, including user profile, wallet, favourites, settings, referral code, and commissions summary. The connection must be authenticated or the subscription is rejected.
@@ -13742,7 +13872,7 @@ export interface components {
          * @description WebSocket command that subscribes the connection to live updates for the watchlist page. Set `topic` to `page:watchlist`.
          */
         WsSubscribePageWatchlistCommand: {
-            /** @description Optional watchlist page parameters. Omit this field, send `null`, or send `{}` to use the default watchlist source tree. Otherwise, send a `WatchlistPageRequest` object with per-source filters and cursors under `sources`; omitted source entries use their defaults rather than disabling those sources. Supplying `sources.tgChatSenders` or `sources.tgChatTopics` with a `chatId` adds the corresponding authenticated chat-catalog stream. Invalid shapes, values, or unknown fields return an `error` response. */
+            /** @description Optional watchlist page parameters. Send a `WatchlistPageRequest` object with per-source filters and cursors under `sources`; omitted source entries use their defaults rather than disabling those sources. Supplying `sources.tgChatSenders` or `sources.tgChatTopics` with a `chatId` adds the corresponding authenticated chat-catalog stream. Invalid shapes, values, or unknown fields return an `error` response. */
             params?: components["schemas"]["WatchlistPageRequest"] | null;
             /** @description Optional client-supplied correlation string. When provided, it is echoed as `requestId` in the subscription's `subscribed` acknowledgement or `error` response. Use the returned `subId`, not this value, to manage the subscription later. */
             requestId?: string;
@@ -13856,7 +13986,7 @@ export interface components {
          * @description WebSocket command to subscribe to `scanner:trenches` updates. Set `type` to `subscribe` and `topic` to `scanner:trenches`; omit `params` or send `null` to use the default `graduating` phase, or provide trenches subscription parameters.
          */
         WsSubscribeScannerTrenchesCommand: {
-            /** @description Trenches subscription configuration. Omit it or set it to `null` to use the default `graduating` phase with no client-supplied filters or cursors; otherwise, send an object with `phase` (`new`, `graduating`, or `graduated`), optional flattened token-filter properties, and optional pagination cursors. `startCursor` requires `endCursor`, and supplied cursors must match the selected phase and effective filters. */
+            /** @description Trenches subscription configuration. Omit it or set it to `null` to use the default `graduating` phase with no client-supplied filters or cursors; otherwise, send an object with `phase` (`new`, `graduating`, or `graduated`), optional flattened token-filter properties, and optional pagination cursors. */
             params?: components["schemas"]["ScannerTrenchesSubscriptionParams"] | null;
             /** @description Optional client-defined correlation identifier. The server echoes it in the subscription acknowledgement and any error response for this command. You may omit it when correlation is unnecessary; input also accepts `request_id` as an alias. */
             requestId?: string;
@@ -13879,7 +14009,7 @@ export interface components {
             /** @description Optional client-supplied identifier echoed in the `subscribed` acknowledgement or subscription error. If omitted, no identifier is returned. */
             requestId?: string;
             /**
-             * @description Catch-all token topic in the form `token:{chain}:{address}`. `{chain}` must be `ETH`, `SOL`, `BASE`, or `BSC`; `{address}` is the token identifier.
+             * @description Catch-all token topic in the form `token:{chain}:{address}`. `{chain}` must be `SOL`; `{address}` is the token identifier.
              * @example token:SOL:So11111111111111111111111111111111111111112
              */
             topic: string;
@@ -13897,7 +14027,7 @@ export interface components {
             /** @description Optional client-provided value echoed in the server's `subscribed` acknowledgement or any resulting subscription error to correlate the response with this command. Responses omit `requestId` when it is not provided. */
             requestId?: string;
             /**
-             * @description Mode-specific token candle topic in the format `token:{chain}:{address}:candle:{timeframe}:{mode}`. `{chain}` must be `ETH`, `SOL`, `BASE`, or `BSC`; `{address}` is a token or pair address without `:`; `{timeframe}` must be `1s`, `5s`, `15s`, `30s`, `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `6h`, `12h`, or `24h`; and `{mode}` must be `price` or `marketCap`. Example: `token:SOL:So11111111111111111111111111111111111111112:candle:5m:marketCap`.
+             * @description Mode-specific token candle topic in the format `token:{chain}:{address}:candle:{timeframe}:{mode}`. `{chain}` must be `SOL`; `{address}` is a token or pair address without `:`; `{timeframe}` must be `1s`, `5s`, `15s`, `30s`, `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `6h`, `12h`, or `24h`; and `{mode}` must be `price` or `marketCap`. Example: `token:SOL:So11111111111111111111111111111111111111112:candle:5m:marketCap`.
              * @example token:SOL:So11111111111111111111111111111111111111112:candle:5m:marketCap
              */
             topic: string;
@@ -13915,7 +14045,7 @@ export interface components {
             /** @description Optional client-supplied string echoed in the `subscribed` acknowledgment or an error response for correlation. If omitted or `null`, those responses omit `requestId`; no additional format is required. */
             requestId?: string;
             /**
-             * @description Token candle subscription topic in the form `token:{chain}:{address}:candle:{timeframe}`. `{chain}` must be `ETH`, `SOL`, `BASE`, or `BSC`; `{address}` must not contain a colon; and `{timeframe}` must be `1s`, `5s`, `15s`, `30s`, `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `6h`, `12h`, or `24h`. The unsuffixed form subscribes to price candles.
+             * @description Token candle subscription topic in the form `token:{chain}:{address}:candle:{timeframe}`. `{chain}` must be `SOL`; `{address}` must not contain a colon; and `{timeframe}` must be `1s`, `5s`, `15s`, `30s`, `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `6h`, `12h`, or `24h`. The unsuffixed form subscribes to price candles.
              * @example token:SOL:So11111111111111111111111111111111111111112:candle:5m
              */
             topic: string;
@@ -13948,12 +14078,12 @@ export interface components {
          * @description WebSocket command that subscribes to a token's developer-token state. Set `type` to `subscribe` and `topic` to `token:{chain}:{address}:dev_tokens`; `params` may optionally define a livecursor window.
          */
         WsSubscribeTokenDevTokensCommand: {
-            /** @description Optional cursor bounds for the development-token subscription. Omit it or set it to `null` for a live window. Provide `endCursor` to start at a cursor, or provide both `startCursor` and `endCursor` for a fixed window. `startCursor` cannot be used without `endCursor`, and cursors must match the specified chain and address. */
+            /** @description Optional cursor bounds for the development-token subscription. Provide `endCursor` to start at a cursor, or provide both `startCursor` and `endCursor` for a fixed window. */
             params?: components["schemas"]["LivecursorWindowParams"] | null;
             /** @description Optional opaque client identifier. When provided, it is echoed in the subscription acknowledgement and in errors for this command. If omitted, responses omit this field. No format or uniqueness is required. */
             requestId?: string;
             /**
-             * @description Token developer-token topic in the form `token:{chain}:{address}:dev_tokens`, where `{chain}` is `ETH`, `SOL`, `BASE`, or `BSC`, and `{address}` contains no colon.
+             * @description Token developer-token topic in the form `token:{chain}:{address}:dev_tokens`, where `{chain}` is `SOL`, and `{address}` contains no colon.
              * @example token:SOL:So11111111111111111111111111111111111111112:dev_tokens
              */
             topic: string;
@@ -13968,12 +14098,12 @@ export interface components {
          * @description WebSocket command to subscribe to the token-scoped watchlist feed for a specified chain and token address.
          */
         WsSubscribeTokenFeedCommand: {
-            /** @description Optional cursor window for replaying token-feed events. Omitted or `null` starts a live subscription. Provide both `startCursor` and `endCursor` to request a fixed window; `startCursor` without `endCursor` causes the subscription to fail. Both cursors must be valid, matching token-feed cursors. */
+            /** @description Optional cursor window for replaying token-feed events. Provide both `startCursor` and `endCursor` to request a fixed window. Both cursors must be valid, matching token-feed cursors. */
             params?: components["schemas"]["LivecursorWindowParams"] | null;
-            /** @description Optional client-defined string used to correlate this request with the server response. Any string is accepted without additional validation. When supplied, it is echoed in the `subscribed` acknowledgement or an `error` response; when omitted, the response does not include a request identifier. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. No format or length constraint applies. */
             requestId?: string;
             /**
-             * @description Token feed topic in the form `token:{chain}:{address}:feed`. The chain must be `ETH`, `SOL`, `BASE`, or `BSC`, and the address cannot contain a colon.
+             * @description Token feed topic in the form `token:{chain}:{address}:feed`. The chain must be `SOL`, and the address cannot contain a colon.
              * @example token:SOL:So11111111111111111111111111111111111111112:feed
              */
             topic: string;
@@ -13988,12 +14118,12 @@ export interface components {
          * @description WebSocket command for subscribing to holder events for a token. Set `type` to `subscribe` and `topic` to `token:{chain}:{address}:holders`; optionally provide `params` to select a cursor window.
          */
         WsSubscribeTokenHoldersCommand: {
-            /** @description Optional cursor window for the initial token-holder snapshot. Omit it or set it to `null` to use the default live window. Provide an `endCursor` to bound the snapshot, and optionally a `startCursor` to request a fixed range. `startCursor` requires `endCursor`, and the cursors must be valid for this token-holder topic. A range that exceeds the supported window is rejected. */
+            /** @description Optional cursor window for the initial token-holder snapshot. Provide an `endCursor` to bound the snapshot, and optionally a `startCursor` to request a fixed range. A range that exceeds the supported window is rejected. */
             params?: components["schemas"]["LivecursorWindowParams"] | null;
             /** @description Optional client-supplied identifier for correlating this subscribe request with the server response. When provided, it is echoed in the subscribed acknowledgement or an error response; when omitted, no request identifier is included. */
             requestId?: string;
             /**
-             * @description Token holder event topic in the form `token:{chain}:{address}:holders`, where `chain` is `ETH`, `SOL`, `BASE`, or `BSC`, and `address` is the token address without a colon.
+             * @description Token holder event topic in the form `token:{chain}:{address}:holders`, where `chain` is `SOL`, and `address` is the token address without a colon.
              * @example token:SOL:So11111111111111111111111111111111111111112:holders
              */
             topic: string;
@@ -14011,7 +14141,7 @@ export interface components {
             /** @description Optional client-supplied string echoed in the `subscribed` acknowledgement or subscription error to correlate the response with the request. The server also accepts the legacy `request_id` input name. */
             requestId?: string;
             /**
-             * @description Migration-event topic in the form `token:{chain}:{address}:migration`. `{chain}` must be `ETH`, `SOL`, `BASE`, or `BSC`; `{address}` must be a token or resolvable pair address without colons. Resolvable addresses are canonicalized before subscription.
+             * @description Migration-event topic in the form `token:{chain}:{address}:migration`. `{chain}` must be `SOL`; `{address}` must be a token or resolvable pair address without colons. Resolvable addresses are canonicalized before subscription.
              * @example token:SOL:So11111111111111111111111111111111111111112:migration
              */
             topic: string;
@@ -14029,7 +14159,7 @@ export interface components {
             /** @description Optional client-supplied identifier for correlating the subscription request. When provided, the server echoes it in the `subscribed` acknowledgement or any subscribe error; when omitted, responses omit `requestId`. */
             requestId?: string;
             /**
-             * @description Token price topic identifying the chain and token address: `token:{chain}:{address}:price`. `{chain}` must be `ETH`, `SOL`, `BASE`, or `BSC`; the address must not contain `:`.
+             * @description Token price topic identifying the chain and token address: `token:{chain}:{address}:price`. `{chain}` must be `SOL`; the address must not contain `:`.
              * @example token:SOL:So11111111111111111111111111111111111111112:price
              */
             topic: string;
@@ -14047,7 +14177,7 @@ export interface components {
             /** @description Optional client-supplied correlation identifier for the subscription request. If provided, it is echoed unchanged in the successful `subscribed` acknowledgement; if omitted, the acknowledgement omits this field. */
             requestId?: string;
             /**
-             * @description Token-safety subscription topic in the form `token:{chain}:{address}:safety`. `{chain}` must be `ETH`, `SOL`, `BASE`, or `BSC`; `{address}` identifies the token or pair and must not contain a colon.
+             * @description Token-safety subscription topic in the form `token:{chain}:{address}:safety`. `{chain}` must be `SOL`; `{address}` identifies the token or pair and must not contain a colon.
              * @example token:SOL:So11111111111111111111111111111111111111112:safety
              */
             topic: string;
@@ -14065,7 +14195,7 @@ export interface components {
             /** @description Optional client-provided correlation identifier. When provided, it is echoed in the subscription acknowledgement or an error response; `request_id` is also accepted as a legacy name. */
             requestId?: string;
             /**
-             * @description Token statistics subscription topic in the form `token:{chain}:{address}:stats`, using `ETH`, `SOL`, `BASE`, or `BSC` as the chain. The address must not contain `:` and may identify a token or pair; pair addresses are accepted as aliases and acknowledged using the canonical token topic. The topic resolves to `TOKEN_STATS` events.
+             * @description Token statistics subscription topic in the form `token:{chain}:{address}:stats`, using `SOL` as the chain. The address must not contain `:` and may identify a token or pair; pair addresses are accepted as aliases and acknowledged using the canonical token topic. The topic resolves to `TOKEN_STATS` events.
              * @example token:SOL:So11111111111111111111111111111111111111112:stats
              */
             topic: string;
@@ -14085,7 +14215,7 @@ export interface components {
             /** @description Optional client-supplied identifier echoed in the subscription acknowledgement or, when available, an error response for this request. */
             requestId?: string;
             /**
-             * @description Token swap subscription topic in the form `token:{chain}:{address}:swaps`. `{chain}` must be `ETH`, `SOL`, `BASE`, or `BSC`; `{address}` is the token address.
+             * @description Token swap subscription topic in the form `token:{chain}:{address}:swaps`. `{chain}` must be `SOL`; `{address}` is the token address.
              * @example token:SOL:So11111111111111111111111111111111111111112:swaps
              */
             topic: string;
@@ -14103,7 +14233,7 @@ export interface components {
             /** @description Optional client-supplied string echoed in the subscription acknowledgement or subscription error response to correlate it with this request. If omitted, the response omits `requestId`. */
             requestId?: string;
             /**
-             * @description Topic for top-trader updates in the form `token:{chain}:{address}:top_traders`, using `ETH`, `SOL`, `BASE`, or `BSC` as the chain. The address may identify a token or pair; pair addresses are resolved to the canonical token address. Do not add topic segments or send `params`, including cursor or window parameters.
+             * @description Topic for top-trader updates in the form `token:{chain}:{address}:top_traders`, using `SOL` as the chain. The address may identify a token or pair; pair addresses are resolved to the canonical token address. Do not add topic segments or send `params`, including cursor or window parameters.
              * @example token:SOL:So11111111111111111111111111111111111111112:top_traders
              */
             topic: string;
@@ -14141,7 +14271,7 @@ export interface components {
             /** @description Optional client-supplied identifier echoed in the `subscribed` acknowledgement or an error response for this subscription request. If omitted, responses omit `requestId`. */
             requestId?: string;
             /**
-             * @description Trader overview topic identifying the chain and wallet to monitor, in the form `traders:{chain}:{wallet}:overview`. `{chain}` must be `ETH`, `SOL`, `BASE`, or `BSC`, and `{wallet}` is the wallet-address segment and must not contain `:`.
+             * @description Trader overview topic identifying the chain and wallet to monitor, in the form `traders:{chain}:{wallet}:overview`. `{chain}` must be `SOL`, and `{wallet}` is the wallet-address segment and must not contain `:`.
              * @example traders:SOL:11111111111111111111111111111111:overview
              */
             topic: string;
@@ -14156,7 +14286,7 @@ export interface components {
          * @description WebSocket command that subscribes the connection to live trader-ranking updates. The parameters select the chain, time range, optional ranking filters, and pagination position.
          */
         WsSubscribeTraderRankingCommand: {
-            /** @description Parameters for the trader-ranking subscription. Include `chain` and `timeRange`; optionally provide `endCursor`, USD PnL bounds, win-rate percentage bounds, buy/sell-count bounds, and latest-swap-age bounds in minutes. Omitted or `null` optional values do not apply that filter; `endCursor` selects the pagination position. */
+            /** @description Parameters for the trader-ranking subscription. Include `chain` and `timeRange`; optionally provide `endCursor`, USD PnL bounds, win-rate percentage bounds, buy/sell-count bounds, and latest-swap-age bounds in minutes. Omitted or `null` optional values do not apply that filter. `endCursor` selects the pagination position. */
             params: components["schemas"]["TraderRankingLivecursorParams"];
             /** @description Optional client-supplied string used to correlate this subscribe request. When provided, the server echoes it in the `subscribed` acknowledgement or any subscribe error; when omitted, the response omits `requestId`. */
             requestId?: string;
@@ -14173,7 +14303,7 @@ export interface components {
         };
         /**
          * WsSubscribeTraderSwapsCommand
-         * @description WebSocket command for subscribing to a trader wallet’s swap-history stream on ETH, SOL, BASE, or BSC.
+         * @description WebSocket command for subscribing to a trader wallet’s swap-history stream on SOL.
          */
         WsSubscribeTraderSwapsCommand: {
             /** @description Optional parameters for the trader swaps live query. Set `endCursor` to subscribe from a specific pagination position; omit `params`, set it to `null`, or omit `endCursor` to start without a cursor. Unknown properties are rejected. */
@@ -14181,7 +14311,7 @@ export interface components {
             /** @description Optional client-provided string used to correlate this subscription request with the server’s `subscribed` acknowledgement or an error response. */
             requestId?: string;
             /**
-             * @description Topic identifying a trader wallet’s swap-history stream. Use `traders:{chain}:{wallet}:swaps`, with `ETH`, `SOL`, `BASE`, or `BSC` as `{chain}` and a valid trader address as `{wallet}`.
+             * @description Topic identifying a trader wallet’s swap-history stream. Use `traders:{chain}:{wallet}:swaps`, with `SOL` as `{chain}` and a valid trader address as `{wallet}`.
              * @example traders:SOL:11111111111111111111111111111111:swaps
              */
             topic: string;
@@ -14201,7 +14331,7 @@ export interface components {
             /** @description Optional client-supplied identifier echoed in the `subscribed` acknowledgement or an error response for this subscription request. It does not change subscription behavior. */
             requestId?: string;
             /**
-             * @description Trader token-position PnL topic in the form `traders:{chain}:{wallet}:tokens`. `chain` must be `ETH`, `SOL`, `BASE`, or `BSC`, and `wallet` must be a wallet identifier without a colon.
+             * @description Trader token-position PnL topic in the form `traders:{chain}:{wallet}:tokens`. `chain` must be `SOL`, and `wallet` must be a wallet identifier without a colon.
              * @example traders:SOL:11111111111111111111111111111111:tokens
              */
             topic: string;
@@ -14218,10 +14348,10 @@ export interface components {
         WsSubscribeTraderTokenPnlDetailCommand: {
             /** @description Parameters for the token-level PnL detail subscription. Include `timeRange` to select the reporting period. */
             params: components["schemas"]["TraderTokenPnlDetailLivecursorParams"];
-            /** @description Optional client-supplied identifier echoed in the `subscribed` acknowledgement or an error response for this subscription request. If omitted, responses omit `requestId`; any string value is accepted. The legacy `request_id` input alias is also accepted. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
-             * @description Topic for the trader-token PnL detail stream, formatted as `traders:{chain}:{wallet}:tokens:{token}:pnl`. Use `ETH`, `SOL`, `BASE`, or `BSC` for `{chain}`, and provide the trader wallet and token addresses for `{wallet}` and `{token}`.
+             * @description Topic for the trader-token PnL detail stream, formatted as `traders:{chain}:{wallet}:tokens:{token}:pnl`. Use `SOL` for `{chain}`, and provide the trader wallet and token addresses for `{wallet}` and `{token}`.
              * @example traders:SOL:11111111111111111111111111111111:tokens:So11111111111111111111111111111111111111112:pnl
              */
             topic: string;
@@ -14241,7 +14371,7 @@ export interface components {
             /** @description Optional client-supplied string used to correlate the subscribe command. When provided, the server echoes it in the `subscribed` acknowledgement or an error response for the command. */
             requestId?: string;
             /**
-             * @description Topic identifying swap updates for one wallet and token: `traders:{chain}:{wallet}:tokens:{token}:swaps`. Use `ETH`, `SOL`, `BASE`, or `BSC` for `{chain}`, and replace the other placeholders with the wallet and token addresses.
+             * @description Topic identifying swap updates for one wallet and token: `traders:{chain}:{wallet}:tokens:{token}:swaps`. Use `SOL` for `{chain}`, and replace the other placeholders with the wallet and token addresses.
              * @example traders:SOL:11111111111111111111111111111111:tokens:So11111111111111111111111111111111111111112:swaps
              */
             topic: string;
@@ -14256,7 +14386,7 @@ export interface components {
          * @description WebSocket command that subscribes the authenticated user to live updates for their active trades. Set `type` to `"subscribe"` and `topic` to `"trades:active"`; optionally provide a cursor window in `params`.
          */
         WsSubscribeTradesActiveCommand: {
-            /** @description Optional cursor window for the subscription. Provide `endCursor` to include trades from the current head through that cursor while remaining live. Provide both `startCursor` and `endCursor` for a fixed range that excludes later head trades. Omit it or set it to `null` to receive new trades from the current head. `startCursor` requires `endCursor`, and both cursors must be valid for active trades; otherwise, the subscription is rejected. */
+            /** @description Optional cursor window for the subscription. Provide `endCursor` to include trades from the current head through that cursor while remaining live. Provide both `startCursor` and `endCursor` for a fixed range that excludes later head trades. Omit it or set it to `null` to receive new trades from the current head. */
             params?: components["schemas"]["LivecursorWindowParams"] | null;
             /** @description Optional client-supplied string used to correlate this subscribe request with its `subscribed` acknowledgement or an `error` response. If omitted, the server omits `requestId` from those responses. */
             requestId?: string;
@@ -14278,7 +14408,7 @@ export interface components {
         WsSubscribeTradesCompletedCommand: {
             /** @description Optional cursor window for the completed-trades subscription. Provide opaque `startCursor` and/or `endCursor` strings; omit it or set it to `null` for a live window. `startCursor` requires `endCursor`. Invalid cursors or unknown fields cause a subscription error. */
             params?: components["schemas"]["LivecursorWindowParams"] | null;
-            /** @description Optional opaque client-supplied identifier for correlating the subscription request. When provided, the server echoes it in the `subscribed` acknowledgment or an `error` response; when omitted, it is omitted from the response. The JSON field is `requestId`; `request_id` is also accepted. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
              * @description Subscription topic.
@@ -14296,9 +14426,9 @@ export interface components {
          * @description WebSocket command that subscribes the connection to the live Twitter feed on the `twitter:feed` topic. Set `type` to `"subscribe"` and optionally provide `params` to filter the feed.
          */
         WsSubscribeTwitterFeedCommand: {
-            /** @description Optional filters for the `twitter:feed` WebSocket subscription. Send a `TwitterFeedFilterParams` object with any of `onlyCa`, `actions` (or `action`), `tags`, `authorHandle`, `authorId`, `minFollowers`, `search`, and `searchMode`. `actions` and `tags` accept arrays or comma-separated strings; `searchMode` accepts `BOTH`, `TOKEN`, or `KEYWORD`, case-insensitively. Omit `params`, send `null`, or send `{}` for an unfiltered feed. Supplied criteria use AND semantics, while multiple actions or tags match any listed value. Omit nested fields rather than sending `null`. Invalid object types, unrecognized keys, field types, or search modes reject the subscription. Filtered acknowledgments and event frames use a normalized topic suffix, such as `twitter:feed?onlyCa=true`. */
+            /** @description Optional filters for the `twitter:feed` WebSocket subscription. Send a `TwitterFeedFilterParams` object with any of `onlyCa`, `actions` (or `action`), `tags`, `authorHandle`, `authorId`, `minFollowers`, `search`, and `searchMode`. `actions` and `tags` accept arrays or comma-separated strings. `searchMode` accepts `BOTH`, `TOKEN`, or `KEYWORD`, case-insensitively. Supplied criteria use AND semantics, while multiple actions or tags match any listed value. Omit nested fields rather than sending `null`. Filtered acknowledgments and event frames use a normalized topic suffix, such as `twitter:feed?onlyCa=true`. */
             params?: components["schemas"]["TwitterFeedFilterParams"] | null;
-            /** @description Optional client-supplied identifier for correlating this subscription request. When provided, the server echoes it in the `subscribed` acknowledgment and subscription error messages. The canonical input name is `requestId`; `request_id` is also accepted. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
              * @description Subscription topic.
@@ -14336,9 +14466,9 @@ export interface components {
          * @description Authenticated WebSocket command for subscribing to the `user:favourites` topic.
          */
         WsSubscribeUserFavouritesCommand: {
-            /** @description Optional cursor bounds for the authenticated `user:favourites` live subscription. Only `startCursor` and `endCursor` are accepted. Use `endCursor` alone for a live window ending at that cursor, or provide both for a fixed window; `startCursor` without `endCursor` is rejected. Omitted, `null`, or an empty object uses the default live window. Invalid parameter values produce a subscription error. */
+            /** @description Optional cursor bounds for the authenticated `user:favourites` live subscription. Only `startCursor` and `endCursor` are accepted. Use `endCursor` alone for a live window ending at that cursor, or provide both for a fixed window. */
             params?: components["schemas"]["LivecursorWindowParams"] | null;
-            /** @description Optional client-defined string used to correlate this subscription request with the server's `subscribed` acknowledgement or an `error` response. When provided, it is echoed unchanged; when omitted, it is absent from the response. No uniqueness or format validation is applied. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. No format or length constraint applies. */
             requestId?: string;
             /**
              * @description The WebSocket topic to subscribe to; must be `user:favourites`.
@@ -14392,7 +14522,7 @@ export interface components {
          * @description Authenticated WebSocket command that subscribes the connection to wallet balance updates for the authenticated user. Set `type` to `subscribe` and `topic` to `user:wallets`; the server emits `USER_BALANCE` events.
          */
         WsSubscribeUserWalletsCommand: {
-            /** @description Optional client-supplied string echoed unchanged in the `subscribed` acknowledgement or an error response to correlate it with this request. If omitted, the response omits `requestId`. The string has no code-defined format or length constraint. The legacy `request_id` spelling is also accepted. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
              * @description Subscription topic.
@@ -14410,7 +14540,7 @@ export interface components {
          * @description WebSocket command that subscribes to the global watchlist live feed. Set `type` to `subscribe` and `topic` to `watchlist:all`; optionally provide watchlist filters or livecursor bounds in `params`. Use `requestId` to correlate the server response.
          */
         WsSubscribeWatchlistAllCommand: {
-            /** @description Optional watchlist filters and cursor bounds. Omit it or set it to `null` for an unfiltered live subscription. Send an object matching `WatchlistLivecursorParams` to apply filters or resume from cursors; `startCursor` may be used only with `endCursor`. Invalid parameters or cursors reject the subscription. */
+            /** @description Optional watchlist filters and cursor bounds. Send an object matching `WatchlistLivecursorParams` to apply filters or resume from cursors. */
             params?: components["schemas"]["WatchlistLivecursorParams"] | null;
             /** @description Optional client-defined string echoed as `requestId` in the server's subscription acknowledgment or error response. */
             requestId?: string;
@@ -14432,7 +14562,7 @@ export interface components {
         WsSubscribeWatchlistCallersCommand: {
             /** @description Filters and cursor boundaries for the `watchlist:callers` feed. Omit this field, send `null`, or send an empty object for an unfiltered live window; `startCursor` requires `endCursor` and requests a fixed window, while `endCursor` without `startCursor` requests a live window. */
             params?: components["schemas"]["WatchlistLivecursorParams"] | null;
-            /** @description Optional client-provided correlation identifier. When supplied, the server echoes the same string in the `subscribed` acknowledgment or corresponding `error` response. It does not determine the subscription ID; when omitted or `null`, no `requestId` is returned. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. No format or length constraint applies. */
             requestId?: string;
             /**
              * @description Subscription topic. Set this value to `watchlist:callers`.
@@ -14450,7 +14580,7 @@ export interface components {
          * @description WebSocket command for subscribing to the live watchlist feed for a specific caller source. Set `topic` to `watchlist:callers:{id}` and optionally provide cursor bounds or feed filters in `params`.
          */
         WsSubscribeWatchlistCallersIdCommand: {
-            /** @description Optional filters and livecursor boundaries for the selected caller-source feed. Omit this field, send `null`, or send an empty object for unfiltered live delivery; supported filters include chains, `swapType` (`BUY` or `SELL`), USD price and market-cap bounds, and ATH-multiplier bounds. `endCursor` anchors live delivery; `startCursor` must be paired with it to select a fixed range. Cursors must match the caller source and filters and satisfy ordering and server range limits. */
+            /** @description Optional filters and livecursor boundaries for the selected caller-source feed. Omit this field, send `null`, or send an empty object for unfiltered live delivery; supported filters include chains, `swapType` (`BUY` or `SELL`), USD price and market-cap bounds, and ATH-multiplier bounds. `endCursor` anchors live delivery. `startCursor` must be paired with it to select a fixed range. Cursors must match the caller source and filters and satisfy ordering and server range limits. */
             params?: components["schemas"]["WatchlistSourceLivecursorParams"] | null;
             /** @description Optional client-supplied string echoed unchanged as `requestId` in the subscription confirmation or subscription error response. It is omitted when not supplied; no format or uniqueness validation is applied. */
             requestId?: string;
@@ -14470,7 +14600,7 @@ export interface components {
          * @description Subscribe to live watchlist call and update events for the authenticated user's list sources.
          */
         WsSubscribeWatchlistListsCommand: {
-            /** @description Optional cursor bounds and filters for the authenticated `watchlist:lists` subscription. Omit it or set it to `null` to subscribe without cursor bounds or filters; otherwise provide any of `startCursor`, `endCursor`, `minPrice`, `maxPrice`, `minMultiplier`, `maxMultiplier`, `minMarketcap`, `maxMarketcap`, `chains`, `swapType`, and `callerIds`. `startCursor` must be accompanied by `endCursor`; invalid values or unknown fields reject the subscription. */
+            /** @description Optional cursor bounds and filters for the authenticated `watchlist:lists` subscription. Omit it or set it to `null` to subscribe without cursor bounds or filters; otherwise provide any of `startCursor`, `endCursor`, `minPrice`, `maxPrice`, `minMultiplier`, `maxMultiplier`, `minMarketcap`, `maxMarketcap`, `chains`, `swapType`, and `callerIds`. */
             params?: components["schemas"]["WatchlistLivecursorParams"] | null;
             /** @description Optional client-supplied identifier echoed in the server's `subscribed` acknowledgement or control-message `error` response for this subscription. If omitted, the corresponding response omits `requestId`. */
             requestId?: string;
@@ -14490,7 +14620,7 @@ export interface components {
          * @description WebSocket command to subscribe to the live feed for one of the authenticated user's watchlist lists.
          */
         WsSubscribeWatchlistListsIdCommand: {
-            /** @description Optional parameters for the selected saved-list watchlist's live feed. Omit it or set it to `null` for an unfiltered live window. Otherwise, provide cursor bounds and filters for chains (`ETH`, `SOL`, `BASE`, `BSC`), inclusive USD price or market-cap bounds, inclusive ATH-multiplier bounds, and `swapType` (`BUY` or `SELL`). An `endCursor` alone anchors a live window; `startCursor` requires `endCursor` and selects a fixed range. Cursors are opaque and must match this topic and its filters. */
+            /** @description Optional parameters for the selected saved-list watchlist's live feed. Provide cursor bounds and filters for chains (`SOL`), inclusive USD price or market-cap bounds, inclusive ATH-multiplier bounds, and `swapType` (`BUY` or `SELL`). An `endCursor` alone anchors a live window. Cursors are opaque and must match this topic and its filters. */
             params?: components["schemas"]["WatchlistSourceLivecursorParams"] | null;
             /** @description Optional client-supplied string echoed unchanged as `requestId` in the `subscribed` acknowledgement or subscription error. Any string is accepted; no format or uniqueness is required. The legacy `request_id` input name is also accepted. */
             requestId?: string;
@@ -14510,7 +14640,7 @@ export interface components {
          * @description WebSocket command to subscribe to the all-source watchlist ranking stream (`watchlist:ranking:all`). Parameters are optional and may be omitted or set to `null`; an optional `requestId` is echoed in the acknowledgement or an error.
          */
         WsSubscribeWatchlistRankingAllCommand: {
-            /** @description Optional configuration for the `watchlist:ranking:all` subscription. Omit `params`, send `null`, or send `{}` to use a live 30-day window with `performanceScore` ranking in descending order. Supported timeframes are `1d`, `3d`, `7d`, and `30d`; ranking metrics are `performanceScore`, `winRatePct`, `totalCalls`, `averageMultiplier`, and `highestMultiplier`; sort directions are `asc` and `desc`. Cursors must be valid encoded cursors. Supplying `startCursor` requires `endCursor` and selects a fixed window; otherwise, the window is live. Optional bounds are inclusive: percentages range from 0 through 100, total calls from 0 through 2,147,483,647, and performance scores from 0 through 30. Omitted or `null` bounds are unset, and each minimum must not exceed its corresponding maximum. Omit enum fields instead of sending `null`. Unknown fields and invalid enum values are rejected. */
+            /** @description Optional configuration for the `watchlist:ranking:all` subscription. Omit `params`, send `null`, or send `{}` to use a live 30-day window with `performanceScore` ranking in descending order. Supported timeframes are `1d`, `3d`, `7d`, and `30d`; ranking metrics are `performanceScore`, `winRatePct`, `totalCalls`, `averageMultiplier`, and `highestMultiplier`; sort directions are `asc` and `desc`. Cursors must be valid encoded cursors. Optional bounds are inclusive: percentages range from 0 through 100, total calls from 0 through 2,147,483,647, and performance scores from 0 through 30. Omitted or `null` bounds are unset, and each minimum must not exceed its corresponding maximum. Omit enum fields instead of sending `null`. */
             params?: components["schemas"]["WatchlistRankingLivecursorParams"] | null;
             /** @description Optional client-supplied string echoed as `requestId` in the `subscribed` acknowledgement or subscription error response. It is omitted from the response when not supplied, and has no format or uniqueness validation. */
             requestId?: string;
@@ -14530,7 +14660,7 @@ export interface components {
          * @description WebSocket command that subscribes to public caller-ranking updates on `watchlist:ranking:callers`. The server sends `WATCHLIST_RANKING` snapshots containing the complete caller-ranking window.
          */
         WsSubscribeWatchlistRankingCallersCommand: {
-            /** @description Optional cursor and ranking controls for the `watchlist:ranking:callers` subscription. Omit it or set it to `null` for a live subscription with a `30d` timeframe, ranking by `performanceScore` in descending order; an object may specify opaque `startCursor` and `endCursor` values, `timeframe` (`1d`, `3d`, `7d`, or `30d`), `rankBy` (`performanceScore`, `winRatePct`, `totalCalls`, `averageMultiplier`, or `highestMultiplier`), `orderBy` (`asc` or `desc`), and inclusive bounds for win rate (0–100 percentage points), total calls (0–2,147,483,647), and performance score (0–30). Omitted or `null` bounds apply no filter. Win-rate and call-count bounds use the selected timeframe; performance-score bounds are independent of timeframe. Reuse cursors unchanged: an empty or omitted `endCursor` selects the first page, a non-empty `endCursor` selects that page, and `startCursor` requires `endCursor` and selects a fixed window. Unknown fields, invalid values or cursors, out-of-range bounds, and lower bounds greater than upper bounds are rejected. */
+            /** @description Optional cursor and ranking controls for the `watchlist:ranking:callers` subscription. Omit it or set it to `null` for a live subscription with a `30d` timeframe, ranking by `performanceScore` in descending order; an object may specify opaque `startCursor` and `endCursor` values, `timeframe` (`1d`, `3d`, `7d`, or `30d`), `rankBy` (`performanceScore`, `winRatePct`, `totalCalls`, `averageMultiplier`, or `highestMultiplier`), `orderBy` (`asc` or `desc`), and inclusive bounds for win rate (0–100 percentage points), total calls (0–2,147,483,647), and performance score (0–30). Omitted or `null` bounds apply no filter. Win-rate and call-count bounds use the selected timeframe; performance-score bounds are independent of timeframe. */
             params?: components["schemas"]["WatchlistRankingLivecursorParams"] | null;
             /** @description Optional client-supplied correlation identifier. The server echoes it in the `subscribed` acknowledgement or a subscription `error`; if omitted, the response omits `requestId`. */
             requestId?: string;
@@ -14550,7 +14680,7 @@ export interface components {
          * @description Authenticated WebSocket command that subscribes the connection to live ranking updates for user watchlist lists. Set `type` to `subscribe` and `topic` to `watchlist:ranking:lists`; optionally provide `params` for ranking filters or cursor pagination.
          */
         WsSubscribeWatchlistRankingListsCommand: {
-            /** @description Optional ranking filters and cursor pagination parameters. Provide an object matching `WatchlistRankingLivecursorParams`, or omit it or set it to `null` for an unfiltered ranking window. Supported parameters include cursors, timeframe, ranking and ordering choices, and metric range filters; `startCursor` must be accompanied by `endCursor`. Invalid parameter names, types, values, or cursor combinations are rejected. */
+            /** @description Optional ranking filters and cursor pagination parameters. Provide an object matching `WatchlistRankingLivecursorParams`, or omit it or set it to `null` for an unfiltered ranking window. Supported parameters include cursors, timeframe, ranking and ordering choices, and metric range filters. */
             params?: components["schemas"]["WatchlistRankingLivecursorParams"] | null;
             /** @description Optional client-supplied identifier for correlating this subscribe command with the server's `subscribed` acknowledgement or an error response. When supplied, the server echoes it in those control messages. */
             requestId?: string;
@@ -14572,7 +14702,7 @@ export interface components {
         WsSubscribeWatchlistRankingTgCommand: {
             /** @description Optional ranking filters and live-cursor pagination parameters for `watchlist:ranking:tg`. Omit it or set it to `null` to use `timeframe: "30d"`, `rankBy: "performanceScore"`, and `orderBy: "desc"`; otherwise send an object with supported enum values and numeric minimum and maximum filters. Win-rate and total-call filters use the selected timeframe, while performance-score filters use the overall performance score. `startCursor` requires `endCursor`; invalid cursors, unknown fields, unsupported values, malformed values, or `totalCalls` values above 2,147,483,647 are rejected. */
             params?: components["schemas"]["WatchlistRankingLivecursorParams"] | null;
-            /** @description Optional client-supplied string for correlating this subscribe command with its result. When supplied, the server echoes it unchanged in the `subscribed` acknowledgement or subscription-related `error` response. Omit it when unused; an explicit JSON `null` is treated as absent, and responses then omit `requestId`. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. No format or length constraint applies. */
             requestId?: string;
             /**
              * @description Set to the fixed value `watchlist:ranking:tg` to subscribe to Telegram-source ranking updates. This topic requires an authenticated WebSocket connection.
@@ -14590,7 +14720,7 @@ export interface components {
          * @description WebSocket command for subscribing an authenticated connection to live wallet watchlist ranking updates. Set `type` to `subscribe` and `topic` to `watchlist:ranking:wallets`; optionally include `params` for ranking filters or cursor pagination.
          */
         WsSubscribeWatchlistRankingWalletsCommand: {
-            /** @description Optional ranking filters and cursor-pagination parameters. Send an object matching `WatchlistRankingLivecursorParams`, or omit it or set it to `null` to use the defaults: timeframe `30d`, `rankBy` `performanceScore`, and `orderBy` `desc`. `startCursor` requires `endCursor`; invalid cursors or parameters are rejected. */
+            /** @description Optional ranking filters and cursor-pagination parameters. Send an object matching `WatchlistRankingLivecursorParams`, or omit it or set it to `null` to use the defaults: timeframe `30d`, `rankBy` `performanceScore`, and `orderBy` `desc`. */
             params?: components["schemas"]["WatchlistRankingLivecursorParams"] | null;
             /** @description Optional client-supplied identifier. When provided, the server echoes it in the subscription acknowledgment or error so the client can correlate the response with this command. */
             requestId?: string;
@@ -14610,7 +14740,7 @@ export interface components {
          * @description WebSocket command that subscribes to the `watchlist:sources:all` live source catalog. Send `type: "subscribe"` and `topic: "watchlist:sources:all"`.
          */
         WsSubscribeWatchlistSourcesAllCommand: {
-            /** @description Optional subscription parameters. Omit it or set it to `null` for a live, unfiltered subscription. Otherwise, send `startCursor`, `endCursor`, and/or `search`; unknown parameters are rejected. `startCursor` requires `endCursor` and selects a fixed window; without `startCursor`, the subscription receives live updates. The all-sources topic supports anonymous and authenticated scopes. */
+            /** @description Optional subscription parameters. Send `startCursor`, `endCursor`, and/or `search`; unknown parameters are rejected. The all-sources topic supports anonymous and authenticated scopes. */
             params?: components["schemas"]["WatchlistSourcesLivecursorParams"] | null;
             /** @description Optional client-supplied correlation identifier. The server echoes it in the `subscribed` acknowledgement and in errors for this subscription request. Any string is accepted, including an empty string; `request_id` is also accepted as an input alias. */
             requestId?: string;
@@ -14630,7 +14760,7 @@ export interface components {
          * @description WebSocket command to subscribe to the public caller-source catalog and receive `WATCHLIST_SOURCES` updates. Set `type` to `subscribe`, `topic` to `watchlist:sources:callers`, and optionally provide live-cursor parameters.
          */
         WsSubscribeWatchlistSourcesCallersCommand: {
-            /** @description Optional parameters for the `watchlist:sources:callers` subscription. Omit it or set it to `null` for a live, unfiltered window. Otherwise, provide optional `startCursor`, `endCursor`, and `search` values; `startCursor` requires `endCursor` and selects a fixed window, while `endCursor` alone remains live. Cursors must be valid for the caller-source topic. `search` is trimmed, and omitted, `null`, empty, or whitespace-only values disable filtering. Unknown fields are rejected. */
+            /** @description Optional parameters for the `watchlist:sources:callers` subscription. Provide optional `startCursor`, `endCursor`, and `search` values. Cursors must be valid for the caller-source topic. `search` is trimmed, and omitted, `null`, empty, or whitespace-only values disable filtering. */
             params?: components["schemas"]["WatchlistSourcesLivecursorParams"] | null;
             /** @description Optional client-supplied correlation identifier for the subscribe request. When provided, it is echoed in the `subscribed` acknowledgement and subscribe errors; when omitted, those responses do not include it. */
             requestId?: string;
@@ -14650,7 +14780,7 @@ export interface components {
          * @description Command to authenticate and subscribe to the `watchlist:sources:lists` WebSocket topic for live saved-list source updates.
          */
         WsSubscribeWatchlistSourcesListsCommand: {
-            /** @description Optional parameters for the authenticated `watchlist:sources:lists` subscription. Omit it or set it to `null` to use the default live source view. Otherwise, send only `startCursor`, `endCursor`, and/or `search`; `search` is trimmed and performs case-insensitive substring matching on source names, while a blank value has no effect. `startCursor` and `endCursor` are opaque source-catalog cursors; `startCursor` requires `endCursor`, and providing both selects a fixed window. Without `startCursor`, the subscription remains live. Invalid values and unknown fields are rejected. */
+            /** @description Optional parameters for the authenticated `watchlist:sources:lists` subscription. Send only `startCursor`, `endCursor`, and/or `search`. `search` is trimmed and performs case-insensitive substring matching on source names, while a blank value has no effect. `startCursor` and `endCursor` are opaque source-catalog cursors. Without `startCursor`, the subscription remains live. */
             params?: components["schemas"]["WatchlistSourcesLivecursorParams"] | null;
             /** @description Optional client-supplied correlation identifier. When provided, the server echoes it in the subscription acknowledgement and in errors for this request. */
             requestId?: string;
@@ -14670,9 +14800,9 @@ export interface components {
          * @description Authenticated WebSocket command for subscribing to Telegram watchlist source data on `watchlist:sources:tg`. A successful subscription returns a `subId` and delivers `WATCHLIST_SOURCES` data frames.
          */
         WsSubscribeWatchlistSourcesTgCommand: {
-            /** @description Optional parameters for the authenticated `watchlist:sources:tg` subscription. Omit it or set it to `null` to use the default live source view. Otherwise, provide `startCursor`, `endCursor`, and/or `search`; `startCursor` requires `endCursor`. Blank `search` disables filtering, and unknown or invalid parameters cause the subscription to fail. */
+            /** @description Optional parameters for the authenticated `watchlist:sources:tg` subscription. Provide `startCursor`, `endCursor`, and/or `search`. Blank `search` disables filtering, and unknown or invalid parameters cause the subscription to fail. */
             params?: components["schemas"]["WatchlistSourcesLivecursorParams"] | null;
-            /** @description Optional client-supplied identifier for correlating this subscription request. When provided, the server echoes it in the `subscribed` acknowledgement and in errors generated while processing the request; when omitted, those messages contain no request identifier. This identifier does not determine the subscription ID. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. No format or length constraint applies. */
             requestId?: string;
             /**
              * @description Set to `watchlist:sources:tg` to subscribe to this topic.
@@ -14690,7 +14820,7 @@ export interface components {
          * @description Subscribe an authenticated WebSocket connection to live wallet watchlist source updates. Set `type` to `subscribe` and `topic` to `watchlist:sources:wallets`; optionally provide `params` for source search or cursor pagination.
          */
         WsSubscribeWatchlistSourcesWalletsCommand: {
-            /** @description Optional subscription parameters. Set `startCursor` and `endCursor` to select a fixed source window, or set `search` to filter sources by name. `search` is trimmed; empty or `null` values are ignored. Omit it or set it to `null` for an unfiltered live window. `startCursor` requires `endCursor`; invalid cursors and unknown parameters are rejected. Wallet source subscriptions require authentication. */
+            /** @description Optional subscription parameters. Set `startCursor` and `endCursor` to select a fixed source window, or set `search` to filter sources by name. `search` is trimmed; empty or `null` values are ignored. Wallet source subscriptions require authentication. */
             params?: components["schemas"]["WatchlistSourcesLivecursorParams"] | null;
             /** @description Optional client-supplied identifier echoed in the `subscribed` acknowledgement or an error response for this subscription request. Omit it when request correlation is not needed. */
             requestId?: string;
@@ -14710,7 +14840,7 @@ export interface components {
          * @description WebSocket command that subscribes an authenticated client to live sender updates for one Telegram chat. Set `type` to `subscribe` and `topic` to `watchlist:tg_chats:{chatId}:senders`, replacing `{chatId}` with the signed 64-bit Telegram chat ID.
          */
         WsSubscribeWatchlistTgChatSendersCommand: {
-            /** @description Optional client-supplied string used to correlate the command with the server response. When supplied, it is echoed in the `subscribed` acknowledgement or subscription error; when omitted, no request identifier is returned. No uniqueness or format validation is applied. The legacy `request_id` spelling is also accepted when deserializing the command. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
              * @description Topic for subscribing to live sender updates for one Telegram chat. Use `watchlist:tg_chats:{chatId}:senders`, replacing `{chatId}` with the signed decimal Telegram chat ID. Authentication is required, and the topic does not accept subscription parameters.
@@ -14746,7 +14876,7 @@ export interface components {
          * @description WebSocket command that subscribes an authenticated client to live Telegram chat watchlist updates on the `watchlist:tg_chats` topic.
          */
         WsSubscribeWatchlistTgChatsCommand: {
-            /** @description Optional client-supplied correlation identifier. When provided, it is echoed in the subscription acknowledgement and any subscription error; when omitted, those messages contain no request identifier. The wire name is `requestId`; `request_id` is also accepted when deserializing requests. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
              * @description Topic to subscribe to; Invalid or unauthorized subscriptions return an error.
@@ -14764,7 +14894,7 @@ export interface components {
          * @description WebSocket command to subscribe an authenticated client to the Telegram watchlist feed on topic `watchlist:tg`. The optional `params` selects filters and a cursor window; omit it or set it to `null` for the default live window.
          */
         WsSubscribeWatchlistTgCommand: {
-            /** @description Parameters for the authenticated `watchlist:tg` WebSocket live-window subscription. Omit it or set it to `null` for a live, unfiltered window. An object may specify cursors, caller IDs, supported chains, `swapType` (`BUY` or `SELL`), and inclusive price, market-cap, or since-call ATH-multiple bounds. `startCursor` requires `endCursor`; non-object parameters, unknown fields, unsupported chains, invalid swap types, or invalid or mismatched cursors return a subscription error. */
+            /** @description Parameters for the authenticated `watchlist:tg` WebSocket live-window subscription. An object may specify cursors, caller IDs, supported chains, `swapType` (`BUY` or `SELL`), and inclusive price, market-cap, or since-call ATH-multiple bounds. */
             params?: components["schemas"]["WatchlistLivecursorParams"] | null;
             /** @description Optional opaque client-provided identifier echoed in the `subscribed` acknowledgment or an error response for this subscription request. If omitted, no request identifier is included; it is not used as the subscription ID. */
             requestId?: string;
@@ -14844,7 +14974,7 @@ export interface components {
         WsSubscribeWatchlistWalletsIdCommand: {
             /** @description Optional filters and livecursor boundaries for the wallet-source watchlist subscription. Omit it or set it to `null` for an unfiltered live subscription; `startCursor` requires `endCursor`, and invalid filters or cursors cause an error. */
             params?: components["schemas"]["WatchlistSourceLivecursorParams"] | null;
-            /** @description Optional client-supplied identifier used to correlate this subscribe request. When supplied, it is echoed unchanged in the `subscribed` acknowledgment or any resulting error. The wire format uses `requestId`; `request_id` is also accepted when deserializing requests. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
              * @description Authenticated subscription topic for one wallet source, formatted as `watchlist:wallets:{id}`, where `{id}` is the wallet source UUID. The source must belong to the authenticated user; an invalid or foreign source is rejected, and no subscription is created.
@@ -15042,7 +15172,7 @@ export interface components {
          * @description WebSocket command that replaces the `balanceChanges` source configuration for an existing authenticated `page:bots` subscription. Send `type: "update_source"`, the subscription `subId`, `source: "balanceChanges"`, and `params` matching `BotsBalanceChangesPageSource`.
          */
         WsUpdateSourceBalanceChangesCommand: {
-            /** @description Parameters for replacing the `balanceChanges` source configuration on a bots-page WebSocket subscription. Send a `BotsBalanceChangesPageSource` object directly, not a surrounding `sources` object. It supports `limit`, `cursor`, `sourceType` (`CALLER`, `TG`, `LIST`, or `WALLET`), and `chain` (`ETH`, `SOL`, `BASE`, or `BSC`). Omitted or `null` `sourceType` and `chain` apply no filter. An omitted or `null` `cursor` starts at the live boundary; a non-`null` cursor sets the pagination end boundary. `limit` defaults to 20; zero or negative values are rejected, and positive values above 100 are capped at 100. Unknown or invalid parameters, including invalid cursors, reject the update with a `params_invalid` WebSocket error and leave the existing source configuration unchanged. Other source configurations are preserved. */
+            /** @description Parameters for replacing the `balanceChanges` source configuration on a bots-page WebSocket subscription. Send a `BotsBalanceChangesPageSource` object directly, not a surrounding `sources` object. It supports `limit`, `cursor`, `sourceType` (`CALLER`, `TG`, `LIST`, or `WALLET`), and `chain` (`SOL`). Omitted or `null` `sourceType` and `chain` apply no filter. Unknown or invalid parameters, including invalid cursors, reject the update with a `params_invalid` WebSocket error and leave the existing source configuration unchanged. Other source configurations are preserved. */
             params: components["schemas"]["BotsBalanceChangesPageSource"];
             /** @description Optional client-provided string used to correlate this command with its `source_updated` acknowledgement or an error response. The server echoes it when supplied; no format, uniqueness, or length constraints are enforced. */
             requestId?: string;
@@ -15223,7 +15353,7 @@ export interface components {
          * @description WebSocket command that replaces the `feed.all` source on an existing page subscription identified by `subId`.
          */
         WsUpdateSourceFeedAllCommand: {
-            /** @description Replacement `WatchlistFeedQuery` for the `feed.all` source, using camelCase field names. Optional filters include price, multiplier, market cap, chain, swap direction (`BUY` or `SELL`), caller ID, and an opaque cursor. Omitted or `null` filters use unset or empty defaults; an omitted cursor starts the default live window. Bounds accept strings or numbers, chains must be supported names (`ETH`, `SOL`, `BASE`, or `BSC`), and unknown fields or invalid filters and cursors reject the update. */
+            /** @description Replacement `WatchlistFeedQuery` for the `feed.all` source, using camelCase field names. Optional filters include price, multiplier, market cap, chain, swap direction (`BUY` or `SELL`), caller ID, and an opaque cursor. Bounds accept strings or numbers, chains must be supported names (`SOL`), and unknown fields or invalid filters and cursors reject the update. */
             params: components["schemas"]["WatchlistFeedQuery"];
             /** @description Optional client-supplied correlation identifier. When provided, the same string is included in the resulting `source_updated` or `error` message. */
             requestId?: string;
@@ -15399,7 +15529,7 @@ export interface components {
          * @description Updates the `logs` source for an existing compatible page subscription.
          */
         WsUpdateSourceLogsCommand: {
-            /** @description Configuration for the replacement `logs` source. Send a `BotsLogsPageSource` object directly; omitted or `null` filters are ignored. `limit` defaults to 20, must be positive, and is capped at 100. An omitted or `null` `cursor` starts with the newest logs. `sourceType` accepts `CALLER`, `TG`, `LIST`, or `WALLET`; `chain` accepts `ETH`, `SOL`, `BASE`, or `BSC`; `category` accepts `CONFIG`, `SOURCE_EVENT`, `EXECUTION`, or `SYSTEM`; and `status` accepts `SUCCESS` or `ERROR`. Unknown properties, invalid values, and invalid cursors return an error. The existing source remains active unless the replacement is successfully resolved, validated, and activated. */
+            /** @description Configuration for the replacement `logs` source. Send a `BotsLogsPageSource` object directly; omitted or `null` filters are ignored. An omitted or `null` `cursor` starts with the newest logs. `sourceType` accepts `CALLER`, `TG`, `LIST`, or `WALLET`. `chain` accepts `SOL`. `category` accepts `CONFIG`, `SOURCE_EVENT`, `EXECUTION`, or `SYSTEM`; and `status` accepts `SUCCESS` or `ERROR`. The existing source remains active unless the replacement is successfully resolved, validated, and activated. */
             params: components["schemas"]["BotsLogsPageSource"];
             /** @description Optional client-supplied correlation identifier. When provided, the server echoes it unchanged as `requestId` in the `source_updated` acknowledgement or `error` response for this update. When omitted, those responses omit `requestId`. */
             requestId?: string;
@@ -15465,7 +15595,7 @@ export interface components {
          * @description Replaces the `ranking.all` source on a compatible page subscription. Send `type: "update_source"`, the subscription `subId`, `source: "ranking.all"`, and `params` with the replacement ranking filters or pagination settings.
          */
         WsUpdateSourceRankingAllCommand: {
-            /** @description Parameters for the replacement `ranking.all` source. `timeframe` defaults to `30d`, `rankBy` to `performanceScore`, and `orderBy` to `desc`; omit `cursor` for the first page. Valid values are `1d`, `3d`, `7d`, or `30d` for `timeframe`; `performanceScore`, `winRatePct`, `totalCalls`, `averageMultiplier`, or `highestMultiplier` for `rankBy`; and `asc` or `desc` for `orderBy`. Optional bounds are `winRatePctMin/Max`, `totalCallsMin/Max`, and `performanceScoreMin/Max`. Unknown or invalid parameters, including an invalid cursor, return a WebSocket error and leave the existing source unchanged. */
+            /** @description Parameters for the replacement `ranking.all` source. `timeframe` defaults to `30d`, `rankBy` to `performanceScore`, and `orderBy` to `desc`; omit `cursor` for the first page. Valid values are `1d`, `3d`, `7d`, or `30d` for `timeframe`. `performanceScore`, `winRatePct`, `totalCalls`, `averageMultiplier`, or `highestMultiplier` for `rankBy`; and `asc` or `desc` for `orderBy`. Optional bounds are `winRatePctMin/Max`, `totalCallsMin/Max`, and `performanceScoreMin/Max`. */
             params: components["schemas"]["WatchlistRankingQuery"];
             /** @description Optional client-supplied correlation identifier, echoed in the resulting `source_updated` response or error. */
             requestId?: string;
@@ -15509,7 +15639,7 @@ export interface components {
          * @description WebSocket command that replaces the `ranking.lists` source on an existing compatible page subscription identified by `subId`.
          */
         WsUpdateSourceRankingListsCommand: {
-            /** @description Ranking query for the replacement `ranking.lists` window. It accepts `timeframe` (`1d`, `3d`, `7d`, or `30d`; default `30d`), an opaque `cursor` (omitted for the first page), optional `winRatePctMin`/`Max`, `totalCallsMin`/`Max`, and `performanceScoreMin`/`Max`, plus `rankBy` (`performanceScore`, `winRatePct`, `totalCalls`, `averageMultiplier`, or `highestMultiplier`; default `performanceScore`) and `orderBy` (`asc` or `desc`; default `desc`). Unknown or invalid values reject the update; a successful update replaces the source's live ranking window with these parameters. The `ranking.lists` source requires authentication. */
+            /** @description Ranking query for the replacement `ranking.lists` window. It accepts `timeframe` (`1d`, `3d`, `7d`, or `30d`; default `30d`), an opaque `cursor` (omitted for the first page), optional `winRatePctMin`/`Max`, `totalCallsMin`/`Max`, and `performanceScoreMin`/`Max`, plus `rankBy` (`performanceScore`, `winRatePct`, `totalCalls`, `averageMultiplier`, or `highestMultiplier`; default `performanceScore`) and `orderBy` (`asc` or `desc`; default `desc`). The `ranking.lists` source requires authentication. */
             params: components["schemas"]["WatchlistRankingQuery"];
             /** @description Optional client-supplied correlation string. When provided, it is echoed in the corresponding `source_updated` acknowledgement or `error` response; when omitted, the response omits it. */
             requestId?: string;
@@ -15531,7 +15661,7 @@ export interface components {
          * @description Replace the `ranking.tg` source and its query parameters on an existing compatible page subscription.
          */
         WsUpdateSourceRankingTgCommand: {
-            /** @description Replacement query for the `ranking.tg` source. Omitted query members reset to their defaults; send `{}` to use `timeframe: 30d`, `rankBy: performanceScore`, and `orderBy: desc`, with no cursor or optional bounds. Invalid parameters reject the update without changing the existing source. */
+            /** @description Replacement query for the `ranking.tg` source. Omitted query members reset to their defaults; send `{}` to use `timeframe: 30d`, `rankBy: performanceScore`, and `orderBy: desc`, with no cursor or optional bounds. */
             params: components["schemas"]["WatchlistRankingQuery"];
             /** @description Optional opaque client-supplied correlation identifier. When provided, it is echoed in the corresponding `source_updated` acknowledgement or `error` response. When omitted, the response omits `requestId`. */
             requestId?: string;
@@ -15553,9 +15683,9 @@ export interface components {
          * @description WebSocket command that replaces the `ranking.wallets` source on an existing compatible page subscription.
          */
         WsUpdateSourceRankingWalletsCommand: {
-            /** @description Complete replacement query for the `ranking.wallets` source; send a non-`null` object because its values replace, rather than merge with, the previous query. Omitted `timeframe`, `rankBy`, and `orderBy` default to `30d`, `performanceScore`, and `desc`. Omit `cursor`, or send `null` or an empty string, to select the first page. Omitted or `null` optional bounds impose no limit; `totalCallsMin` and `totalCallsMax` accept integers from 0 through 2,147,483,647. Unknown fields, invalid enum values, and invalid non-empty cursors are rejected. */
+            /** @description Complete replacement query for the `ranking.wallets` source; send a non-`null` object because its values replace, rather than merge with, the previous query. Omitted `timeframe`, `rankBy`, and `orderBy` default to `30d`, `performanceScore`, and `desc`. Omit `cursor`, or send `null` or an empty string, to select the first page. Omitted or `null` optional bounds impose no limit. `totalCallsMin` and `totalCallsMax` accept integers from 0 through 2,147,483,647. */
             params: components["schemas"]["WatchlistRankingQuery"];
-            /** @description Optional opaque client correlation value. When supplied, it is echoed unchanged in the `source_updated` acknowledgement or `error` response for this update. When omitted or `null`, the response omits `requestId`; it does not affect source selection or processing. */
+            /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. No format or length constraint applies. */
             requestId?: string;
             /**
              * @description Source to replace.
@@ -15597,7 +15727,7 @@ export interface components {
          * @description WebSocket command that replaces the `results` source parameters on an existing compatible page subscription identified by `subId`.
          */
         WsUpdateSourceResultsCommand: {
-            /** @description Search configuration for replacing the `results` source of a `page:search` subscription. Send the search object directly, not a surrounding `sources` object: use a non-blank `query` with optional `chain`, `timeFrame` (`5M`, `1H`, `6H`, or `24H`), and `cursor`, or a `lookup` array containing up to 50 supported `CHAIN:ADDRESS` values. A non-blank `query` and non-empty `lookup` cannot be combined. Text search defaults `timeFrame` to `24H` and starts at the first page when `cursor` is omitted; lookup mode ignores `chain` and `timeFrame`, while an omitted or empty `lookup` selects no criteria. Invalid fields, values, cursors, or combinations return an error without replacing the existing source. */
+            /** @description Search configuration for replacing the `results` source of a `page:search` subscription. Send the search object directly, not a surrounding `sources` object: use a non-blank `query` with optional `chain`, `timeFrame` (`5M`, `1H`, `6H`, or `24H`), and `cursor`, or a `lookup` array containing up to 50 supported `CHAIN:ADDRESS` values. A non-blank `query` and non-empty `lookup` cannot be combined. Text search defaults `timeFrame` to `24H` and starts at the first page when `cursor` is omitted; lookup mode ignores `chain` and `timeFrame`, while an omitted or empty `lookup` selects no criteria. */
             params: components["schemas"]["SearchPageSource"];
             /** @description Optional client-supplied correlation identifier, echoed in the corresponding `source_updated` or `error` response when provided. */
             requestId?: string;
@@ -15685,7 +15815,7 @@ export interface components {
          * @description WebSocket command that replaces the parameters for the `sources.callers` source of an existing page subscription identified by `subId`.
          */
         WsUpdateSourceSourcesCallersCommand: {
-            /** @description Replacement parameters for the live `sources.callers` source. Use optional opaque `cursor` for caller-catalog continuation and optional `search` for a case-insensitive literal substring of caller-source names; omit, set to `null`, or use blank values to start at the first page or disable filtering. Unknown or wrongly typed fields, or an undecodable cursor, reject the update with a parameter error and leave the existing source unchanged. */
+            /** @description Replacement parameters for the live `sources.callers` source. Use optional opaque `cursor` for caller-catalog continuation and optional `search` for a case-insensitive literal substring of caller-source names; omit, set to `null`, or use blank values to start at the first page or disable filtering. */
             params: components["schemas"]["WatchlistSourcesPageSource"];
             /** @description Optional client-supplied identifier echoed in the corresponding `source_updated` or `error` message. */
             requestId?: string;
@@ -15773,7 +15903,7 @@ export interface components {
          * @description WebSocket command that replaces the `stats` source parameters on an existing authenticated bots-page subscription identified by `subId`. It updates the live feed without creating a new subscription or changing the page subscription topic.
          */
         WsUpdateSourceStatsCommand: {
-            /** @description Parameters that replace the `stats` source. You can optionally filter statistics by `sourceType` (`CALLER`, `TG`, `LIST`, or `WALLET`) and `chain` (`ETH`, `SOL`, `BASE`, or `BSC`). Omit either field or set it to `null` to apply no filter for that dimension. The replacement parameters are validated before they are applied. */
+            /** @description Parameters that replace the `stats` source. You can optionally filter statistics by `sourceType` (`CALLER`, `TG`, `LIST`, or `WALLET`) and `chain` (`SOL`). Omit either field or set it to `null` to apply no filter for that dimension. The replacement parameters are validated before they are applied. */
             params: components["schemas"]["BotsStatsPageSource"];
             /** @description Optional client-supplied identifier echoed in the corresponding `source_updated` or `error` response to correlate this command. */
             requestId?: string;
@@ -15839,7 +15969,7 @@ export interface components {
          * @description WebSocket command that adds or updates the Telegram chat-topics source on an existing `page:watchlist` subscription. Set `type` to `"update_source"`, `source` to `"tgChatTopics"`, identify the subscription with `subId`, and provide the selected Telegram chat ID in `params.chatId`.
          */
         WsUpdateSourceTgChatTopicsCommand: {
-            /** @description Configuration for the `tgChatTopics` source. Include the required `chatId` as an integer from -9223372036854775808 through 9223372036854775807. It selects a Telegram chat owned by the authenticated user whose forum-topic catalog they receive. A missing, out-of-range, invalid, or unauthorized chat selection rejects the update without applying it. */
+            /** @description Configuration for the `tgChatTopics` source. Include the required `chatId` as an integer from -9223372036854775808 through 9223372036854775807. It selects a Telegram chat owned by the authenticated user whose forum-topic catalog they receive. */
             params: components["schemas"]["TgChatCatalogPageSource"];
             /** @description Optional client-provided identifier used to correlate this command with the server response. When supplied, the server echoes it in the source_updated or error message. */
             requestId?: string;
@@ -15927,7 +16057,7 @@ export interface components {
          * @description Updates the `topGainers` scanner source for a `page:scanner` WebSocket subscription, replacing its filters, ranking, sort order, timeframe, or cursor.
          */
         WsUpdateSourceTopGainersCommand: {
-            /** @description Replacement configuration for the `topGainers` scanner source. It may include `cursor`, `tokenFilter`, `rankBy`, `orderBy`, and `timeFrame`; omitted or `null` values use the defaults of `price24H`, descending order, and `24H`. Invalid values or cursors return an error without replacing the source. */
+            /** @description Replacement configuration for the `topGainers` scanner source. It may include `cursor`, `tokenFilter`, `rankBy`, `orderBy`, and `timeFrame`; omitted or `null` values use the defaults of `price24H`, descending order, and `24H`. */
             params: components["schemas"]["ScannerPageSource"];
             /** @description Optional client-supplied correlation identifier, echoed in the corresponding `source_updated` or `error` response. */
             requestId?: string;
@@ -16015,7 +16145,7 @@ export interface components {
          * @description WebSocket command that replaces the `trending` source configuration on an existing scanner page subscription identified by `subId`. Set `type` to `update_source`, `source` to `trending`, and `params` to the replacement settings.
          */
         WsUpdateSourceTrendingCommand: {
-            /** @description Replacement settings for the subscription's `trending` scanner source. `cursor`, `tokenFilter`, `rankBy`, `orderBy`, and `timeFrame` may each be omitted or set to `null`. A missing or `null` `cursor` starts a live window at page 1; a missing or `null` `tokenFilter` applies no token filter; and missing or `null` `rankBy`, `orderBy`, or `timeFrame` use the trending defaults (`trending`, `desc`, and `24H`). A supplied cursor must be valid for the resulting filter and sort settings, and unknown fields are rejected. */
+            /** @description Replacement settings for the subscription's `trending` scanner source. `cursor`, `tokenFilter`, `rankBy`, `orderBy`, and `timeFrame` may each be omitted or set to `null`. A missing or `null` `cursor` starts a live window at page 1; a missing or `null` `tokenFilter` applies no token filter; and missing or `null` `rankBy`, `orderBy`, or `timeFrame` use the trending defaults (`trending`, `desc`, and `24H`). */
             params: components["schemas"]["ScannerPageSource"];
             /** @description Optional client-supplied identifier for correlating this command with its direct WebSocket acknowledgement or error response. */
             requestId?: string;
@@ -16077,7 +16207,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send `method: "web3"` with the required `web3` wallet details. Partner JWT sign-in is not supported here. `chain` must be `ETH`, `SOL`, `BASE`, or `BSC`, with a valid chain-specific address and protocol: `evm_personal_sign` for EVM chains, or `solana_siws` or `solana_legacy` for `SOL`. A non-empty request `Origin` takes precedence over `web3.domain`, followed by `web3.domain` and then `Host`. If `chainId` is omitted, the standard ID is used (`ETH`: 1, `SOL`: 900, `BASE`: 8453, `BSC`: 56); a supplied ID must match. The selected domain and chain ID are used to build the returned challenge message. Sign the returned challenge message. */
+        /** @description Send `method: "web3"` with the required `web3` wallet details. Partner JWT sign-in is not supported here. `chain` must be `SOL`, with a valid Solana address and a protocol of `solana_siws` or `solana_legacy`. A non-empty request `Origin` takes precedence over `web3.domain`, followed by `web3.domain` and then `Host`. If `chainId` is omitted, the standard ID `900` is used; a supplied ID must match. The selected domain and chain ID are used to build the returned challenge message. Sign the returned challenge message. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AuthChallengeWeb3OnlyRequest"];
@@ -16424,15 +16554,6 @@ export interface operations {
                     "application/json": components["schemas"]["BotsResponse"];
                 };
             };
-            /** @description An invalid cursor returns HTTP 400. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
             /** @description Authentication failed. */
             401: {
                 headers: {
@@ -16503,7 +16624,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send a JSON object containing source, with an id and type CALLER, TG, LIST, or WALLET, and `chainConfigs`, a non-empty map from ETH, SOL, BASE, or BSC to complete bot configurations. For WALLET sources, include the wallet source's chain; other submitted chain entries are ignored. */
+        /** @description Send a JSON object containing source, with an id and type CALLER, TG, LIST, or WALLET, and `chainConfigs`, a non-empty map from SOL to complete bot configurations. For WALLET sources, include the wallet source's chain; other submitted chain entries are ignored. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateBotRequest"];
@@ -17199,7 +17320,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Required JSON object configuring the optional `sources.results` search source. Omit `sources` or `sources.results`, or set `sources.results` to `null`, to receive `results: null`; otherwise provide either a non-blank `query` with optional `chain`, `timeFrame`, and cursor (`timeFrame` defaults to `24H`) or a non-empty `lookup` array of no more than 50 `CHAIN:ADDRESS` keys using supported chains such as `ETH`, `SOL`, `BASE`, or `BSC`. A non-blank query and lookup cannot be combined; lookup metrics always use `24H`. If both are absent or blank/empty, the endpoint returns an empty results page. Unknown properties in the request or nested source objects are rejected. */
+        /** @description Required JSON object configuring the optional `sources.results` search source. Omit `sources` or `sources.results`, or set `sources.results` to `null`, to receive `results: null`; otherwise provide either a non-blank `query` with optional `chain`, `timeFrame`, and cursor (`timeFrame` defaults to `24H`) or a non-empty `lookup` array of no more than 50 `CHAIN:ADDRESS` keys using supported chains such as `SOL`. A non-blank query and lookup cannot be combined; lookup metrics always use `24H`. If both are absent or blank/empty, the endpoint returns an empty results page. Unknown properties in the request or nested source objects are rejected. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SearchPageRequest"];
@@ -17277,6 +17398,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TradingPageResponse"];
+                };
+            };
+            /** @description The request validation layer currently rejects any non-`null` `sources.activeTrades.cursor` or `sources.completedTrades.cursor` with HTTP 400; omit the cursors or send `null` and use the dedicated trade-list endpoints for pagination. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Authentication failed. */
@@ -17409,7 +17539,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send JSON containing the required `address` and `chain` properties. `address` must be an authorized wallet of the authenticated user, and `chain` must be `ETH`, `SOL`, `BASE`, or `BSC`. The server returns a signed coupon for this destination and does not submit the on-chain transfer. */
+        /** @description Send JSON containing the required `address` and `chain` properties. `address` must be an authorized wallet of the authenticated user, and `chain` must be `SOL`. The server returns a signed coupon for this destination and does not submit the on-chain transfer. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["WithdrawRequest"];
@@ -17661,7 +17791,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Provide both required fields: `address`, the recipient wallet address, which must belong to the authenticated user; and `chain`, the withdrawal network, which must be one of `ETH`, `SOL`, `BASE`, or `BSC`. */
+        /** @description Provide both required fields: `address`, the recipient wallet address, which must belong to the authenticated user; and `chain`, the withdrawal network, which must be one of `SOL`. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["WithdrawRequest"];
@@ -17679,6 +17809,101 @@ export interface operations {
             };
             /** @description Returned when no positive affiliate commission balance is available for the requested chain and no unexpired withdrawal coupon can be returned. Malformed JSON and request validation failures can also return HTTP 400; the error payload may differ by failure type. */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    referral_withdrawal_summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AffiliateWithdrawalSummaryResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    referral_create_withdrawal: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client request identity; retries return the stored result */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AffiliateWithdrawalResponse"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    referral_get_withdrawal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Idempotency-Key from the original POST */
+                idempotencyKey: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AffiliateWithdrawalResponse"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18050,7 +18275,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Returns available USD prices in a `prices` object keyed by `ETH`, `SOL`, `BASE`, and `BSC`. Each price includes the numeric `priceUsd` value and its exact decimal representation in `priceUsdStr`; chains without an available price are omitted. */
+            /** @description Returns available USD prices in a `prices` object keyed by `SOL`. Each price includes the numeric `priceUsd` value and its exact decimal representation in `priceUsdStr`; chains without an available price are omitted. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -18165,15 +18390,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TokenCallsResponse"];
-                };
-            };
-            /** @description The request is invalid. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -18669,7 +18885,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Returns a one-time priority-fee estimate for the swap. `gasFeeNative` and `gasFeeNativeStr` contain the fee in the applicable native or quote-token unit (`SOL` for SOL); `gasFeeUsd` and `gasFeeUsdStr` contain its USD equivalent. The `*Str` fields preserve the exact decimal representations. For ETH, BASE, and BSC, estimation is not implemented and all four fields are zero (`"0"` in the string fields); treat these values as unavailable estimates. */
+            /** @description Returns a one-time priority-fee estimate for the swap. `gasFeeNative` and `gasFeeNativeStr` contain the fee in the applicable native or quote-token unit (`SOL` for SOL); `gasFeeUsd` and `gasFeeUsdStr` contain its USD equivalent. The `*Str` fields preserve the exact decimal representations. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -18719,7 +18935,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Returned when `token` is not a valid address for the selected chain. For `SOL`, use a base58 address that decodes to 32 bytes and is no more than 44 characters. For `ETH`, `BASE`, or `BSC`, use a lowercase `0x` prefix followed by exactly 40 hexadecimal characters. */
+            /** @description Returned when `token` is not a valid address for the selected chain. For `SOL`, use a base58 address that decodes to 32 bytes and is no more than 44 characters. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -18779,7 +18995,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        /** @description JSON body selecting the cancellation action. Send `{ "mode": "PENDING" }` to abort all pending or submitted swaps, or add `swapId` to target one; send `{ "mode": "TRACKING" }` to stop tracking without selling; send `{}` to abort all pending or submitted swaps and then stop tracking. Other mode values and unknown fields are invalid, and a supplied `swapId` must identify a cancellable pending or submitted swap in the active trade. */
+        /** @description JSON body selecting the cancellation by id. Send `{ "swapId": n }` to abort one cancellable pending or submitted swap, or `{ "tradeId": n }` to abort all pending swaps on the trade and stop tracking it. Exactly one of the two ids is required; unknown fields are rejected. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CancelTradeRequest"];
@@ -18795,6 +19011,15 @@ export interface operations {
                     "application/json": components["schemas"]["CancelTradeResponse"];
                 };
             };
+            /** @description The request is invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Authentication failed. */
             401: {
                 headers: {
@@ -18802,8 +19027,17 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description No active trade belonging to the authenticated user matches the specified chain and token. */
+            /** @description The supplied trade or swap id does not belong to the authenticated user or does not match the path chain and token. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The request is well-formed but fails semantic validation. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -19182,6 +19416,15 @@ export interface operations {
                     "application/json": components["schemas"]["TraderOverview"];
                 };
             };
+            /** @description No PnL data for the wallet in the selected time range */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     trader_wallet_funding: {
@@ -19189,7 +19432,7 @@ export interface operations {
             query?: {
                 /** @description Cursor from a previous page. Omit it for the first page. */
                 cursor?: string;
-                /** @description Maximum funding events in the page. Defaults to 25. */
+                /** @description Maximum funding events in the page, from 1 through 100. Defaults to 25; 0 and values above 100 are rejected with 400. */
                 limit?: number;
             };
             header?: never;
@@ -19256,15 +19499,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TraderTokenSwapsResponse"];
-                };
-            };
-            /** @description Invalid cursors return HTTP 400. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description If the server cannot produce a complete page, it returns HTTP 500 rather than a partial response. */
@@ -19393,12 +19627,9 @@ export interface operations {
             query?: {
                 /** @description Cursor from a previous page. Omit it for the first page. */
                 cursor?: string;
-                /** @description Maximum transfers in the page. Defaults to 25. */
+                /** @description Maximum transfers in the page, from 1 through 100. Defaults to 25; 0 and values above 100 are rejected with 400. */
                 limit?: number;
-                /**
-                 * @description Only return transfers in this direction: `incoming`, `outgoing`, or
-                 *     `self`. Omit it to include every direction.
-                 */
+                /** @description Only return transfers in this direction: `incoming`, `outgoing`, or `self` (`selfTransfer` is accepted as an alias). Responses always emit the direction as `selfTransfer`. Omit it to include every direction. */
                 direction?: string;
                 /**
                  * @description Only return transfers of this class, such as `direct_transfer` or
@@ -20499,7 +20730,7 @@ export interface operations {
                 /** @description Inclusive maximum current token market cap in USD. Omit it for no maximum. */
                 maxMarketcap?: string;
                 /** @description Only return calls on these chains. Omit it to include every chain. */
-                chains?: ("ETH" | "SOL" | "BASE" | "BSC")[];
+                chains?: "SOL"[];
                 /** @description Only filters tracked-wallet rows. Caller, Telegram, and saved-list rows are returned whatever the value. */
                 swapType?: components["schemas"]["SwapType"];
             };
@@ -20540,7 +20771,7 @@ export interface operations {
                 /** @description Inclusive maximum current token market cap in USD. Omit it for no maximum. */
                 maxMarketcap?: string;
                 /** @description Only return calls on these chains. Omit it to include every chain. */
-                chains?: ("ETH" | "SOL" | "BASE" | "BSC")[];
+                chains?: "SOL"[];
                 /** @description Accepted and kept in the cursor, but it does not filter caller rows. */
                 swapType?: components["schemas"]["SwapType"];
             };
@@ -20581,7 +20812,7 @@ export interface operations {
                 /** @description Inclusive maximum current token market cap in USD. Omit it for no maximum. */
                 maxMarketcap?: string;
                 /** @description Only return calls on these chains. Omit it to include every chain. */
-                chains?: ("ETH" | "SOL" | "BASE" | "BSC")[];
+                chains?: "SOL"[];
                 /** @description Accepted and kept in the cursor, but it does not filter saved-list rows. */
                 swapType?: components["schemas"]["SwapType"];
             };
@@ -20629,7 +20860,7 @@ export interface operations {
                 /** @description Inclusive maximum current token market cap in USD. Omit it for no maximum. */
                 maxMarketcap?: string;
                 /** @description Only return calls on these chains. Omit it to include every chain. */
-                chains?: ("ETH" | "SOL" | "BASE" | "BSC")[];
+                chains?: "SOL"[];
                 /** @description Accepted and kept in the cursor, but it does not filter Telegram rows. */
                 swapType?: components["schemas"]["SwapType"];
             };
@@ -20677,7 +20908,7 @@ export interface operations {
                 /** @description Inclusive maximum current token market cap in USD. Omit it for no maximum. */
                 maxMarketcap?: string;
                 /** @description Only return calls on these chains. Omit it to include every chain. */
-                chains?: ("ETH" | "SOL" | "BASE" | "BSC")[];
+                chains?: "SOL"[];
                 /** @description Only return calls in this direction. Omit it to include both. */
                 swapType?: components["schemas"]["SwapType"];
             };
@@ -21351,7 +21582,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send `walletAddress`, `chain`, and `name`. `walletAddress` must be a valid EVM or Solana address, `chain` must be `ETH`, `SOL`, `BASE`, or `BSC`, and `name` must contain at least one non-whitespace character. Names are trimmed, and EVM addresses are checksummed for non-SOL chains. */
+        /** @description Send `walletAddress`, `chain`, and `name`. `walletAddress` must be a valid Solana address, `chain` must be `SOL`, and `name` must contain at least one non-whitespace character. Names are trimmed. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateWalletSourceRequest"];
@@ -21707,15 +21938,6 @@ export interface operations {
                     "application/json": components["schemas"]["WatchlistRankingResponse"];
                 };
             };
-            /** @description Cursors are opaque, and an invalid non-empty cursor returns HTTP 400. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
             /** @description Authentication failed. */
             401: {
                 headers: {
@@ -21792,15 +22014,6 @@ export interface operations {
                     "application/json": components["schemas"]["WatchlistSourcesResponse"];
                 };
             };
-            /** @description A malformed or incompatible nonempty cursor returns HTTP 400. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     get_caller_sources: {
@@ -21826,15 +22039,6 @@ export interface operations {
                     "application/json": components["schemas"]["WatchlistSourcesResponse"];
                 };
             };
-            /** @description The request is invalid. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
         };
     };
     get_list_sources: {
@@ -21858,15 +22062,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WatchlistSourcesResponse"];
-                };
-            };
-            /** @description An invalid non-empty cursor returns HTTP 400. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Authentication failed. */
@@ -21931,15 +22126,6 @@ export interface operations {
                     "application/json": components["schemas"]["WatchlistSourcesResponse"];
                 };
             };
-            /** @description The request is invalid. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
             /** @description Authentication failed. */
             401: {
                 headers: {
@@ -21999,7 +22185,7 @@ export interface operations {
                 /** @description Inclusive maximum current token market cap in USD. Omit it for no maximum. */
                 maxMarketcap?: string;
                 /** @description Only return calls on these chains. Omit it to include every chain. */
-                chains?: ("ETH" | "SOL" | "BASE" | "BSC")[];
+                chains?: "SOL"[];
                 /** @description Only return calls in this direction. Omit it to include both. */
                 swapType?: components["schemas"]["SwapType"];
             };

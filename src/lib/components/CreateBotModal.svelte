@@ -13,6 +13,7 @@
 		createBotConfigForm,
 		getBotChain,
 		hydrateBotConfig,
+		hydrateBotLimits,
 		type Bot,
 		type BotConfigErrors,
 		type BotConfigField,
@@ -48,8 +49,7 @@
 	let fieldErrors = $state<BotConfigErrors>({});
 
 	function pegForChain(c: Chain): number {
-		const pegChain = c === 'BASE' ? 'ETH' : c;
-		return parseFloat(getPegPrices()[pegChain] ?? '0') || 0;
+		return parseFloat(getPegPrices()[c] ?? '0') || 0;
 	}
 
 	function convertAmount(val: string, from: 'USD' | 'NATIVE', to: 'USD' | 'NATIVE', c: Chain): string {
@@ -71,10 +71,11 @@
 
 	let form = $state(createBotConfigForm('SOL', isUsd() ? 'USD' : 'NATIVE'));
 	let botStatus = $state<'ACTIVE' | 'PAUSED'>('ACTIVE');
+	let resetLifetimeSpend = $state(false);
 	let isWallet = $derived(source?.type === 'WALLET');
 	let isEditing = $derived(!!editBot);
 
-	const chains: Chain[] = ['SOL', 'ETH', 'BASE', 'BSC'];
+	const chains: Chain[] = ['SOL'];
 	const gasOptions: { label: string; value: GasMode }[] = [
 		{ label: 'Auto', value: 'AUTO' },
 		{ label: 'Low', value: 'LOW' },
@@ -85,9 +86,11 @@
 
 	function populateFromBot(bot: Bot) {
 		botStatus = bot.status === 'PAUSED' ? 'PAUSED' : 'ACTIVE';
+		resetLifetimeSpend = false;
 		const chainKey = getBotChain(bot);
 		if (!chainKey) return;
 		form = hydrateBotConfig(chainKey, bot.chainConfigs[chainKey]);
+		hydrateBotLimits(form, bot.limits);
 	}
 
 	$effect(() => {
@@ -106,6 +109,7 @@
 
 	function resetForm(chain: Chain = defaultChain) {
 		botStatus = 'ACTIVE';
+		resetLifetimeSpend = false;
 		const amountType = isUsd() ? 'USD' : 'NATIVE';
 		const amount = amountType === 'USD' ? '25' : convertAmount('25', 'USD', 'NATIVE', chain);
 		form = createBotConfigForm(chain, amountType, amount);
@@ -157,7 +161,11 @@
 			if (isEditing && editBot) {
 				const { error: apiErr } = await api.POST('/v2/bots/{id}/update', {
 					params: { path: { id: editBot.id } },
-					body: { chainConfigs: { [form.chain]: built.config } }
+					body: {
+						chainConfigs: { [form.chain]: built.config },
+						limits: built.limits ?? {},
+						resetLifetimeSpend: resetLifetimeSpend ? true : undefined
+					}
 				});
 				if (apiErr) throw new Error((apiErr as ErrorResponse)?.message ?? 'Update failed');
 				if (botStatus !== editBot.status) {
@@ -172,7 +180,8 @@
 			} else {
 				const body: CreateBotRequest = {
 					source: { id: source.id, type: source.type },
-					chainConfigs: { [form.chain]: built.config as components['schemas']['BotChainConfigRequest'] }
+					chainConfigs: { [form.chain]: built.config as components['schemas']['BotChainConfigRequest'] },
+					limits: built.limits ?? null
 				};
 				const { error: apiErr } = await api.POST('/v2/bots/create', { body });
 				if (apiErr) throw new Error((apiErr as ErrorResponse)?.message ?? 'Failed');
@@ -384,6 +393,63 @@
 					<button aria-label="Toggle anti-MEV" onclick={() => (form.antiMev = !form.antiMev)} class="relative h-5 w-9 cursor-pointer rounded-full transition-colors {form.antiMev ? 'bg-grn' : 'bg-bd2'}">
 						<div class="absolute top-0.5 h-4 w-4 rounded-full bg-wh transition-transform {form.antiMev ? 'left-[18px]' : 'left-0.5'}"></div>
 					</button>
+				</div>
+
+				<div class="rounded-lg border border-bd bg-s2 p-3">
+					<span class="mb-1 block text-[10px] font-medium uppercase tracking-wider text-g5">Spending Limits</span>
+					<p class="mb-2 text-[10px] text-g4">A signal buys only while every configured limit passes. Leave blank to disable.</p>
+					<div class="grid grid-cols-2 gap-2">
+						<div class="min-w-0">
+							<span class="mb-1 block text-[10px] font-medium uppercase tracking-wider text-g5">Cooldown</span>
+							<div class="flex overflow-hidden rounded-lg border bg-s4 {fieldError('limitsCooldownSecs') ? 'border-red/40' : 'border-bd'}">
+								<input type="text" inputmode="numeric" bind:value={form.limitsCooldownSecs} placeholder="Off" class="min-w-0 flex-1 bg-transparent px-2.5 py-1.5 text-xs text-tx placeholder-g3 outline-none" />
+								<span class="flex items-center border-l border-bd bg-s4 px-2 text-xs text-g5">s</span>
+							</div>
+							{#if fieldError('limitsCooldownSecs')}<p class="mt-1 text-[10px] text-red">{fieldError('limitsCooldownSecs')}</p>{/if}
+						</div>
+						<div class="min-w-0">
+							<span class="mb-1 block text-[10px] font-medium uppercase tracking-wider text-g5">Max Positions</span>
+							<div class="flex overflow-hidden rounded-lg border bg-s4 {fieldError('limitsMaxOpenPositions') ? 'border-red/40' : 'border-bd'}">
+								<input type="text" inputmode="numeric" bind:value={form.limitsMaxOpenPositions} placeholder="Unlimited" class="min-w-0 flex-1 bg-transparent px-2.5 py-1.5 text-xs text-tx placeholder-g3 outline-none" />
+							</div>
+							{#if fieldError('limitsMaxOpenPositions')}<p class="mt-1 text-[10px] text-red">{fieldError('limitsMaxOpenPositions')}</p>{/if}
+						</div>
+						<div class="min-w-0">
+							<span class="mb-1 block text-[10px] font-medium uppercase tracking-wider text-g5">Daily Budget</span>
+							<div class="flex overflow-hidden rounded-lg border bg-s4 {fieldError('limitsDailySpendUsd') ? 'border-red/40' : 'border-bd'}">
+								<input type="text" inputmode="decimal" bind:value={form.limitsDailySpendUsd} placeholder="Unlimited" class="min-w-0 flex-1 bg-transparent px-2.5 py-1.5 text-xs text-tx placeholder-g3 outline-none" />
+								<span class="flex items-center border-l border-bd bg-s4 px-2 text-xs text-g5">$</span>
+							</div>
+							{#if fieldError('limitsDailySpendUsd')}<p class="mt-1 text-[10px] text-red">{fieldError('limitsDailySpendUsd')}</p>{/if}
+						</div>
+						<div class="min-w-0">
+							<span class="mb-1 block text-[10px] font-medium uppercase tracking-wider text-g5">Total Budget</span>
+							<div class="flex overflow-hidden rounded-lg border bg-s4 {fieldError('limitsLifetimeSpendUsd') ? 'border-red/40' : 'border-bd'}">
+								<input type="text" inputmode="decimal" bind:value={form.limitsLifetimeSpendUsd} placeholder="Unlimited" class="min-w-0 flex-1 bg-transparent px-2.5 py-1.5 text-xs text-tx placeholder-g3 outline-none" />
+								<span class="flex items-center border-l border-bd bg-s4 px-2 text-xs text-g5">$</span>
+							</div>
+							{#if fieldError('limitsLifetimeSpendUsd')}<p class="mt-1 text-[10px] text-red">{fieldError('limitsLifetimeSpendUsd')}</p>{/if}
+						</div>
+						<div class="col-span-2 min-w-0">
+							<span class="mb-1 block text-[10px] font-medium uppercase tracking-wider text-g5">Max Open Exposure</span>
+							<div class="flex overflow-hidden rounded-lg border bg-s4 {fieldError('limitsMaxExposureUsd') ? 'border-red/40' : 'border-bd'}">
+								<input type="text" inputmode="decimal" bind:value={form.limitsMaxExposureUsd} placeholder="Unlimited" class="min-w-0 flex-1 bg-transparent px-2.5 py-1.5 text-xs text-tx placeholder-g3 outline-none" />
+								<span class="flex items-center border-l border-bd bg-s4 px-2 text-xs text-g5">$</span>
+							</div>
+							{#if fieldError('limitsMaxExposureUsd')}<p class="mt-1 text-[10px] text-red">{fieldError('limitsMaxExposureUsd')}</p>{/if}
+						</div>
+					</div>
+					{#if isEditing && form.limitsLifetimeSpendUsd.trim()}
+						<div class="mt-2 flex items-center justify-between rounded-lg border border-bd bg-s4 px-3 py-2">
+							<span class="text-[10px] {resetLifetimeSpend ? 'text-yel' : 'text-g5'}">Restart total-budget window on save</span>
+							<button
+								onclick={() => (resetLifetimeSpend = !resetLifetimeSpend)}
+								class="cursor-pointer rounded-md border px-2 py-0.5 text-[11px] transition-all {resetLifetimeSpend ? 'border-yel/40 bg-yel/10 text-yel' : 'border-bd text-g6 hover:text-tx'}"
+							>
+								{resetLifetimeSpend ? 'Will reset' : 'Reset window'}
+							</button>
+						</div>
+					{/if}
 				</div>
 
 				<div>

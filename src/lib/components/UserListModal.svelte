@@ -137,7 +137,7 @@
 		{ key: 'sixHours' as const, label: '6h' },
 		{ key: 'twentyFourHours' as const, label: '24h' },
 	];
-	const chains: Chain[] = ['SOL', 'ETH', 'BASE', 'BSC'];
+	const chains: Chain[] = ['SOL'];
 
 	type UlTab = 'market' | 'safety' | 'activity' | 'sources';
 	const ulTabs: { key: UlTab; label: string }[] = [
