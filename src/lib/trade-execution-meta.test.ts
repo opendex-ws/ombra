@@ -64,6 +64,26 @@ describe('trade execution metadata', () => {
 		expect(container.querySelector('img')?.getAttribute('decoding')).toBe('sync');
 	});
 
+	test('renders PumpFun app attribution from the program and co-signer', () => {
+		for (const id of [
+			'6Vo3245eszAb5wuqEMw8mGdbfRUdKbHhDHP5LcaGuTAB',
+			'FHpcNSe6tb2n15bAdq4BkeYWGyZKFD7yLYrH92ng7wCT'
+		]) {
+			const { container, unmount } = render(TradeExecutionMeta, {
+				props: {
+					trade: {
+						executionProgram: { id, name: 'PUMPFUN', kind: 'INTERFACE' }
+					}
+				}
+			});
+			expect(screen.getByText('PUMPFUN')).toBeVisible();
+			expect(container.querySelector('img')?.getAttribute('src')).toBe(
+				'/entity-icons/pumpfun.webp'
+			);
+			unmount();
+		}
+	});
+
 	test('renders an unbranded execution bot with the local robot asset', () => {
 		const { container } = render(TradeExecutionMeta, {
 			props: {

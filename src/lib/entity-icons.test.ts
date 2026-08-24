@@ -38,6 +38,9 @@ describe('entity icon registry', () => {
 		['DIRECT', 'direct'],
 		['Padre.gg', 'padre'],
 		['Pump Mayhem', 'pumpfun'],
+		['PumpFun', 'pumpfun'],
+		['Raydium', 'raydium'],
+		['OKX', 'okx'],
 		['SolanaMevBot', 'solana-mev-bot'],
 		['GenericBot', 'generic-bot'],
 		['GENERIC', 'generic-bot']

@@ -158,6 +158,8 @@
 	let savedVisibleRange: { from: number; to: number } | null = null;
 	let wasPinnedLive = true;
 	let pendingWidth = 0;
+	let priceScaleResetPending = false;
+	let magnitudeKey = '';
 	let projectionWaiters = new Set<() => void>();
 
 	function canProject() {
@@ -192,6 +194,10 @@
 			candleSeries.setData(allCandleData);
 			volumeSeries.setData(allVolumeData);
 			areaSeries?.setData(allAreaData);
+			if (priceScaleResetPending) {
+				candleSeries.priceScale().applyOptions({ autoScale: true });
+				priceScaleResetPending = false;
+			}
 			updatePriceLines();
 			const timeScale = chartInstance.timeScale();
 			if (pendingFirstPaint) timeScale.fitContent();
@@ -1283,6 +1289,15 @@
 		historyRequestId += 1;
 		cleanupCandleWs();
 		const mcap = showMarketCap;
+		// Price and market-cap values differ by orders of magnitude, so a price
+		// scale the user pinned by dragging the axis (easy to hit by accident on
+		// touch) would keep the old absolute range and leave the chart absurdly
+		// zoomed. Re-enable autoscale whenever the value magnitude changes.
+		const nextMagnitudeKey = `${chain}:${address}:${mcap ? 'marketCap' : 'price'}`;
+		if (nextMagnitudeKey !== magnitudeKey) {
+			magnitudeKey = nextMagnitudeKey;
+			priceScaleResetPending = true;
+		}
 		loading = true;
 		error = '';
 		noMoreCandles = false;
