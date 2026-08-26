@@ -717,6 +717,10 @@
 		if (data.stats?.total) updated = { ...updated, stats: { ...updated.stats, total: { ...updated.stats.total, ...data.stats.total } } };
 		if (data.audit) updated = { ...updated, audit: { ...updated.audit, ...data.audit } };
 		if (data.socials) updated = { ...updated, socials: { ...updated.socials, ...data.socials } };
+		// Bonding-curve progress only rides on TOKEN_STATS — TokenMarketLiveSnapshot
+		// (the :price topic) has no launchPad, so this is the only chance to move the
+		// migration %. `null` is meaningful here (no launchpad), so test for undefined.
+		if (data.launchPad !== undefined) updated = { ...updated, launchPad: data.launchPad };
 		if (data.holders) updated = { ...updated, holders: { ...updated.holders, ...data.holders } };
 		if (data.holders?.holderCount !== undefined) holdersCount = data.holders.holderCount;
 		token = updated;
@@ -747,7 +751,12 @@
 		const migrationKey = `${delta.chain}:${delta.pairAddress}:${delta.migratedToPairAddress}`;
 		if (handledMigrations.has(migrationKey)) return;
 		handledMigrations.add(migrationKey);
-		const bc = {
+		// The frame already carries the post-migration snapshot, and the backend
+		// reroutes our existing subscriptions to the destination pair — so there is
+		// nothing to refetch and nothing to resubscribe here. Only fall back to a
+		// synthesized bonding curve if the payload somehow omits one.
+		const snap = data.token;
+		const bc = snap?.launchPad?.bondingCurve ?? {
 			state: 'Migrated' as const,
 			progressPct: 100,
 			migratedFromPairAddress: token.pairAddress ?? delta.pairAddress,
@@ -758,41 +767,19 @@
 			migratedAtTimestamp: Date.now(),
 			migratedAtTimestampStr: new Date().toISOString()
 		};
-		token = { ...token, launchPad: { bondingCurve: bc, pumpfun: token.launchPad?.pumpfun ?? null } };
-		setTimeout(() => {
-			if (destroyed) return;
-			const newPair = delta.migratedToPairAddress;
-			const mc = chain as Chain;
-			api.GET('/v2/token/{chain}/{address}', {
-				params: { path: { chain: mc, address: newPair } }
-			}).then(({ data: snap }) => {
-				if (!snap) return;
-				token = {
-					...snap,
-					tokenSymbol: token?.tokenSymbol ?? snap.tokenSymbol,
-					tokenName: token?.tokenName ?? snap.tokenName,
-					launchPad: { bondingCurve: bc, pumpfun: snap.launchPad?.pumpfun ?? null }
-				};
-				isFav = !!snap.isFavourited;
-				if (snap.holders?.holderCount !== undefined) holdersCount = snap.holders.holderCount;
-			}).catch(() => {});
-			api.GET('/v2/token/{chain}/{address}/pairs', {
-				params: { path: { chain: mc, address: newPair } }
-			}).then(({ data: d }) => {
-				pairs = (d?.pairs ?? []).sort((x, y) => (y.isBestPair ? 1 : 0) - (x.isBestPair ? 1 : 0));
-				selectedPairIdx = null;
-			}).catch(() => {});
-			tradesLoading = true;
-			api.GET('/v2/token/{chain}/{address}/swaps', {
-				params: { path: { chain: mc, address: newPair }, query: buildTradesQuery() as never }
-			}).then(({ data: d }) => {
-				resetTrades(d?.swaps ?? []);
-				tradesHasMore = !!d?.nextCursor;
-				tradesCursor = d?.nextCursor;
-			}).catch(() => { resetTrades(); }).finally(() => { tradesLoading = false; });
-			cleanupWs();
-			untrack(() => setupWs(mc, newPair));
-		}, 2000);
+
+		if (snap) {
+			token = {
+				...snap,
+				tokenSymbol: token.tokenSymbol ?? snap.tokenSymbol,
+				tokenName: token.tokenName ?? snap.tokenName,
+				launchPad: { bondingCurve: bc, pumpfun: snap.launchPad?.pumpfun ?? null }
+			};
+			isFav = !!snap.isFavourited;
+			if (snap.holders?.holderCount !== undefined) holdersCount = snap.holders.holderCount;
+		} else {
+			token = { ...token, launchPad: { bondingCurve: bc, pumpfun: token.launchPad?.pumpfun ?? null } };
+		}
 	}
 
 	function setupWs(c: string, a: string) {
@@ -1270,9 +1257,7 @@
 		}
 	}
 
-	let destroyed = false;
 	onDestroy(() => {
-		destroyed = true;
 		cleanupWs();
 		cleanupDetailsWs();
 		swapsCoalescer.dispose();
@@ -1510,7 +1495,7 @@
 								{@const tokenImageUrl = tokenImage(token.chain, token.tokenAddress)}
 								<img src={tokenImageUrl} alt="" class="h-full w-full rounded-[9px] object-cover" />
 								<div class="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden h-[200px] w-[200px] rounded-xl border border-bd bg-s4 p-1 shadow-2xl group-hover:block">
-									<img src={tokenImageUrl} alt="" class="h-full w-full rounded-lg object-cover" />
+									<img src={tokenImage(token.chain, token.tokenAddress, 256)} alt="" class="h-full w-full rounded-lg object-cover" />
 								</div>
 							{:else}
 								<div class="flex h-full w-full items-center justify-center rounded-[9px] bg-s7">

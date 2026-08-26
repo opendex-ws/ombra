@@ -23,9 +23,7 @@
 	const allPlatforms = [
 		'PUMPFUN', 'PUMPSWAP', 'RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'RAYDIUM_LAUNCH',
 		'METEORA_BONDING_CURVE', 'METEORA_DYN', 'METEORA_DYN_V2', 'METEORA_DLMM',
-		'MOONSHOT', 'HEAVEN', 'FOURMEME_V2',
-		'BELIEVE', 'LETS_BONK', 'BAGS', 'PRINTR',
-		'UNISWAP_V2', 'UNISWAP_V3', 'AERODROME_V2',
+		'MOONSHOT', 'HEAVEN', 'BELIEVE', 'LETS_BONK', 'BAGS', 'PRINTR',
 	] as const;
 	const scannerViews = [
 		{ value: 'new', label: 'New' },

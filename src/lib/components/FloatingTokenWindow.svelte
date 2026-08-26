@@ -442,6 +442,6 @@
 		class="pointer-events-none fixed z-[300] rounded-xl border border-bd bg-s4 p-1 shadow-2xl"
 		style="left: {previewPos.x}px; top: {previewPos.y}px; width: {PREVIEW_SIZE}px; height: {PREVIEW_SIZE}px;"
 	>
-		<img src={tokenImage(popout.chain, popout.address)} alt="" class="h-full w-full rounded-lg object-cover" onerror={(e: Event) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
+		<img src={tokenImage(popout.chain, popout.address, 256)} alt="" class="h-full w-full rounded-lg object-cover" onerror={(e: Event) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
 	</div>
 {/if}

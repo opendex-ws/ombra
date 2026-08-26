@@ -130,7 +130,7 @@
 	let ulPriceChangeMin = $state('');
 	let ulPriceChangeMax = $state('');
 
-	const platformOptions: PlatformType[] = ['RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'RAYDIUM_LAUNCH', 'PUMPFUN', 'PUMPSWAP', 'METEORA_DYN', 'METEORA_DLMM', 'METEORA_BONDING_CURVE', 'METEORA_DYN_V2', 'UNISWAP_V2', 'UNISWAP_V3', 'AERODROME_V2', 'HEAVEN', 'FOURMEME_V2', 'LETS_BONK', 'BELIEVE', 'BAGS', 'PRINTR', 'MOONSHOT'];
+	const platformOptions: PlatformType[] = ['RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'RAYDIUM_LAUNCH', 'PUMPFUN', 'PUMPSWAP', 'METEORA_DYN', 'METEORA_DLMM', 'METEORA_BONDING_CURVE', 'METEORA_DYN_V2', 'HEAVEN', 'LETS_BONK', 'BELIEVE', 'BAGS', 'PRINTR', 'MOONSHOT'];
 	const activityTimeframes = [
 		{ key: 'fiveMin' as const, label: '5m' },
 		{ key: 'oneHour' as const, label: '1h' },

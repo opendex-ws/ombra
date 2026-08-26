@@ -23,11 +23,13 @@
 	const tfSuffix: Record<TimeFrame, string> = { '5M': '5m', '1H': '1h', '6H': '6h', '24H': '24h' };
 	const memePlatforms = [
 		'PUMPFUN', 'PUMPSWAP', 'RAYDIUM_LAUNCH', 'METEORA_BONDING_CURVE',
-		'MOONSHOT', 'HEAVEN', 'FOURMEME_V2', 'BELIEVE', 'LETS_BONK', 'BAGS', 'PRINTR',
+		'MOONSHOT', 'HEAVEN', 'BELIEVE', 'LETS_BONK', 'BAGS', 'PRINTR',
 	] as const;
+	// PumpSwap is pump.fun's own AMM — it's where graduating tokens actually land,
+	// so it has to be filterable in the Graduated column, not just the meme phases.
 	const dexPlatforms = [
-		'RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'METEORA_DYN', 'METEORA_DYN_V2',
-		'METEORA_DLMM', 'UNISWAP_V2', 'UNISWAP_V3', 'AERODROME_V2',
+		'PUMPSWAP', 'RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'METEORA_DYN',
+		'METEORA_DYN_V2', 'METEORA_DLMM',
 	] as const;
 	const platformsByPhase: Record<TrenchesPhase, readonly string[]> = {
 		new: memePlatforms,

@@ -26,8 +26,12 @@ export function apiUrl(path: string): string {
 }
 
 /** Token image URL for a chain/address (proxy or direct origin). */
-export function tokenImage(chain: string, address: string): string {
-	return apiUrl(`/v2/token/image/${chain}/${address}`);
+export function tokenImage(chain: string, address: string, size?: number): string {
+	const url = apiUrl(`/v2/token/image/${chain}/${address}`);
+	// List rows render these at 28–44px, so the default (backend-sized) response is
+	// right for them. Hover previews blow the same image up to ~180–200px, where it
+	// looks soft — ask for a bigger source only there.
+	return size ? `${url}?h=${size}&w=${size}` : url;
 }
 
 /** WebSocket base (ws/wss origin) for `/v2/ws`. */

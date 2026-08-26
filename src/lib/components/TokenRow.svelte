@@ -332,6 +332,6 @@
 		class="pointer-events-none fixed z-[300] rounded-xl border border-bd bg-s4 p-1 shadow-2xl"
 		style="left: {previewPos.x}px; top: {previewPos.y}px; width: {PREVIEW_SIZE}px; height: {PREVIEW_SIZE}px;"
 	>
-		<img src={tokenImage(token.chain, token.tokenAddress)} alt="" class="h-full w-full rounded-lg object-cover" />
+		<img src={tokenImage(token.chain, token.tokenAddress, 256)} alt="" class="h-full w-full rounded-lg object-cover" />
 	</div>
 {/if}
