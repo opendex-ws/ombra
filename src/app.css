@@ -173,7 +173,6 @@ input[type="number"] {
 	cursor: pointer;
 }
 
-
 .slider-input::-webkit-slider-thumb {
 	-webkit-appearance: none;
 	width: 14px;
@@ -541,10 +540,7 @@ table {
 	color: var(--t-red);
 }
 
-/* Predict tab enter — thin odds line only (never animate the heavy shell). */
-/* Nav underline accent — transform only, no box-shadow paint thrash. */
-@media (prefers-reduced-motion: reduce) {
-	/* Same rule as the card flashes: tint via a pseudo-element and animate only
+/* Same rule as the card flashes: tint via a pseudo-element and animate only
    `opacity`, so a flashing row composites instead of repainting (and the `new`
    variant no longer animates box-shadow, which repainted on every frame). */
 @keyframes row-flash-fade {
