@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tokenImage } from '$lib/api/config';
 	import { onDestroy } from 'svelte';
+	import { onVisibility, FLASH_MS, FLASH_COOLDOWN_MS } from '$lib/utils/visibility';
 	import type { ScannerItem } from '$lib/api/types';
 	import { formatPrice, formatMarketCap, formatPercent, formatNumber, liveAge, fmtVal, fmtPriceHtml, pctColor } from '$lib/utils/format';
 	import { getRouterInfo, getRouterIconForChain } from '$lib/utils/routers';
@@ -15,6 +16,7 @@
 	import { getIsLoggedIn } from '$lib/stores/auth.svelte';
 	import { getFavourites, addFavourite, removeFavourite } from '$lib/stores/settings.svelte';
 	import { portal } from '$lib/actions/portal';
+	import { openSafeUrl, safeUrl } from '$lib/safeUrl';
 
 	import type { RowFlashType } from '$lib/utils/scanner-ws';
 
@@ -43,10 +45,10 @@
 		}
 	}
 
-	function openSocial(e: MouseEvent, url: string | null) {
+	function openSocial(e: MouseEvent, url: string | null | undefined) {
 		e.preventDefault();
 		e.stopPropagation();
-		if (url) window.open(url, '_blank');
+		openSafeUrl(url);
 	}
 
 	const createdMs = $derived(token.createdAtTimestampStr ? Date.parse(token.createdAtTimestampStr) : NaN);
@@ -60,14 +62,23 @@
 		for (const key in timers) clearTimeout(timers[key]);
 	});
 
+	// Offscreen rows skip flashing, and a churning value re-arms at most once per
+	// cooldown instead of restarting the animation every frame.
+	let onScreen = $state(true);
+	let lastFlashAt: Record<string, number> = {};
+
 	function flash(key: string, oldNum: number, newNum: number) {
+		if (!onScreen) return;
+		const now = performance.now();
+		if (now - (lastFlashAt[key] ?? 0) < FLASH_COOLDOWN_MS) return;
+		lastFlashAt[key] = now;
 		const dir = newNum > oldNum ? 'up' : 'down';
 		flashes = { ...flashes, [key]: dir };
 		clearTimeout(timers[key]);
 		timers[key] = setTimeout(() => {
 			const { [key]: _, ...rest } = flashes;
 			flashes = rest;
-		}, 800);
+		}, FLASH_MS);
 	}
 
 	function fc(key: string): string {
@@ -118,11 +129,11 @@
 	let soc = $derived.by(() => {
 		const l = token.socials?.links;
 		return {
-			website: l?.website ?? null,
-			twitter: l?.twitter?.url ?? null,
-			telegram: l?.telegram ?? null,
-			discord: l?.discord ?? null,
-			instagram: l?.instagram ?? null
+			website: safeUrl(l?.website) ?? null,
+			twitter: safeUrl(l?.twitter?.url) ?? null,
+			telegram: safeUrl(l?.telegram) ?? null,
+			discord: safeUrl(l?.discord) ?? null,
+			instagram: safeUrl(l?.instagram) ?? null
 		};
 	});
 	let pumpfun = $derived(token.launchPad?.pumpfun ?? null);
@@ -158,7 +169,8 @@
 
 <a
 	href="/?chain={token.chain}&token={token.tokenAddress}"
-	class="group grid h-[72px] items-center gap-x-2 border-b border-bd/40 px-4 transition-colors duration-75 hover:bg-wh/5 [contain:layout_paint_style] [content-visibility:auto] [contain-intrinsic-size:auto_72px] {selected ? 'bg-wh/5' : ''} {rowFlash ? `row-flash-${rowFlash}` : ''}"
+	use:onVisibility={(v) => (onScreen = v)}
+	class="group grid h-[72px] items-center gap-x-2 border-b border-bd/40 px-4 transition-colors duration-75 hover:bg-wh/5 [contain:layout_paint_style] {selected ? 'bg-wh/5' : ''} {rowFlash ? `row-flash-${rowFlash}` : ''}"
 	style:grid-template-columns={cols}
 	onclick={handleClick}
 >

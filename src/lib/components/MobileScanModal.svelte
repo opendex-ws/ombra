@@ -165,7 +165,7 @@
 						<!-- svelte-ignore element_invalid_self_closing_tag -->
 						<video bind:this={videoEl} class="h-auto w-full" autoplay playsinline muted />
 						<div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-							<div class="h-44 w-44 rounded-2xl border-2 border-grn/40 shadow-[0_0_0_9999px_rgba(0,0,0,0.4)]"></div>
+							<div class="h-44 w-44 rounded-2xl border-2 border-grn/40 shadow-[0_0_0_9999px_color-mix(in_srgb,var(--t-s0)_60%,transparent)]"></div>
 						</div>
 						<div class="pointer-events-none absolute inset-0 flex items-center justify-center">
 							<ScanLine class="h-10 w-10 text-grn/60 animate-pulse" strokeWidth={1} />

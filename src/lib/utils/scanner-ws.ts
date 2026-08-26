@@ -111,10 +111,19 @@ export function applyScannerWsEvent(
 		}
 
 		const affected = new Map<string, RowFlashType>();
-		const tokens = current.map((t) => {
-			const upd = updateMap.get(t.pairAddress);
-			if (!upd) return t;
-			affected.set(t.pairAddress, 'update');
+		// Walk the updates, not the list: a frame usually touches a couple of rows,
+		// so mapping the whole array allocated a new array (and forced a full
+		// each-block diff) for nothing. Only copy when something actually matches,
+		// and hand back the identical array reference when nothing does.
+		const indexByPair = new Map<string, number>();
+		for (let i = 0; i < current.length; i++) indexByPair.set(current[i].pairAddress, i);
+
+		let out: ScannerItem[] | null = null;
+		for (const [pair, upd] of updateMap) {
+			const at = indexByPair.get(pair);
+			if (at === undefined) continue;
+			const t = current[at];
+			affected.set(pair, 'update');
 
 			const merged = { ...t };
 			if (upd.quote) {
@@ -143,9 +152,10 @@ export function applyScannerWsEvent(
 			if (upd.calls !== undefined) merged.calls = upd.calls;
 			if (upd.createdAtAgeSeconds !== undefined) merged.createdAtAgeSeconds = upd.createdAtAgeSeconds;
 
-			return merged;
-		});
-		return { tokens, affected };
+			if (!out) out = current.slice();
+			out[at] = merged;
+		}
+		return { tokens: out ?? current, affected };
 	}
 	return { tokens: current, affected: new Map() };
 }

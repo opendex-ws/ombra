@@ -1599,11 +1599,11 @@
 
 </script>
 
-<div class="relative overflow-hidden rounded-xl border border-bd/60 bg-s4">
-	<div class="flex items-center gap-0.5 border-b border-bd/60 bg-s0 px-2 py-1.5">
+<div class="relative overflow-hidden rounded-xl border border-bd bg-s4">
+	<div class="flex items-center gap-px border-b border-bd bg-s0 px-1.5 py-1">
 		{#each frames as f}
 			<button
-				class="rounded-md px-2 py-1 text-sm font-medium transition-all duration-150 {selectedFrame === f.value
+				class="rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide transition-all duration-150 {selectedFrame === f.value
 					? 'bg-wh/10 text-tx'
 					: 'text-g5 hover:bg-s7 hover:text-g9'}"
 				onclick={() => setSelectedFrame(f.value)}
@@ -1680,7 +1680,13 @@
 				<span class="text-sm text-g6">{error}</span>
 			</div>
 		{/if}
-		<div bind:this={chartContainer} class="relative">
+		<div bind:this={chartContainer} class="relative"></div>
+		<div class="pointer-events-none absolute inset-x-0 bottom-0 z-[5] h-9 bg-gradient-to-t from-s4 to-transparent"></div>
+		<div
+			class="pointer-events-none absolute bottom-7 right-14 z-10 rounded bg-s0/90 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-tx shadow-sm ring-1 ring-bd backdrop-blur-[2px]"
+		>
+			{frames.find((f) => f.value === selectedFrame)?.label ?? selectedFrame}
+		</div>
 			{#if chartTooltip?.kol}
 				{@const k = chartTooltip.kol}
 				<div
@@ -1740,6 +1746,5 @@
 					{/each}
 				</div>
 			{/if}
-		</div>
 	</div>
 </div>

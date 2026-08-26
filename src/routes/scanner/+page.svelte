@@ -68,7 +68,7 @@
 	let customRankBy: ScannerRankBy | null = $state(null);
 	let rankBy = $derived(customRankBy ?? scannerViewRankBy(view, timeFrame));
 	let orderBy: NonNullable<ScannerTokensRequest['orderBy']> = $state('desc');
-	let tokens: ScannerItem[] = $state([]);
+	let tokens: ScannerItem[] = $state.raw([]);
 	let feedStats = $state<components['schemas']['ScannerFeedStats'] | null>(null);
 	let loading: boolean = $state(false);
 	let loadingMore: boolean = $state(false);

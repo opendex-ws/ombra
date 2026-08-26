@@ -3,7 +3,9 @@
 	import { api } from '$lib/api/client';
 	import type { Chain, ScannerItem, TimeFrame, TrenchesPhase, ScannerTokensRequest, components } from '$lib/api/types';
 	import { isCursorRecoveryReason, subscribe, unsubscribe } from '$lib/ws/client';
-	import { applyScannerWsEvent, type RowFlashType } from '$lib/utils/scanner-ws';
+	import { applyScannerWsEvent } from '$lib/utils/scanner-ws';
+	import { createCoalescer } from '$lib/utils/coalesce';
+	import { VirtualList } from '$lib/utils/virtual.svelte';
 	import { getIsDesktop } from '$lib/stores/viewport.svelte';
 	import MemescopeCard from '$lib/components/MemescopeCard.svelte';
 	import { formatMarketCap } from '$lib/utils/format';
@@ -35,9 +37,9 @@
 
 	type PhaseFilters = Record<string, string>;
 
-	let newTokens = $state<ScannerItem[]>([]);
-	let aboutToGrad = $state<ScannerItem[]>([]);
-	let graduated = $state<ScannerItem[]>([]);
+	let newTokens = $state.raw<ScannerItem[]>([]);
+	let aboutToGrad = $state.raw<ScannerItem[]>([]);
+	let graduated = $state.raw<ScannerItem[]>([]);
 	type FeedStats = components['schemas']['ScannerFeedStats'];
 	let statsNew = $state<FeedStats | null>(null);
 	let statsGraduating = $state<FeedStats | null>(null);
@@ -79,10 +81,24 @@
 			}
 		}, 1000);
 	}
-	let rowFlashesNew = $state<Map<string, RowFlashType>>(new Map());
-	let rowFlashesGraduating = $state<Map<string, RowFlashType>>(new Map());
-	let rowFlashesGraduated = $state<Map<string, RowFlashType>>(new Map());
-	let flashTimers: Record<TrenchesPhase, ReturnType<typeof setTimeout> | null> = { new: null, graduating: null, graduated: null };
+	// Flash state lives inside each card: a page-level flash map re-evaluated the
+	// `rowFlash` prop of every card on every frame, so two changed tokens dirtied
+	// the whole column.
+	let liveFlash = $state<Record<TrenchesPhase, boolean>>({ new: false, graduating: false, graduated: false });
+
+	// Column windowing. Cards are a fixed 152px tall with a 6px gap, so offsets are
+	// exact arithmetic and no measuring is needed.
+	const columnVirtual: Record<TrenchesPhase, VirtualList> = {
+		new: new VirtualList({ estimate: 152, gap: 6 }),
+		graduating: new VirtualList({ estimate: 152, gap: 6 }),
+		graduated: new VirtualList({ estimate: 152, gap: 6 })
+	};
+
+	$effect(() => {
+		columnVirtual.new.count = newTokens.length;
+		columnVirtual.graduating.count = aboutToGrad.length;
+		columnVirtual.graduated.count = graduated.length;
+	});
 
 	let filterOpenPhase = $state<TrenchesPhase | null>(null);
 	let mobilePhase = $state<TrenchesPhase>('new');
@@ -213,6 +229,9 @@
 		if (wsKeyNew) { unsubscribe(wsKeyNew); wsKeyNew = null; }
 		if (wsKeyGraduating) { unsubscribe(wsKeyGraduating); wsKeyGraduating = null; }
 		if (wsKeyGraduated) { unsubscribe(wsKeyGraduated); wsKeyGraduated = null; }
+		phaseCoalescers.new.clear();
+		phaseCoalescers.graduating.clear();
+		phaseCoalescers.graduated.clear();
 	}
 
 	function phaseRange(f: PhaseFilters, minKey: string, maxKey: string): { min?: number; max?: number } | null {
@@ -313,34 +332,44 @@
 		return params;
 	}
 
-	function setRowFlashes(phase: TrenchesPhase, affected: Map<string, RowFlashType>) {
-		if (affected.size === 0) return;
-		if (phase === 'new') rowFlashesNew = new Map(affected);
-		else if (phase === 'graduating') rowFlashesGraduating = new Map(affected);
-		else rowFlashesGraduated = new Map(affected);
-		if (flashTimers[phase]) clearTimeout(flashTimers[phase]!);
-		flashTimers[phase] = setTimeout(() => {
-			if (phase === 'new') rowFlashesNew = new Map();
-			else if (phase === 'graduating') rowFlashesGraduating = new Map();
-			else rowFlashesGraduated = new Map();
-		}, 1500);
-	}
-
 	function applyPhaseWsEvent(phase: TrenchesPhase, event: string, data: Parameters<typeof applyScannerWsEvent>[1], current: ScannerItem[]): ScannerItem[] {
 		const result = applyScannerWsEvent(event, data, current);
-		setRowFlashes(phase, result.affected);
 		if (event === 'SCANNER_TOKENS' && (data as { stats?: FeedStats })?.stats) {
 			setPhaseStats(phase, (data as { stats?: FeedStats }).stats ?? null);
 		}
 		return result.tokens;
 	}
 
+	// WS delivers ~8 frames/s per column. Applying each one immediately meant three
+	// full array rebuilds + each-block diffs per frame; fold every frame that lands
+	// within one animation frame into a single assignment per column instead.
+	type PhaseFrame = { event: string; data: Parameters<typeof applyScannerWsEvent>[1] };
+
+	function makePhaseCoalescer(phase: TrenchesPhase) {
+		return createCoalescer<PhaseFrame>((batch) => {
+			let working = phase === 'new' ? newTokens : phase === 'graduating' ? aboutToGrad : graduated;
+			for (const { event, data } of batch) {
+				working = applyPhaseWsEvent(phase, event, data, working);
+			}
+			if (phase === 'new') newTokens = working;
+			else if (phase === 'graduating') aboutToGrad = working;
+			else graduated = working;
+		}, { maxBatch: 40 });
+	}
+
+	const phaseCoalescers: Record<TrenchesPhase, ReturnType<typeof makePhaseCoalescer>> = {
+		new: makePhaseCoalescer('new'),
+		graduating: makePhaseCoalescer('graduating'),
+		graduated: makePhaseCoalescer('graduated')
+	};
+
 	function reconnectPhaseWs(phase: TrenchesPhase) {
 		if (phase === 'new') {
 			if (wsKeyNew) { unsubscribe(wsKeyNew); wsKeyNew = null; }
+			phaseCoalescers.new.clear();
 			wsKeyNew = subscribe('scanner:trenches', (event, data) => {
 				wsMsgBuckets.new++;
-				newTokens = applyPhaseWsEvent('new', event, data, newTokens);
+				phaseCoalescers.new.push({ event, data });
 			}, buildWsParams('new'), {
 				onError: (error) => {
 					if (isCursorRecoveryReason(error.reason)) fetchAndSubscribePhase('new');
@@ -348,9 +377,10 @@
 			});
 		} else if (phase === 'graduating') {
 			if (wsKeyGraduating) { unsubscribe(wsKeyGraduating); wsKeyGraduating = null; }
+			phaseCoalescers.graduating.clear();
 			wsKeyGraduating = subscribe('scanner:trenches', (event, data) => {
 				wsMsgBuckets.graduating++;
-				aboutToGrad = applyPhaseWsEvent('graduating', event, data, aboutToGrad);
+				phaseCoalescers.graduating.push({ event, data });
 			}, buildWsParams('graduating'), {
 				onError: (error) => {
 					if (isCursorRecoveryReason(error.reason)) fetchAndSubscribePhase('graduating');
@@ -358,9 +388,10 @@
 			});
 		} else {
 			if (wsKeyGraduated) { unsubscribe(wsKeyGraduated); wsKeyGraduated = null; }
+			phaseCoalescers.graduated.clear();
 			wsKeyGraduated = subscribe('scanner:trenches', (event, data) => {
 				wsMsgBuckets.graduated++;
-				graduated = applyPhaseWsEvent('graduated', event, data, graduated);
+				phaseCoalescers.graduated.push({ event, data });
 			}, buildWsParams('graduated'), {
 				onError: (error) => {
 					if (isCursorRecoveryReason(error.reason)) fetchAndSubscribePhase('graduated');
@@ -389,19 +420,25 @@
 
 	async function fetchNew() {
 		loadingNew = true;
+		liveFlash.new = false;
 		try { newTokens = await fetchPhase('new'); } catch { newTokens = []; }
+		liveFlash.new = true;
 		loadingNew = false;
 	}
 
 	async function fetchAboutToGrad() {
 		loadingAbout = true;
+		liveFlash.graduating = false;
 		try { aboutToGrad = await fetchPhase('graduating'); } catch { aboutToGrad = []; }
+		liveFlash.graduating = true;
 		loadingAbout = false;
 	}
 
 	async function fetchGraduated() {
 		loadingGrad = true;
+		liveFlash.graduated = false;
 		try { graduated = await fetchPhase('graduated'); } catch { graduated = []; }
+		liveFlash.graduated = true;
 		loadingGrad = false;
 	}
 
@@ -420,7 +457,13 @@
 
 	onMount(() => {
 		startWsCounters();
-		return () => { cleanupWs(); if (wsMsgInterval) clearInterval(wsMsgInterval); };
+		return () => {
+			cleanupWs();
+			phaseCoalescers.new.dispose();
+			phaseCoalescers.graduating.dispose();
+			phaseCoalescers.graduated.dispose();
+			if (wsMsgInterval) clearInterval(wsMsgInterval);
+		};
 	});
 
 	$effect(() => {
@@ -506,6 +549,7 @@
 </div>
 
 {#snippet column(phase: TrenchesPhase, title: string, color: string, tokens: ScannerItem[], loading: boolean, EmptyIcon: typeof Inbox)}
+	{@const vl = columnVirtual[phase]}
 	<div class="relative flex flex-col overflow-hidden {phase !== 'graduated' ? 'md:border-r border-bd' : ''}">
 		<div class="hidden md:flex items-center gap-2.5 border-b border-bd bg-s0 px-4 py-2.5">
 			<div class="h-2 w-2 rounded-full" style="background: {color}; animation: pulse-dot 2s ease-in-out infinite"></div>
@@ -699,11 +743,17 @@
 				{/if}
 			</button>
 		</div>
-		<div class="flex-1 space-y-1.5 overflow-y-auto p-2">
+		<div
+			class="flex-1 overflow-y-auto p-2"
+			onscroll={(e) => vl.handleScroll(e.currentTarget)}
+			use:vl.viewport_
+		>
 			{#if loading}
-				{#each Array(6) as _}
-					<div class="skeleton h-[180px] rounded-xl"></div>
-				{/each}
+				<div class="space-y-1.5">
+					{#each Array(6) as _}
+						<div class="skeleton h-[152px] rounded-xl"></div>
+					{/each}
+				</div>
 			{:else if tokens.length === 0}
 				<div class="flex h-40 flex-col items-center justify-center gap-2">
 					<div class="flex h-10 w-10 items-center justify-center rounded-xl bg-s4 ring-1 ring-bd">
@@ -712,9 +762,13 @@
 					<span class="text-xs text-g5">No tokens</span>
 				</div>
 			{:else}
-				{#each tokens as token (token.pairAddress)}
-					<MemescopeCard {token} {phase} rowFlash={(phase === 'new' ? rowFlashesNew : phase === 'graduating' ? rowFlashesGraduating : rowFlashesGraduated).get(token.pairAddress)} />
-				{/each}
+				<div class="relative" style="height: {vl.totalHeight}px">
+					{#each tokens.slice(vl.start, vl.end) as token, i (token.pairAddress)}
+						<div class="absolute inset-x-0" style="top: {(vl.start + i) * vl.stride}px">
+							<MemescopeCard {token} {phase} live={liveFlash[phase]} />
+						</div>
+					{/each}
+				</div>
 			{/if}
 		</div>
 	</div>

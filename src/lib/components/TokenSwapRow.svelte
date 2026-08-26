@@ -29,7 +29,7 @@
 </script>
 
 {#if mobile}
-	<div class="h-[52px] overflow-hidden border-b border-bd/20 px-3 py-2 [contain:layout_paint_style]">
+	<div class="h-[52px] overflow-hidden border-b border-bd/40 px-3 py-2 [contain:layout_paint_style]">
 		<div class="flex items-center gap-2">
 			<span class="shrink-0 text-xs font-bold {trade.side === 'BUY' ? 'text-grn' : 'text-red'}">{trade.side ?? '—'}</span>
 			<TradeExecutionMeta {trade} section="attribution" />
@@ -52,7 +52,7 @@
 		</div>
 	</div>
 {:else}
-	<div class="grid h-[33px] grid-cols-[minmax(70px,1fr)_minmax(70px,1fr)_minmax(70px,1fr)_minmax(60px,1fr)_minmax(90px,1.2fr)_minmax(60px,0.9fr)_minmax(60px,0.9fr)_minmax(50px,0.8fr)] items-center gap-2 border-b border-bd/20 px-1 transition-colors hover:bg-wh/5 [contain:layout_paint_style]">
+	<div class="grid h-[33px] grid-cols-[minmax(70px,1fr)_minmax(70px,1fr)_minmax(70px,1fr)_minmax(60px,1fr)_minmax(90px,1.2fr)_minmax(60px,0.9fr)_minmax(60px,0.9fr)_minmax(50px,0.8fr)] items-center gap-2 border-b border-bd/40 px-1 transition-colors hover:bg-wh/5 [contain:layout_paint_style]">
 		<div class="flex items-center gap-1.5 {trade.side === 'BUY' ? 'text-grn' : 'text-red'}">
 			<span>{trade.side ?? '—'}</span>
 			<TradeExecutionMeta {trade} section="attribution" />

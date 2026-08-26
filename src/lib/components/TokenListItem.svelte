@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tokenImage } from '$lib/api/config';
+	import { onVisibility, FLASH_MS, FLASH_COOLDOWN_MS } from '$lib/utils/visibility';
 	import type { ScannerItem } from '$lib/api/types';
 	import type { RowFlashType } from '$lib/utils/scanner-ws';
 	import { formatPrice, formatPercent, formatMarketCap } from '$lib/utils/format';
@@ -28,14 +29,21 @@
 	let flashes: Record<string, 'up' | 'down'> = $state({});
 	let timers: Record<string, ReturnType<typeof setTimeout>> = {};
 
+	let onScreen = $state(true);
+	let lastFlashAt: Record<string, number> = {};
+
 	function flash(key: string, oldNum: number, newNum: number) {
+		if (!onScreen) return;
+		const now = performance.now();
+		if (now - (lastFlashAt[key] ?? 0) < FLASH_COOLDOWN_MS) return;
+		lastFlashAt[key] = now;
 		const dir = newNum > oldNum ? 'up' : 'down';
 		flashes = { ...flashes, [key]: dir };
 		clearTimeout(timers[key]);
 		timers[key] = setTimeout(() => {
 			const { [key]: _, ...rest } = flashes;
 			flashes = rest;
-		}, 800);
+		}, FLASH_MS);
 	}
 
 	function fc(key: string): string {
@@ -65,6 +73,7 @@
 </script>
 
 <button
+	use:onVisibility={(v) => (onScreen = v)}
 	class="group flex w-full cursor-pointer items-start gap-2.5 border-l-2 px-3 py-2.5 text-left text-sm transition-all duration-150
 		{isSelected
 		? 'border-l-grn bg-grn/10'

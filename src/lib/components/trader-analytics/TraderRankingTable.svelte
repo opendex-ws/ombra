@@ -35,7 +35,7 @@
 		</thead>
 		<tbody>
 			{#each items as item, index (`${item.chain}:${item.walletAddress}`)}
-				<tr class="border-b border-bd/30 transition-colors hover:bg-wh/5">
+				<tr class="border-b border-bd/40 transition-colors hover:bg-wh/5">
 					<td class="px-3 py-3 text-g5">{index + 1}</td>
 					<td class="px-3 py-3">
 						<div class="flex items-center gap-2">

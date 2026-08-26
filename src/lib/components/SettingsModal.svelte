@@ -175,7 +175,7 @@
 											{familyMeta[family].label}
 											<span class="ml-auto rounded bg-s7 px-1 py-px text-[9px] text-g6">{byFamily[family].length}</span>
 										</div>
-										<div class="max-h-64 space-y-0.5 overflow-y-auto rounded-lg border border-bd/50 bg-s0/30 p-0.5">
+										<div class="max-h-64 space-y-0.5 overflow-y-auto rounded-lg border border-bd/40 bg-s0/30 p-0.5">
 											{#each byFamily[family] as src (src.id)}
 												{@const enabled = isCallToastSourceEnabled(src.id)}
 												<button onclick={() => toggleCallToastSource(src.id)} class="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-xs text-tx transition-all hover:bg-s7">

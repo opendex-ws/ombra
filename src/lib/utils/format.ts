@@ -94,6 +94,20 @@ export function formatCompactNumber(value: string | number | undefined | null): 
   return `${sign}${abs.toFixed(4)}`;
 }
 
+/** Whole-number compact count (followers, members). 4200 → 4K, not 4.20K. */
+export function formatCompactCount(value: string | number | undefined | null): string {
+  if (value === undefined || value === null || value === '') return '0';
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (isNaN(num)) return '0';
+  const n = Math.round(num);
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1_000_000_000) return `${sign}${Math.round(abs / 1_000_000_000)}B`;
+  if (abs >= 1_000_000) return `${sign}${Math.round(abs / 1_000_000)}M`;
+  if (abs >= 1_000) return `${sign}${Math.round(abs / 1_000)}K`;
+  return `${sign}${abs}`;
+}
+
 export function shortAddress(address: string): string {
   if (!address || address.length < 10) return address ?? '';
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -142,6 +156,17 @@ export function timeAgo(timestamp: number | string, now?: number): string {
   return `${days}d ago`;
 }
 
+// Built once: `toLocaleString` with options re-resolves an Intl formatter on every
+// call, and this runs in the `title` of every live list row.
+let fullDateTimeFmt: Intl.DateTimeFormat | null = null;
+function getFullDateTimeFmt(): Intl.DateTimeFormat {
+  fullDateTimeFmt ??= new Intl.DateTimeFormat('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', second: '2-digit',
+  });
+  return fullDateTimeFmt;
+}
+
 export function fullDateTime(timestamp: number | string): string {
   let ms: number;
   if (typeof timestamp === 'string') {
@@ -157,10 +182,7 @@ export function fullDateTime(timestamp: number | string): string {
     if (!timestamp) return '';
     ms = timestamp < 1e12 ? timestamp * 1000 : timestamp;
   }
-  return new Date(ms).toLocaleString('en-US', {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit', second: '2-digit',
-  });
+  return getFullDateTimeFmt().format(ms);
 }
 
 export function ageFromSeconds(seconds: number | undefined): string {

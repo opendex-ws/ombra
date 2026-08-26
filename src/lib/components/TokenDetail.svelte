@@ -5,7 +5,7 @@
 	import { portal } from '$lib/actions/portal';
 	import { api } from '$lib/api/client';
 	import type { Chain, TokenSnapshot, TokenHoldersResponse, TokenSafetyResponse, TokenSwap, TokenTopTrader, TokenCallsResponse, DevTokensResponse, DevTokenItem, WatchlistCallItem, TokenMarketHolderInfo, TokenMarketStats, TokenMarketTimeframeStats, TokenPairMarket, components } from '$lib/api/types';
-	import { formatPrice, formatUsd, formatPercent, formatNumber, formatMarketCap, timeAgo, fullDateTime, shortAddress, liveAge, explorerTxUrl, explorerAddressUrl, formatMultiplier, fmtVal, fmtPrice, fmtPriceHtml, formatPriceText, avatarUrl, formatCompactNumber } from '$lib/utils/format';
+	import { formatPrice, formatUsd, formatPercent, formatNumber, formatMarketCap, timeAgo, fullDateTime, shortAddress, liveAge, explorerTxUrl, explorerAddressUrl, formatMultiplier, fmtVal, fmtPrice, fmtPriceHtml, formatPriceText, avatarUrl, formatCompactNumber, formatCompactCount } from '$lib/utils/format';
 	import { getWalletIconUrl, getWalletAddress } from '$lib/utils/walleticon';
 
 	import { getRouterName, getRouterInfo, getRouterIconForChain } from '$lib/utils/routers';
@@ -46,6 +46,7 @@
 	import FundingSourcePreview from './FundingSourcePreview.svelte';
 	import VirtualSwapList from './VirtualSwapList.svelte';
 	import { fundingSourceOf, preserveFundingSources } from '$lib/source-funds';
+	import { safeUrl } from '$lib/safeUrl';
 
 	type TokenHolderBalanceUpdate = components['schemas']['TokenHolderBalanceUpdate'];
 	type TokenHolderDistributionUpdate = components['schemas']['TokenHolderDistributionUpdate'];
@@ -234,6 +235,8 @@
 	let lastLoadedHoldersCursor: string | undefined;
 	let safetyLoading: boolean = $state(false);
 	let tradersLoading: boolean = $state(false);
+	let tradersLoadedKey: string = $state('');
+	let tradersRequestGeneration = 0;
 	let devTokens: DevTokensResponse | null = $state(null);
 	let devTokensLoading: boolean = $state(false);
 	let devTokensHasMore: boolean = $state(false);
@@ -344,12 +347,12 @@
 		const l = (token as TokenSnapshot | null)?.socials?.links;
 		if (!l) return undefined;
 		return {
-			website: l.website,
-			twitter: l.twitter?.url,
+			website: safeUrl(l.website),
+			twitter: safeUrl(l.twitter?.url),
 			twitterHandle: l.twitter?.handle,
-			telegram: l.telegram,
-			discord: l.discord,
-			instagram: l.instagram
+			telegram: safeUrl(l.telegram),
+			discord: safeUrl(l.discord),
+			instagram: safeUrl(l.instagram)
 		};
 	});
 	// Rich scraped social metadata (new TokenSocialData).
@@ -712,6 +715,8 @@
 			updated = { ...updated, stats: { ...updated.stats, timeframes: curTimeframes } };
 		}
 		if (data.stats?.total) updated = { ...updated, stats: { ...updated.stats, total: { ...updated.stats.total, ...data.stats.total } } };
+		if (data.audit) updated = { ...updated, audit: { ...updated.audit, ...data.audit } };
+		if (data.socials) updated = { ...updated, socials: { ...updated.socials, ...data.socials } };
 		if (data.holders) updated = { ...updated, holders: { ...updated.holders, ...data.holders } };
 		if (data.holders?.holderCount !== undefined) holdersCount = data.holders.holderCount;
 		token = updated;
@@ -841,6 +846,9 @@
 			holdersLoadedKey = '';
 			safety = null;
 			topTraders = [];
+			tradersLoadedKey = '';
+			tradersLoading = false;
+			tradersRequestGeneration += 1;
 			devTokens = null;
 			devTokensHasMore = false;
 			devTokensLoadingMore = false;
@@ -1120,6 +1128,27 @@
 		}
 	}
 
+	async function fetchTopTraders(c: Chain, a: string) {
+		const key = `${c}:${a}`;
+		if (tradersLoading || tradersLoadedKey === key) return;
+		const requestGeneration = ++tradersRequestGeneration;
+		tradersLoading = true;
+		try {
+			const { data } = await api.GET('/v2/token/{chain}/{address}/top-traders', {
+				params: { path: { chain: c, address: a } }
+			});
+			if (`${chain}:${address}` !== key || requestGeneration !== tradersRequestGeneration) return;
+			topTraders = data?.traders ?? [];
+		} catch {
+			if (`${chain}:${address}` !== key || requestGeneration !== tradersRequestGeneration) return;
+			topTraders = [];
+		} finally {
+			if (requestGeneration !== tradersRequestGeneration) return;
+			tradersLoadedKey = key;
+			tradersLoading = false;
+		}
+	}
+
 	async function fetchHolders(opts?: { soft?: boolean }) {
 		if (holdersLoading) return;
 		const keepVisible = !!(opts?.soft && holders);
@@ -1301,20 +1330,10 @@
 			void fetchDevTokensPage();
 		}
 
-		if (activeTab === 'Top Traders' && topTraders.length === 0) {
-			tradersLoading = true;
-			api.GET('/v2/token/{chain}/{address}/top-traders', {
-				params: { path: { chain: c, address: a } }
-			})
-				.then(({ data }) => {
-					topTraders = data?.traders ?? [];
-				})
-				.catch(() => {
-					topTraders = [];
-				})
-				.finally(() => {
-					tradersLoading = false;
-				});
+		if (activeTab === 'Top Traders' && !tradersLoading && tradersLoadedKey !== `${c}:${a}`) {
+			untrack(() => {
+				void fetchTopTraders(c, a);
+			});
 		}
 	});
 </script>
@@ -1442,10 +1461,10 @@
 						</div>
 					{/if}
 					<div class="grid grid-cols-4 gap-1">
-						<div class="rounded border border-bd/30 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">Liq</div><CurrencyValue usd={token.quote.liquidityUsdStr} native={token.quote.liquidityNativeStr} chain={chain} mode="value" class="text-[11px] font-bold text-tx" iconClass="h-3 w-3 text-tx" /></div>
-						<div class="rounded border border-bd/30 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">Vol 24h</div><div class="text-[11px] font-bold text-tx">{formatUsd(token.stats.total.volumeStr)}</div></div>
-						<div class="rounded border border-bd/30 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">ATH</div><CurrencyValue usd={liveAthDisplay.usdStr} native={liveAthDisplay.nativeStr} chain={chain} mode="price" class="text-[11px] font-bold text-tx" iconClass="h-3 w-3 text-tx" /></div>
-						<div class="rounded border border-bd/30 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">ATH x</div><div class="text-[11px] font-bold text-tx">{liveAthMultDisplay ? formatMultiplier(liveAthMultDisplay) : '—'}</div></div>
+						<div class="rounded border border-bd/40 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">Liq</div><CurrencyValue usd={token.quote.liquidityUsdStr} native={token.quote.liquidityNativeStr} chain={chain} mode="value" class="text-[11px] font-bold text-tx" iconClass="h-3 w-3 text-tx" /></div>
+						<div class="rounded border border-bd/40 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">Vol 24h</div><div class="text-[11px] font-bold text-tx">{formatUsd(token.stats.total.volumeStr)}</div></div>
+						<div class="rounded border border-bd/40 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">ATH</div><CurrencyValue usd={liveAthDisplay.usdStr} native={liveAthDisplay.nativeStr} chain={chain} mode="price" class="text-[11px] font-bold text-tx" iconClass="h-3 w-3 text-tx" /></div>
+						<div class="rounded border border-bd/40 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">ATH x</div><div class="text-[11px] font-bold text-tx">{liveAthMultDisplay ? formatMultiplier(liveAthMultDisplay) : '—'}</div></div>
 					</div>
 					<div class="flex items-center gap-1 flex-wrap">
 						<span class="flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium {token.audit.mintable ? 'bg-red/10 text-red' : 'bg-grn/10 text-grn'}">
@@ -1604,7 +1623,7 @@
 															<div class="flex items-start justify-between gap-2">
 																<a href={`https://x.com/i/communities/${twitterCommunity.id}`} target="_blank" rel="noopener" class="min-w-0 truncate text-sm font-semibold text-tx transition-colors hover:text-grn">{twitterCommunity.name}</a>
 																{#if twitterCommunity.memberCount != null}
-																	<span class="shrink-0 tabular-nums text-xs text-g6">{formatCompactNumber(twitterCommunity.memberCount)} members</span>
+																	<span class="shrink-0 tabular-nums text-xs text-g6">{formatCompactCount(twitterCommunity.memberCount)} members</span>
 																{/if}
 															</div>
 															{#if twitterCommunity.memberPreview?.length}
@@ -1705,27 +1724,27 @@
 				</div>
 
 				<div class="grid min-w-0 flex-1 grid-cols-3 md:grid-cols-6 gap-1 mobile-scroll-x">
-					<div class="rounded border border-bd/30 bg-s2 px-2 py-1 transition-colors hover:border-bd/60">
+					<div class="rounded border border-bd/40 bg-s2 px-2 py-1 transition-colors hover:border-bd">
 						<div class="text-[9px] font-medium uppercase tracking-wider text-g7">Price</div>
 						<CurrencyValue usd={token.quote.priceUsdStr} native={token.quote.priceNativeStr} chain={chain} mode="price" class="text-xs font-bold text-tx" iconClass="h-3 w-3 text-tx" />
 					</div>
-					<div class="rounded border border-bd/30 bg-s2 px-2 py-1 transition-colors hover:border-bd/60">
+					<div class="rounded border border-bd/40 bg-s2 px-2 py-1 transition-colors hover:border-bd">
 						<div class="text-[9px] font-medium uppercase tracking-wider text-g7">Liquidity</div>
 						<CurrencyValue usd={token.quote.liquidityUsdStr} native={token.quote.liquidityNativeStr} chain={chain} mode="value" class="text-xs font-bold text-tx" iconClass="h-3 w-3 text-tx" />
 					</div>
-					<div class="rounded border border-bd/30 bg-s2 px-2 py-1 transition-colors hover:border-bd/60">
+					<div class="rounded border border-bd/40 bg-s2 px-2 py-1 transition-colors hover:border-bd">
 						<div class="text-[9px] font-medium uppercase tracking-wider text-g7">Vol 24h</div>
 						<span class="inline-flex items-center gap-1 text-xs font-bold text-tx">{formatUsd(token.stats.total.volumeStr)}</span>
 					</div>
-					<div class="rounded border border-bd/30 bg-s2 px-2 py-1 transition-colors hover:border-bd/60">
+					<div class="rounded border border-bd/40 bg-s2 px-2 py-1 transition-colors hover:border-bd">
 						<div class="text-[9px] font-medium uppercase tracking-wider text-g7">MCap</div>
 						<span class="inline-flex items-center gap-1 text-xs font-bold text-tx">{formatUsd(token.quote.marketCapUsdStr)}</span>
 					</div>
-					<div class="rounded border border-bd/30 bg-s2 px-2 py-1 transition-colors hover:border-bd/60">
+					<div class="rounded border border-bd/40 bg-s2 px-2 py-1 transition-colors hover:border-bd">
 						<div class="text-[9px] font-medium uppercase tracking-wider text-g7">ATH</div>
 						<CurrencyValue usd={liveAthDisplay.usdStr} native={liveAthDisplay.nativeStr} chain={chain} mode="price" class="text-xs font-bold text-tx" iconClass="h-3 w-3 text-tx" />
 					</div>
-					<div class="rounded border border-bd/30 bg-s2 px-2 py-1 transition-colors hover:border-bd/60">
+					<div class="rounded border border-bd/40 bg-s2 px-2 py-1 transition-colors hover:border-bd">
 						<div class="text-[9px] font-medium uppercase tracking-wider text-g7">Fees 24h</div>
 						<CurrencyValue usd={token.stats.timeframes['24h'].fees.totalFeeUsdStr} native={token.stats.timeframes['24h'].fees.totalFeeNativeStr} chain={chain} mode="value" class="text-xs font-bold text-tx" iconClass="h-3 w-3 text-tx" />
 					</div>
@@ -1847,7 +1866,7 @@
 		<div class="flex min-h-0 flex-1 flex-col p-2 md:p-4 {activeTab === 'Trades' ? 'overflow-hidden' : 'overflow-auto'}" onscroll={onDetailScroll}>
 			{#if activeTab === 'Trades'}
 			{#if tradeFiltersOpen}
-				<div class="mb-2 flex flex-wrap items-center gap-1.5 rounded-lg border border-bd/50 bg-s4/40 px-2.5 py-1.5">
+				<div class="mb-2 flex flex-wrap items-center gap-1.5 rounded-lg border border-bd/40 bg-s4/40 px-2.5 py-1.5">
 					<div class="flex gap-0.5 rounded-lg border border-bd bg-s4 p-0.5">
 						{#each ['ALL', 'BUY', 'SELL'] as side}
 							<button onclick={() => { tradeFilterSide = side as typeof tradeFilterSide; refetchTrades(); }} class="cursor-pointer rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors {tradeFilterSide === side ? side === 'BUY' ? 'bg-grn/20 text-grn' : side === 'SELL' ? 'bg-red/20 text-red' : 'bg-wh/10 text-tx' : 'text-g5 hover:text-g9'}">{side === 'ALL' ? 'All' : side === 'BUY' ? 'Buys' : 'Sells'}</button>
@@ -1903,7 +1922,7 @@
 					{#if !getIsDesktop()}
 					<div class="space-y-0.5">
 						{#each topTraders as trader (trader.walletAddress)}
-							<div class="border-b border-bd/20 px-3 py-2">
+							<div class="border-b border-bd/40 px-3 py-2">
 								<div class="flex items-center gap-2">
 									<span class="text-xs text-g5 w-5">#{trader.rank}</span>
 									<button type="button" class="min-w-0 flex-1 cursor-pointer truncate text-left text-sm text-g7 transition-colors hover:text-tx" onclick={() => openTopTrader(trader)}>{(trader.labels ?? []).length > 0 ? trader.labels![0].label : shortAddress(trader.walletAddress)}</button>
@@ -1953,7 +1972,7 @@
 							</thead>
 							<tbody>
 								{#each topTraders as trader (trader.walletAddress)}
-								<tr class="border-b border-bd/20 transition-colors hover:bg-wh/5">
+								<tr class="border-b border-bd/40 transition-colors hover:bg-wh/5">
 										<td class="py-1.5 text-g6">{trader.rank}</td>
 										<td class="py-1.5">
 											<div class="flex items-center gap-1.5">
@@ -1999,23 +2018,23 @@
 				{:else if holders}
 					{#if holders.distribution}
 						<div class="mb-4 grid grid-cols-2 gap-1.5 sm:grid-cols-5">
-							<div class="rounded-lg border border-bd/30 bg-s1 px-2 py-1.5 text-center">
+							<div class="rounded-lg border border-bd/40 bg-s1 px-2 py-1.5 text-center">
 								<div class="text-[9px] font-medium uppercase tracking-wider text-g5">Top 10</div>
 								<div class="text-sm font-bold {holders.distribution.top10Pct > 10 ? 'text-red' : 'text-tx'}">{holders.distribution.top10Pct.toFixed(1)}%</div>
 							</div>
-							<div class="rounded-lg border border-bd/30 bg-s1 px-2 py-1.5 text-center">
+							<div class="rounded-lg border border-bd/40 bg-s1 px-2 py-1.5 text-center">
 								<div class="text-[9px] font-medium uppercase tracking-wider text-g5">Dev</div>
 								<div class="text-sm font-bold {holders.distribution.devPct > 5 ? 'text-red' : 'text-tx'}">{holders.distribution.devPct.toFixed(1)}%</div>
 							</div>
-							<div class="rounded-lg border border-bd/30 bg-s1 px-2 py-1.5 text-center">
+							<div class="rounded-lg border border-bd/40 bg-s1 px-2 py-1.5 text-center">
 								<div class="text-[9px] font-medium uppercase tracking-wider text-g5">Insiders</div>
 								<div class="text-sm font-bold {holders.distribution.insiderPct > 5 ? 'text-red' : 'text-tx'}">{holders.distribution.insiderPct.toFixed(1)}%</div>
 							</div>
-							<div class="rounded-lg border border-bd/30 bg-s1 px-2 py-1.5 text-center">
+							<div class="rounded-lg border border-bd/40 bg-s1 px-2 py-1.5 text-center">
 								<div class="text-[9px] font-medium uppercase tracking-wider text-g5">Bundlers</div>
 								<div class="text-sm font-bold {holders.distribution.bundlerPct > 5 ? 'text-red' : 'text-tx'}">{holders.distribution.bundlerPct.toFixed(1)}%</div>
 							</div>
-							<div class="rounded-lg border border-bd/30 bg-s1 px-2 py-1.5 text-center">
+							<div class="rounded-lg border border-bd/40 bg-s1 px-2 py-1.5 text-center">
 								<div class="text-[9px] font-medium uppercase tracking-wider text-g5">Snipers</div>
 								<div class="text-sm font-bold text-red">{holders.distribution.sniperPct.toFixed(1)}%</div>
 							</div>
@@ -2025,7 +2044,7 @@
 						{#if !getIsDesktop()}
 						<div class="space-y-0.5">
 							{#each holders.holders as holder (holder.walletAddress)}
-								<div class="border-b border-bd/20 px-3 py-2">
+								<div class="border-b border-bd/40 px-3 py-2">
 									<div class="flex items-center gap-2">
 										<button type="button" class="min-w-0 flex-1 cursor-pointer truncate text-left text-sm text-g7 transition-colors hover:text-tx" onclick={() => openTrader(holder.walletAddress ?? '')}>{(holder.labels ?? []).length > 0 ? holder.labels![0].label : shortAddress(holder.walletAddress ?? '')}</button>
 										{#if (holder.labels ?? []).length > 0}<span class="shrink-0 rounded bg-s7 px-1.5 py-px font-mono text-[10px] font-medium text-g7">{shortAddress(holder.walletAddress ?? '')}</span>{/if}
@@ -2057,7 +2076,7 @@
 								</thead>
 								<tbody>
 									{#each holders.holders as holder (holder.walletAddress)}
-										<tr class="border-b border-bd/20 transition-colors hover:bg-wh/5">
+										<tr class="border-b border-bd/40 transition-colors hover:bg-wh/5">
 												<td class="py-1.5">
 													<div class="flex items-center gap-1.5">
 														<button type="button" class="cursor-pointer text-g7 transition-colors hover:text-tx" onclick={() => openTrader(holder.walletAddress ?? '')}>{shortAddress(holder.walletAddress ?? '')}</button>
@@ -2134,7 +2153,7 @@
 									</div>
 									{#if twitterProfile.followersCount != null}
 										<div class="shrink-0 text-right">
-											<div class="text-sm font-bold tabular-nums text-tx">{formatCompactNumber(twitterProfile.followersCount)}</div>
+											<div class="text-sm font-bold tabular-nums text-tx">{formatCompactCount(twitterProfile.followersCount)}</div>
 											<div class="text-[10px] uppercase tracking-wider text-g5">followers</div>
 										</div>
 									{/if}
@@ -2169,7 +2188,7 @@
 											</div>
 											{#if twitterCommunity.memberCount != null}
 												<div class="shrink-0 rounded-md bg-s7 px-2 py-1 text-center">
-													<div class="text-xs font-bold tabular-nums text-tx">{formatCompactNumber(twitterCommunity.memberCount)}</div>
+													<div class="text-xs font-bold tabular-nums text-tx">{formatCompactCount(twitterCommunity.memberCount)}</div>
 													<div class="text-[9px] uppercase tracking-wider text-g5">members</div>
 												</div>
 											{/if}

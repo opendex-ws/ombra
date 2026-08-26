@@ -1,15 +1,20 @@
 import { browser } from '$app/environment';
 
 let isDesktop = $state(false);
-
-if (browser) {
-	const media = window.matchMedia('(min-width: 768px)');
-	isDesktop = media.matches;
-	media.addEventListener('change', () => {
-		isDesktop = media.matches;
-	});
-}
+let started = false;
 
 export function getIsDesktop() {
 	return isDesktop;
+}
+
+/** Call from layout onMount so SSR and the first client paint stay aligned. */
+export function startViewport(): void {
+	if (!browser || started) return;
+	started = true;
+	const media = window.matchMedia('(min-width: 768px)');
+	const sync = () => {
+		isDesktop = media.matches;
+	};
+	sync();
+	media.addEventListener('change', sync);
 }

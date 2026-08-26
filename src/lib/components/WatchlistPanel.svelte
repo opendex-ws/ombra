@@ -13,6 +13,8 @@
 	import { getWalletIconUrl, getWalletAddress } from '$lib/utils/walleticon';
 	import { getRouterInfo } from '$lib/utils/routers';
 	import { getNow } from '$lib/stores/tick.svelte';
+	import { onVisibility, FLASH_MS, FLASH_COOLDOWN_MS } from '$lib/utils/visibility';
+	import { VirtualList } from '$lib/utils/virtual.svelte';
 	import { getBubbleWatchlist } from '$lib/stores/feSettings.svelte';
 	import { clearPendingWatchlistCaller, getPendingWatchlistCaller } from '$lib/stores/watchlist.svelte';
 	import { liveAccumulatedParams, type CursorTriplet } from '$lib/utils/livecursor';
@@ -30,7 +32,10 @@
 	import Wallet from 'lucide-svelte/icons/wallet';
 	import Copy from 'lucide-svelte/icons/copy';
 	import BotIcon from 'lucide-svelte/icons/bot';
+	import CircleDollarSign from 'lucide-svelte/icons/circle-dollar-sign';
 	import ExternalLink from 'lucide-svelte/icons/external-link';
+	import Megaphone from 'lucide-svelte/icons/megaphone';
+	import Trophy from 'lucide-svelte/icons/trophy';
 	import ChevronDown from 'lucide-svelte/icons/chevron-down';
 	import Clock from 'lucide-svelte/icons/clock';
 	import Hash from 'lucide-svelte/icons/hash';
@@ -371,25 +376,51 @@
 	let editingBot = $state<Bot | null>(null);
 	let botsBySourceId = $state<Map<string, Bot>>(new Map());
 	let botsFetched = $state(false);
+	let botsExhausted = $state(false);
 
 	async function fetchBots() {
 		if (botsFetched) return;
 		botsFetched = true;
 		try {
-			// Walk all pages (default limit is 20) so every source's bot indicator shows.
+			const { data } = await api.GET('/v2/bots', { params: { query: { limit: 20 } } });
 			const map = new Map<string, Bot>();
-			let cursor: string | undefined;
-			const seen = new Set<string>();
-			do {
-				const { data } = await api.GET('/v2/bots', { params: { query: cursor ? { limit: 100, cursor } : { limit: 100 } } });
-				for (const bot of data?.bots ?? []) map.set(bot.source.id, bot);
-				const next = data?.nextCursor ?? undefined;
-				if (!next || seen.has(next)) break;
-				seen.add(next);
-				cursor = next;
-			} while (cursor);
+			for (const bot of data?.bots ?? []) map.set(bot.source.id, bot);
 			botsBySourceId = map;
-		} catch {}
+			botsExhausted = !data?.nextCursor;
+		} catch {
+			botsFetched = false;
+		}
+	}
+
+	async function findBotForSource(sourceId: string, sourceType: CallerSource, chain?: Chain): Promise<Bot | undefined> {
+		await fetchBots();
+		let found = botsBySourceId.get(sourceId);
+		if (found) return found;
+		let cursor: string | undefined;
+		const seen = new Set<string>();
+		do {
+			const { data } = await api.GET('/v2/bots', {
+				params: { query: { limit: 20, sourceType, ...(chain ? { chain } : {}), ...(cursor ? { cursor } : {}) } }
+			});
+			found = data?.bots.find((bot) => bot.source.id === sourceId);
+			if (found) {
+				const nextMap = new Map(botsBySourceId);
+				nextMap.set(sourceId, found);
+				botsBySourceId = nextMap;
+				return found;
+			}
+			const next = data?.nextCursor ?? undefined;
+			if (!next || seen.has(next)) break;
+			seen.add(next);
+			cursor = next;
+		} while (cursor);
+		return undefined;
+	}
+
+	function refreshBots() {
+		botsFetched = false;
+		botsExhausted = false;
+		void fetchBots();
 	}
 
 	function hasBot(call: WatchlistCallItem): boolean {
@@ -404,12 +435,12 @@
 		return id ? botsBySourceId.get(id) : undefined;
 	}
 
-	function openBotForCall(call: WatchlistCallItem) {
+	async function openBotForCall(call: WatchlistCallItem) {
 		const m = call.caller;
 		const name = 'name' in m && m.name ? String(m.name) : 'id' in m ? String(m.id) : 'Unknown';
 		const type: CallerSource = m.type;
 		const id = 'id' in m ? String(m.id) : '';
-		editingBot = getBotForCall(call) ?? null;
+		editingBot = id ? await findBotForSource(id, type, m.type === 'WALLET' ? m.chain : undefined) ?? null : null;
 		botSource = { id, type, name, ...(m.type === 'WALLET' ? { chain: m.chain } : {}) };
 		void ensureCreateBotModal().then(() => { showCreateBot = true; });
 	}
@@ -489,6 +520,11 @@
 		return Math.round(44 + t * 64);
 	}
 
+	// Watchlist rows vary in height (wallet-source rows carry an extra line), so
+	// the window measures rendered rows and keys those measurements by call id —
+	// the feed prepends, which would invalidate index-keyed heights.
+	const callsVirtual = new VirtualList({ estimate: 68, measured: true, overscan: 6 });
+
 	const drilledCalls = $derived.by(() => {
 		if (!bubbleDrillToken) return [];
 		return filteredCalls.filter(c => `${c.callDetails.baseTokenChain}:${c.callDetails.baseTokenAddress}` === bubbleDrillToken);
@@ -500,12 +536,40 @@
 		bubbleDrillToken = null;
 	});
 
+	const renderedCalls = $derived(bubbleDrillToken ? drilledCalls : filteredCalls);
+
+	$effect(() => {
+		callsVirtual.keys = renderedCalls.map((c) => String(c.id));
+	});
+
+	// A different feed/tab is a different list: stale row heights would misplace
+	// the window until every row re-measured.
+	$effect(() => {
+		void activeTab;
+		void feedSourceId;
+		untrack(() => callsVirtual.reset());
+	});
+
+	// A churning row re-arms at most once per cooldown, and rows scrolled out of
+	// view never flash at all (visibleCalls is maintained by the row observer).
+	const lastFlashAt = new Map<string, number>();
+	const visibleCalls = new Set<string>();
+
 	function triggerFlash(key: string, direction: 'up' | 'down') {
+		if (!visibleCalls.has(key)) return;
+		const now = performance.now();
+		if (now - (lastFlashAt.get(key) ?? 0) < FLASH_COOLDOWN_MS) return;
+		lastFlashAt.set(key, now);
 		flashMap = new Map(flashMap).set(key, direction);
 		setTimeout(() => {
 			flashMap = new Map(flashMap);
 			flashMap.delete(key);
-		}, 800);
+		}, FLASH_MS);
+	}
+
+	function trackCallVisibility(key: string, visible: boolean) {
+		if (visible) visibleCalls.add(key);
+		else visibleCalls.delete(key);
 	}
 
 	function cleanupCallWs() {
@@ -759,9 +823,16 @@
 		}
 	}
 
+	// Reading scrollHeight forces a synchronous reflow, and the ResizeObserver
+	// below fires on every feed mutation — so collapse bursts into one check.
+	let autoFillPending = false;
 	function autoFillIfNeeded() {
 		if (!hasMore || loadingMore || !callsPagination.nextCursor) return;
+		if (autoFillPending) return;
+		autoFillPending = true;
 		requestAnimationFrame(() => requestAnimationFrame(() => {
+			autoFillPending = false;
+			if (!hasMore || loadingMore || !callsPagination.nextCursor) return;
 			const el = callsScrollEl;
 			if (el && el.clientHeight > 0 && el.scrollHeight <= el.clientHeight + 4) {
 				fetchMoreCalls();
@@ -1811,7 +1882,7 @@
 					</div>
 				</div>
 				{#if sortedBuckets.length > 0}
-					<div class="mt-3 border-t border-bd/60 pt-2">
+					<div class="mt-3 border-t border-bd pt-2">
 						<div class="mb-1 text-[10px] font-medium uppercase tracking-wider text-g5">Return Distribution</div>
 						<div class="flex items-end gap-1">
 							{#each sortedBuckets as bucket}
@@ -1829,7 +1900,7 @@
 					</div>
 				{/if}
 				{#if r.topCalls.length > 0}
-					<div class="mt-3 border-t border-bd/60 pt-2">
+					<div class="mt-3 border-t border-bd pt-2">
 						<div class="mb-1 text-[10px] font-medium uppercase tracking-wider text-g5">Top Calls</div>
 						<div class="flex h-20 items-end gap-1">
 							{#each r.topCalls.slice(0, 6) as call}
@@ -1906,7 +1977,7 @@
 		{#if loading}
 			<div class="space-y-1 p-2">
 				{#each Array(8) as _}
-					<div class="skeleton h-14 rounded-lg"></div>
+					<div class="skeleton h-[68px] rounded-lg"></div>
 				{/each}
 			</div>
 		{:else if filteredCalls.length === 0}
@@ -1956,7 +2027,12 @@
 					</button>
 				</div>
 			</div>
-			<div class="flex-1 overflow-y-auto" bind:this={callsScrollEl} onscroll={handleCallsScroll}>
+			<div
+				class="flex-1 overflow-y-auto"
+				bind:this={callsScrollEl}
+				onscroll={(e) => { handleCallsScroll(e); callsVirtual.handleScroll(e.currentTarget); }}
+				use:callsVirtual.viewport_
+			>
 				<div class="flex flex-wrap content-start items-center justify-center gap-3 p-4">
 					{#each callBubbles as b (b.key)}
 						{@const sz = bubbleSize(b.count)}
@@ -2003,43 +2079,66 @@
 					<LayoutGrid class="h-3.5 w-3.5" /> Back to bubbles
 				</button>
 			{/if}
-			{#each (bubbleDrillToken ? drilledCalls : filteredCalls) as call (call.id)}
+			<div class="relative" style="height: {callsVirtual.totalHeight}px">
+			{#each renderedCalls.slice(callsVirtual.start, callsVirtual.end) as call, rowIndex (call.id)}
 				{@const d = call.callDetails}
 				{@const m = call.caller}
 				{@const flash = flashMap.get(d.pairAddress)}
 				{@const isActive = d.baseTokenAddress === selectedAddress}
 				{@const pid = 'photoId' in m ? m.photoId : undefined}
 				{@const callWalletAddr = getWalletAddress(m as Record<string, unknown>)}
-				<div class="flex border-b border-b-bd/20 [contain:layout_paint_style] [content-visibility:auto] [contain-intrinsic-size:auto_84px] {isActive ? 'border-l-2 border-l-grn bg-grn/10' : ''}">
+				<div
+					use:onVisibility={(v) => trackCallVisibility(d.pairAddress, v)}
+					use:callsVirtual.measureRow={String(call.id)}
+					class="glass-hover absolute inset-x-0 border-b border-b-bd/40 px-3 py-2 transition-colors hover:bg-wh/5 [contain:layout_paint_style] {isActive ? 'border-l-2 border-l-grn bg-grn/10' : ''}"
+					style="top: {callsVirtual.offsetOf(callsVirtual.start + rowIndex)}px"
+				>
+					<div class="flex items-center justify-between gap-1.5">
+						<a
+							href="/?chain={d.chain}&token={d.baseTokenAddress}"
+							onclick={onnavigate}
+							class="flex min-w-0 flex-1 items-center gap-1.5"
+						>
+							<span class="shrink-0 text-[13px] font-semibold text-tx">{d.baseTokenSymbol ?? '?'}</span>
+							<span class="truncate text-[11px] text-g6">{d.baseTokenName ?? ''}</span>
+						</a>
+						<div class="flex shrink-0 items-center gap-1">
+							{#if d.athMultiplier}
+								<span class="text-[13px] font-bold {multiplierColor(d.athMultiplier)} {flash === 'up' ? 'flash-up' : flash === 'down' ? 'flash-down' : ''}">
+									{formatMultiplier(d.athMultiplier)}
+								</span>
+							{/if}
+							{#if d.rugged}
+								<span class="rounded bg-red/20 px-1 py-px text-[9px] font-bold text-red">RUG</span>
+							{/if}
+							<button
+								type="button"
+								onclick={() => void openBotForCall(call)}
+								class="flex h-5 w-5 items-center justify-center rounded-md {hasBot(call)
+									? getBotForCall(call)?.status === 'ACTIVE'
+										? 'bg-grn/20 text-grn'
+										: 'bg-red/20 text-red'
+									: 'bg-s7 text-g8 hover:bg-s6 hover:text-tx'}"
+								title={hasBot(call) ? getBotForCall(call)?.status === 'ACTIVE' ? 'Bot active' : 'Bot paused' : 'Create bot'}
+								aria-label={hasBot(call) ? 'Open bot' : 'Create bot'}
+							>
+								<BotIcon class="h-3.5 w-3.5" strokeWidth={2.25} />
+							</button>
+						</div>
+					</div>
 					<a
 						href="/?chain={d.chain}&token={d.baseTokenAddress}"
 						onclick={onnavigate}
-						class="flex flex-1 min-w-0 flex-col gap-1 px-3 py-2 transition-colors hover:bg-wh/5"
+						class="mt-0.5 flex min-w-0 flex-col gap-0.5"
 					>
-						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-1.5 min-w-0">
-								<span class="text-sm font-medium text-tx">{d.baseTokenSymbol ?? '?'}</span>
-								<span class="truncate text-xs text-g6">{d.baseTokenName ?? ''}</span>
-							</div>
-							<div class="flex items-center gap-1.5 shrink-0">
-								{#if d.athMultiplier}
-									<span class="text-sm font-semibold {multiplierColor(d.athMultiplier)} {flash === 'up' ? 'flash-up' : flash === 'down' ? 'flash-down' : ''}">
-										{formatMultiplier(d.athMultiplier)}
-									</span>
-								{/if}
-								{#if d.rugged}
-									<span class="rounded bg-red/20 px-1 py-0.5 text-[11px] text-red">RUG</span>
-								{/if}
-							</div>
-						</div>
 						<div class="group/caller flex items-center justify-between text-xs">
 						<div class="flex items-center gap-1 min-w-0">
 							{#if avatarUrl(pid)}
-								<img src={avatarUrl(pid)} alt="" class="h-5 w-5 shrink-0 rounded-full object-cover" />
+								<img src={avatarUrl(pid)} alt="" class="h-5 w-5 shrink-0 rounded-full object-cover ring-1 ring-bd" />
 							{:else if callWalletAddr}
-								<img src={getWalletIconUrl(callWalletAddr)} alt="" class="h-5 w-5 shrink-0 rounded-full" />
+								<img src={getWalletIconUrl(callWalletAddr)} alt="" class="h-5 w-5 shrink-0 rounded-full ring-1 ring-bd" />
 							{:else}
-								<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-s7 text-[9px] font-bold text-g11">{'name' in m ? (m.name?.[0]?.toUpperCase() ?? '?') : '?'}</div>
+								<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-s7 text-[9px] font-bold text-g11 ring-1 ring-bd">{'name' in m ? (m.name?.[0]?.toUpperCase() ?? '?') : '?'}</div>
 							{/if}
 							{#if m.type === 'WALLET' && 'walletAddress' in m && 'chain' in m}
 								<span
@@ -2095,45 +2194,31 @@
 								{/if}
 							</div>
 						{/if}
-						<div class="flex items-center justify-between text-xs">
-						<span class="text-g7">Called at <CurrencyValue usd={d.marketCapAtCallUsd} native={d.marketCapAtCallNative} chain={d.chain} mode="value" iconClass="h-3 w-3 text-g7" /></span>
-						<span class="text-g7 {flash === 'up' ? 'flash-up' : flash === 'down' ? 'flash-down' : ''}">MCap <CurrencyValue usd={d.marketCapUsd} native={d.marketCapNative} chain={d.chain} mode="value" iconClass="h-3 w-3 text-g7" /></span>
-						</div>
-						{#if d.currentMultiplier}
-							<div class="flex items-center justify-between text-xs">
-								<span class="{multiplierColor(d.currentMultiplier)} {flash === 'up' ? 'flash-up' : flash === 'down' ? 'flash-down' : ''}">Now {formatMultiplier(d.currentMultiplier)}</span>
-								<div class="flex items-center gap-1.5">
-									<span class="text-g6">ATH <CurrencyValue usd={d.athMarketCapUsd} native={d.athMarketCapNative} chain={d.chain} mode="value" iconClass="h-3 w-3 text-g6" /></span>
-									{#if getIsLoggedIn()}
-										<!-- svelte-ignore a11y_click_events_have_key_events -->
-										<!-- svelte-ignore a11y_no_static_element_interactions -->
-										<span
-											onclick={(e) => { e.preventDefault(); e.stopPropagation(); openBotForCall(call); }}
-											class="hidden md:flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-md transition-all {hasBot(call) ? getBotForCall(call)?.status === 'ACTIVE' ? 'bg-grn/10 text-grn ring-1 ring-grn/20 hover:bg-grn/20' : 'bg-red/10 text-red ring-1 ring-red/20 hover:bg-red/20' : 'text-g1 hover:text-grn'}"
-											title={hasBot(call) ? getBotForCall(call)?.status === 'ACTIVE' ? 'Bot active' : 'Bot paused' : 'Create Bot'}
-										>
-											<BotIcon class="h-3 w-3" strokeWidth={2} />
-										</span>
-									{/if}
-								</div>
-							</div>
-						{/if}
-					</a>
-					{#if getIsLoggedIn()}
-						<div class="flex md:hidden shrink-0 flex-col items-center justify-center gap-1 border-l border-bd/30 px-2">
-							<!-- svelte-ignore a11y_click_events_have_key_events -->
-							<!-- svelte-ignore a11y_no_static_element_interactions -->
-							<span
-								onclick={(e) => { e.preventDefault(); e.stopPropagation(); openBotForCall(call); }}
-								class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition-all {hasBot(call) ? getBotForCall(call)?.status === 'ACTIVE' ? 'bg-grn/10 text-grn hover:bg-grn/20' : 'bg-red/10 text-red hover:bg-red/20' : 'text-g3 hover:text-grn hover:bg-wh/5'}"
-								title={hasBot(call) ? getBotForCall(call)?.status === 'ACTIVE' ? 'Bot active' : 'Bot paused' : 'Create Bot'}
-							>
-								<BotIcon class="h-4 w-4" strokeWidth={2} />
+						<div class="flex items-center gap-1.5 overflow-hidden text-[11px] font-semibold tabular-nums">
+							<span class="inline-flex min-w-0 items-center gap-0.5 text-g8" title="Called at">
+								<Megaphone class="h-3 w-3 shrink-0" strokeWidth={2.25} />
+								<CurrencyValue usd={d.marketCapAtCallUsd} native={d.marketCapAtCallNative} chain={d.chain} mode="value" iconClass="h-2.5 w-2.5 text-g8" />
 							</span>
+							<span class="inline-flex min-w-0 items-center gap-0.5 text-g8 {flash === 'up' ? 'flash-up' : flash === 'down' ? 'flash-down' : ''}" title="Market cap">
+								<CircleDollarSign class="h-3 w-3 shrink-0" strokeWidth={2.25} />
+								<CurrencyValue usd={d.marketCapUsd} native={d.marketCapNative} chain={d.chain} mode="value" iconClass="h-2.5 w-2.5 text-g8" />
+							</span>
+							{#if d.currentMultiplier}
+								<span class="shrink-0 {multiplierColor(d.currentMultiplier)} {flash === 'up' ? 'flash-up' : flash === 'down' ? 'flash-down' : ''}" title="Now">
+									{formatMultiplier(d.currentMultiplier)}
+								</span>
+							{/if}
+							{#if d.athMarketCapUsd || d.athMarketCapNative}
+								<span class="ml-auto inline-flex shrink-0 items-center gap-0.5 text-g7" title="ATH">
+									<Trophy class="h-3 w-3" strokeWidth={2.25} />
+									<CurrencyValue usd={d.athMarketCapUsd} native={d.athMarketCapNative} chain={d.chain} mode="value" iconClass="h-2.5 w-2.5 text-g7" />
+								</span>
+							{/if}
 						</div>
-					{/if}
+					</a>
 				</div>
 				{/each}
+				</div>
 				{#if loadingMore}
 					<div class="flex items-center justify-center gap-2 py-3">
 						<div class="h-3.5 w-3.5 rounded-full border-2 border-g1 border-t-grn animate-spin"></div>
@@ -2433,7 +2518,7 @@
 {/if}
 
 {#if CreateBotModal}
-	<CreateBotModal bind:show={showCreateBot} source={botSource} editBot={editingBot} oncreated={() => { botsFetched = false; fetchBots(); }} onupdated={() => { botsFetched = false; fetchBots(); }} />
+	<CreateBotModal bind:show={showCreateBot} source={botSource} editBot={editingBot} oncreated={refreshBots} onupdated={refreshBots} />
 {/if}
 
 {#if showCtAddModal}

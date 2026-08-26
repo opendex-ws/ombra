@@ -16,7 +16,7 @@
 	import { api } from '$lib/api/client';
 	import { subscribe, unsubscribe } from '$lib/ws/client';
 	import { createCoalescer } from '$lib/utils/coalesce';
-	import { timeAgo, fullDateTime, formatMarketCap, formatCompactNumber } from '$lib/utils/format';
+	import { timeAgo, fullDateTime, formatMarketCap, formatCompactCount } from '$lib/utils/format';
 	import { getNow } from '$lib/stores/tick.svelte';
 	import { getIsLoggedIn } from '$lib/stores/auth.svelte';
 	import { getTwitterFeedCollapsed, toggleTwitterFeedCollapsed, getTwitterFeedHeightPct, setTwitterFeedHeightPct, getTwitterFeedPopout, setTwitterFeedPopout, getTwitterFeedFloat, setTwitterFeedFloatPos, setTwitterFeedFloatSize } from '$lib/stores/feSettings.svelte';
@@ -903,7 +903,7 @@
 				{:else}
 					{#each authors as author (author.id)}
 						{@const subbed = author.subscribed || subscribedHandles.has(author.handle.toLowerCase())}
-						<div class="flex items-center gap-2 border-b border-bd/30 px-3 py-1.5">
+						<div class="flex items-center gap-2 border-b border-bd/40 px-3 py-1.5">
 							{#if author.avatar}
 								<img src={author.avatar} alt="" class="h-6 w-6 shrink-0 rounded-full" loading="lazy" onerror={hideImg} />
 							{:else}
@@ -911,7 +911,7 @@
 							{/if}
 							<div class="min-w-0 flex-1">
 								<div class="truncate text-[11px] font-semibold text-tx">{author.name ?? author.handle}</div>
-								<div class="truncate text-[10px] text-g5">@{author.handle} · {formatCompactNumber(author.followers ?? 0)}{#if author.subscriptionCount > 0} · <span class="text-grn">{formatCompactNumber(author.subscriptionCount)} subs</span>{/if}</div>
+								<div class="truncate text-[10px] text-g5">@{author.handle} · {formatCompactCount(author.followers ?? 0)}{#if author.subscriptionCount > 0} · <span class="text-grn">{formatCompactCount(author.subscriptionCount)} subs</span>{/if}</div>
 							</div>
 							<button
 								onclick={() => toggleSubscription(author)}
@@ -944,7 +944,7 @@
 					{@const timg = tokenImg(e)}
 					{@const subbed = subscribedHandles.has(e.author.handle?.toLowerCase() ?? '')}
 					{@const mediaItems = displayMedia(e.content?.media)}
-					<div class="flex gap-2 border-b border-bd/30 px-3 py-2 [contain:layout_paint_style] [content-visibility:auto] [contain-intrinsic-size:auto_76px]">
+					<div class="flex gap-2 border-b border-bd/40 px-3 py-2 [contain:layout_paint_style] [content-visibility:auto] [contain-intrinsic-size:auto_76px]">
 						<div class="group/av relative h-7 w-7 shrink-0 self-start" style="margin-top: 2px;">
 							<a href="https://x.com/{e.author.handle}" target="_blank" rel="noopener">
 								{#if e.author.avatar}
@@ -973,7 +973,7 @@
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-1.5">
 								<a href="https://x.com/{e.author.handle}" target="_blank" rel="noopener" class="truncate text-[11px] font-semibold text-tx hover:underline">{e.author.name ?? e.author.handle}</a>
-								<span class="shrink-0 text-[10px] text-g5">{formatCompactNumber(e.author.followers ?? 0)}</span>
+								<span class="shrink-0 text-[10px] text-g5">{formatCompactCount(e.author.followers ?? 0)}</span>
 								{#each (e.author.tags ?? []).slice(0, 2) as tag}
 									<span class="shrink-0 rounded bg-s7 px-1 py-px text-[8px] font-semibold uppercase tracking-wide text-g6">{tag}</span>
 								{/each}
@@ -1059,9 +1059,9 @@
 											<span class="truncate text-[10px] text-g5">@{t.handle}</span>
 										</div>
 										<div class="text-[10px] text-g5">
-											<span class="font-semibold text-g8">{formatCompactNumber(t.followers ?? 0)}</span> followers
+											<span class="font-semibold text-g8">{formatCompactCount(t.followers ?? 0)}</span> followers
 											<span class="mx-0.5 text-g3">·</span>
-											<span class="font-semibold text-g8">{formatCompactNumber(t.following ?? 0)}</span> following
+											<span class="font-semibold text-g8">{formatCompactCount(t.following ?? 0)}</span> following
 										</div>
 										{#if t.bio}
 											<div class="mt-0.5 line-clamp-2 text-[10px] leading-snug text-g6">{t.bio}</div>

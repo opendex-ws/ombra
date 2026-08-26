@@ -5,6 +5,7 @@
 	import TokenRow from './TokenRow.svelte';
 	import Inbox from 'lucide-svelte/icons/inbox';
 	import { portal } from '$lib/actions/portal';
+	import { VirtualList } from '$lib/utils/virtual.svelte';
 	import { afterNavigate } from '$app/navigation';
 
 	type SortCol = { rankBy: string; label: string } | null;
@@ -36,44 +37,13 @@
 	});
 
 	let scrollEl: HTMLDivElement | undefined = $state();
-	let visibleRows = $state(new Set<string>());
-	let observer: IntersectionObserver | null = null;
-	let rowEls = new Map<string, HTMLElement>();
-
-	function setupObserver() {
-		observer?.disconnect();
-		if (!scrollEl) return;
-		observer = new IntersectionObserver((entries) => {
-			const next = new Set(visibleRows);
-			for (const e of entries) {
-				const key = (e.target as HTMLElement).dataset.pair;
-				if (!key) continue;
-				if (e.isIntersecting) next.add(key);
-				else next.delete(key);
-			}
-			visibleRows = next;
-		}, { root: scrollEl, rootMargin: '200px 0px' });
-		for (const el of rowEls.values()) observer.observe(el);
-	}
+	// Rows are windowed, so everything rendered is on screen — the old
+	// IntersectionObserver that gated image loading is redundant.
+	const vl = new VirtualList({ estimate: 72 });
 
 	$effect(() => {
-		if (scrollEl && tokens.length > 0 && !loading) setupObserver();
+		vl.count = tokens.length;
 	});
-
-	function observeRow(el: HTMLElement) {
-		const key = el.dataset.pair;
-		if (!key) return;
-		rowEls.set(key, el);
-		observer?.observe(el);
-		return {
-			destroy() {
-				rowEls.delete(key);
-				observer?.unobserve(el);
-			}
-		};
-	}
-
-	onDestroy(() => observer?.disconnect());
 
 	// Pop-out: while a row is hovered, lift a clone that stays pinned in place
 	// (with fresh data) while the real list keeps reordering underneath.
@@ -195,7 +165,7 @@
 	</div>
 	</div>
 
-	<div class="flex-1 overflow-auto" bind:this={scrollEl}>
+	<div class="flex-1 overflow-auto" bind:this={scrollEl} onscroll={(e) => vl.handleScroll(e.currentTarget)} use:vl.viewport_>
 		{#if loading}
 			{#each Array(12) as _, i}
 				<div class="grid h-[72px] items-center gap-x-2 border-b border-bd/40 px-4" style:grid-template-columns={cols}>
@@ -218,17 +188,21 @@
 				<span class="text-sm text-g6">No tokens found</span>
 			</div>
 		{:else}
-			{#each tokens as token, i (token.pairAddress)}
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div
-					data-pair={token.pairAddress}
-					use:observeRow
-					onmousemove={(e) => scheduledPin(e, token.pairAddress, rankOffset + i + 1)}
-					onmouseleave={cancelPin}
-				>
-					<TokenRow {token} rank={rankOffset + i + 1} {cols} {compact} rowFlash={rowFlashes.get(token.pairAddress)} showImage={visibleRows.has(token.pairAddress)} {onselect} />
-				</div>
-			{/each}
+			<div class="relative" style="height: {vl.totalHeight}px">
+				{#each tokens.slice(vl.start, vl.end) as token, i (token.pairAddress)}
+					{@const index = vl.start + i}
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
+					<div
+						class="absolute inset-x-0"
+						style="top: {index * vl.stride}px"
+						data-pair={token.pairAddress}
+						onmousemove={(e) => scheduledPin(e, token.pairAddress, rankOffset + index + 1)}
+						onmouseleave={cancelPin}
+					>
+						<TokenRow {token} rank={rankOffset + index + 1} {cols} {compact} rowFlash={rowFlashes.get(token.pairAddress)} showImage={true} {onselect} />
+					</div>
+				{/each}
+			</div>
 		{/if}
 	</div>
 </div>
@@ -240,7 +214,7 @@
 		onmouseleave={unpinRow}
 		onclick={unpinRow}
 		onwheel={onPinWheel}
-		class="fixed z-[120] origin-top overflow-hidden rounded-lg bg-s2 shadow-2xl ring-1 ring-bd3"
+		class="fixed z-[120] origin-top overflow-hidden rounded-lg bg-s5 shadow-2xl ring-1 ring-bd3"
 		style="left: {pinRect.left}px; top: {pinRect.top}px; width: {pinRect.width}px; height: {pinRect.height}px; transform: scale(1.02);"
 	>
 		<TokenRow token={pinnedToken} rank={pinnedRank} {cols} {compact} rowFlash={rowFlashes.get(pinnedToken.pairAddress)} showImage={true} {onselect} />

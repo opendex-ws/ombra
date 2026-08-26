@@ -11,8 +11,6 @@ function getApiProxyUrl(url: URL): URL | null {
 	const proxyPath =
 		url.pathname === '/v2' ||
 		url.pathname.startsWith('/v2/') ||
-		url.pathname === '/polymarket' ||
-		url.pathname.startsWith('/polymarket/') ||
 		url.pathname === '/rpc/sol' ||
 		url.pathname.startsWith('/rpc/sol/');
 	if (!proxyPath) return null;
@@ -40,6 +38,53 @@ function createProxyRequest(request: Request, target: URL): Request {
 	return new Request(target, init);
 }
 
+function apiConnectSrc(): string {
+	const parts = ["'self'", 'https:', 'wss:'];
+	if (!API_BASE) return parts.join(' ');
+	try {
+		const origin = new URL(API_BASE).origin;
+		parts.push(origin, origin.replace(/^http/i, 'ws'));
+	} catch {
+		// PUBLIC_API_BASE is optional in direct/dev setups.
+	}
+	return parts.join(' ');
+}
+
+function contentSecurityPolicy(): string {
+	return [
+		"frame-ancestors 'none'",
+		"default-src 'self'",
+		"script-src 'self' 'unsafe-inline'",
+		`connect-src ${apiConnectSrc()}`,
+		"img-src 'self' data: https: blob:",
+		"media-src 'self' https: blob:",
+		"style-src 'self' 'unsafe-inline'",
+		"object-src 'none'",
+		"base-uri 'self'",
+		"form-action 'self'"
+	].join('; ');
+}
+
+function applySecurityHeaders(headers: Headers): void {
+	headers.set('Content-Security-Policy', contentSecurityPolicy());
+	headers.set('X-Frame-Options', 'DENY');
+	headers.set('X-Content-Type-Options', 'nosniff');
+	headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+	headers.set('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
+	headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+}
+
+function withSecurityHeaders(response: Response, cacheControl?: string): Response {
+	const headers = new Headers(response.headers);
+	applySecurityHeaders(headers);
+	if (cacheControl) headers.set('cache-control', cacheControl);
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers
+	});
+}
+
 function shouldPreload(type: 'js' | 'css' | 'font' | 'asset', path: string): boolean {
 	if (type === 'font' || type === 'asset') return false;
 	if (type === 'css') {
@@ -56,19 +101,12 @@ function shouldPreload(type: 'js' | 'css' | 'font' | 'asset', path: string): boo
 export const handle: Handle = async ({ event, resolve }) => {
 	const target = getApiProxyUrl(event.url);
 	if (target) {
-		return fetch(createProxyRequest(event.request, target));
+		return withSecurityHeaders(await fetch(createProxyRequest(event.request, target)));
 	}
 
 	const response = await resolve(event, {
 		preload: ({ type, path }) => shouldPreload(type, path)
 	});
-	if (!response.headers.get('content-type')?.includes('text/html')) return response;
-
-	const headers = new Headers(response.headers);
-	headers.set('cache-control', 'no-cache');
-	return new Response(response.body, {
-		status: response.status,
-		statusText: response.statusText,
-		headers
-	});
+	const isHtml = response.headers.get('content-type')?.includes('text/html');
+	return withSecurityHeaders(response, isHtml ? 'no-cache' : undefined);
 };

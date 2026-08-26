@@ -32,10 +32,12 @@
 	import { getWalletIconUrl, getWalletAddress } from '$lib/utils/walleticon';
 	import { getNow } from '$lib/stores/tick.svelte';
 	import type { BotSourceDescriptor } from '$lib/utils/bot-settings';
+	import { mergeUniqueById, totalAtLeastLoaded, unseenCursor } from '$lib/utils/paginated-rows';
 
 	let { routeActive = true }: { routeActive?: boolean } = $props();
 
 	type Bot = components['schemas']['Bot'];
+	type BotStatus = components['schemas']['BotStatus'];
 	type ActiveTrade = components['schemas']['ActiveTrade'];
 	type CompletedTrade = components['schemas']['CompletedTrade'];
 	type BotLog = components['schemas']['BotLog'];
@@ -90,9 +92,28 @@
 	];
 
 	let bots = $state<Bot[]>([]);
-	// Server-reported total (accurate immediately from page 1, before/while the
-	// cursor walk loads every bot). The list badge must use this, not bots.length.
 	let botsTotal = $state<number | null>(null);
+	let activeBotsTotal = $state<number | null>(null);
+	let pausedBotsTotal = $state<number | null>(null);
+	let botsNextCursor = $state<string | undefined>();
+	let botsLoading = $state(false);
+	let botsLoadingMore = $state(false);
+	let botStatusFilter = $state<BotStatus | 'ALL'>('ALL');
+	let allBotsTotal = $derived(
+		activeBotsTotal !== null && pausedBotsTotal !== null
+			? activeBotsTotal + pausedBotsTotal
+			: botStatusFilter === 'ALL' ? botsTotal : null
+	);
+	type BotPageState = {
+		bots: Bot[];
+		total: number | null;
+		activeTotal: number | null;
+		pausedTotal: number | null;
+		nextCursor?: string;
+		seenCursors: Set<string>;
+	};
+	const botPagesByStatus = new Map<BotStatus | 'ALL', BotPageState>();
+	let seenBotCursors = new Set<string>();
 	let aggregateBotStats = $state<BotStats | null>(null);
 	let globalBotTrades = $state<{ active: ActiveTrade[]; completed: CompletedTrade[] }>({ active: [], completed: [] });
 	let globalBotLogs = $state<BotLog[]>([]);
@@ -526,80 +547,113 @@
 	}
 
 	function applyBotsSnapshot(data: BotsResponse) {
-		// The WS window holds at most one page, so a snapshot may not include every
-		// bot the REST walk loaded (e.g. >100 bots, or the default-20 window). Merge
-		// by id — update/insert bots from the snapshot, keep the rest — so the list
-		// never shrinks below the full loaded set. Removals come via a re-fetch on
-		// delete. When the snapshot IS the whole set (loaded ≤ its size), replace.
-		if (typeof data.totalCount === 'number') botsTotal = data.totalCount;
+		if (typeof data.totalCount === 'number') botsTotal = totalAtLeastLoaded(data.totalCount, bots.length);
+		if (typeof data.totalActiveCount === 'number') activeBotsTotal = data.totalActiveCount;
+		if (typeof data.totalPausedCount === 'number') pausedBotsTotal = data.totalPausedCount;
 		const snapshotById = new Map(data.bots.map((b) => [b.id, b]));
-		if (data.bots.length >= bots.length) {
-			// Snapshot covers everything currently shown — take it as authoritative.
-			bots = data.bots;
-		} else {
-			// Partial window — update existing in place, append genuinely new bots.
-			const merged = bots.map((b) => snapshotById.get(b.id) ?? b);
-			const existing = new Set(merged.map((b) => b.id));
-			for (const b of data.bots) if (!existing.has(b.id)) merged.push(b);
-			bots = merged;
-		}
-		const liveIds = new Set(bots.map((bot) => bot.id));
-		const nextExpanded = new Set(expandedBotIds);
-		for (const botId of expandedBotIds) {
-			if (liveIds.has(botId)) continue;
-			clearScopedBotRealtime(botId);
-			nextExpanded.delete(botId);
-		}
-		expandedBotIds = nextExpanded;
+		const merged = bots.map((bot) => snapshotById.get(bot.id) ?? bot);
+		const loadedIds = new Set(merged.map((bot) => bot.id));
+		bots = [...data.bots.filter((bot) => !loadedIds.has(bot.id)), ...merged];
+		rememberBotPage();
+	}
+
+	function rememberBotPage() {
+		botPagesByStatus.set(botStatusFilter, {
+			bots: [...bots], total: botsTotal, activeTotal: activeBotsTotal,
+			pausedTotal: pausedBotsTotal, nextCursor: botsNextCursor,
+			seenCursors: new Set(seenBotCursors)
+		});
+	}
+
+	function restoreBotPage(state: BotPageState) {
+		bots = [...state.bots];
+		botsTotal = state.total;
+		activeBotsTotal = state.activeTotal;
+		pausedBotsTotal = state.pausedTotal;
+		botsNextCursor = state.nextCursor;
+		seenBotCursors = new Set(state.seenCursors);
+	}
+
+	function botListQuery(cursor?: string) {
+		return { limit: 20, ...(cursor ? { cursor } : {}), ...(botStatusFilter === 'ALL' ? {} : { status: botStatusFilter }) };
 	}
 
 	async function fetchBots(generation = botRealtimeGeneration) {
 		const listGeneration = ++botListGeneration;
+		botsLoading = true;
 		const existing = globalBotWsKeys.get('list');
 		if (existing) {
 			unsubscribe(existing);
 			globalBotWsKeys.delete('list');
 		}
 		try {
-			// The bot list is cursor-paginated (max 100/page). Walk every page via
-			// nextCursor so all bots load — handles >100 bots too.
-			const allBots: Bot[] = [];
-			let tail: BotsResponse | null = null;
-			let cursor: string | undefined;
-			const seenCursors = new Set<string>();
-			do {
-				const { data } = await api.GET('/v2/bots', {
-					params: { query: cursor ? { limit: 100, cursor } : { limit: 100 } }
-				});
-				if (!isCurrentBotRealtime(generation) || listGeneration !== botListGeneration) return;
-				if (!data) break;
-				tail = data;
-				if (typeof data.totalCount === 'number') botsTotal = data.totalCount;
-				allBots.push(...(data.bots ?? []));
-				const next = data.nextCursor ?? undefined;
-				if (!next || seenCursors.has(next)) break;
-				seenCursors.add(next);
-				cursor = next;
-			} while (cursor);
-
-			if (!tail) {
+			const { data } = await api.GET('/v2/bots', { params: { query: botListQuery() } });
+			if (!isCurrentBotRealtime(generation) || listGeneration !== botListGeneration) return;
+			if (!data) {
 				bots = [];
 				botsTotal = 0;
+				activeBotsTotal = 0;
+				pausedBotsTotal = 0;
+				botsNextCursor = undefined;
+				seenBotCursors = new Set();
+				rememberBotPage();
 				return;
 			}
-			bots = allBots;
-			// The bots:list live window holds at most one page (default 20, max 100),
-			// so its snapshot can't represent >100 bots. Subscribe a limit-100 live
-			// window for live updates, and MERGE its snapshots into the REST-loaded
-			// full set by id (see applyBotsSnapshot) rather than replacing — so the
-			// list never shrinks below what was loaded. Deletes/toggles re-fetch.
+			bots = [...data.bots];
+			botsTotal = totalAtLeastLoaded(data.totalCount, bots.length);
+			activeBotsTotal = data.totalActiveCount ?? null;
+			pausedBotsTotal = data.totalPausedCount ?? null;
+			botsNextCursor = data.nextCursor ?? undefined;
+			seenBotCursors = new Set();
+			rememberBotPage();
 			replaceGlobalBotSubscription('list', 'bots:list', 'BOTS', generation, (payload) => {
 				if (listGeneration !== botListGeneration) return;
 				applyBotsSnapshot(payload as BotsResponse);
-			}, { ...liveAccumulatedParams(tail), limit: 100 });
+			}, { ...liveAccumulatedParams(data), ...botListQuery() });
 		} catch {
 			if (isCurrentBotRealtime(generation) && listGeneration === botListGeneration) { bots = []; botsTotal = null; }
+		} finally {
+			if (listGeneration === botListGeneration) botsLoading = false;
 		}
+	}
+
+	async function loadMoreBots() {
+		if (!botsNextCursor || botsLoadingMore || seenBotCursors.has(botsNextCursor)) return;
+		const cursor = botsNextCursor;
+		seenBotCursors.add(cursor);
+		botsLoadingMore = true;
+		try {
+			const { data } = await api.GET('/v2/bots', { params: { query: botListQuery(cursor) } });
+			if (!data) return;
+			bots = mergeUniqueById(bots, data.bots);
+			botsTotal = totalAtLeastLoaded(data.totalCount ?? botsTotal, bots.length);
+			activeBotsTotal = data.totalActiveCount ?? activeBotsTotal;
+			pausedBotsTotal = data.totalPausedCount ?? pausedBotsTotal;
+			botsNextCursor = unseenCursor(data.nextCursor, seenBotCursors);
+			rememberBotPage();
+		} finally { botsLoadingMore = false; }
+	}
+
+	function selectBotStatus(status: BotStatus | 'ALL') {
+		if (status === botStatusFilter) return;
+		rememberBotPage();
+		botStatusFilter = status;
+		const cached = botPagesByStatus.get(status);
+		if (cached) {
+			restoreBotPage(cached);
+			const generation = botRealtimeGeneration;
+			const listGeneration = ++botListGeneration;
+			replaceGlobalBotSubscription('list', 'bots:list', 'BOTS', generation, (payload) => {
+				if (listGeneration !== botListGeneration) return;
+				applyBotsSnapshot(payload as BotsResponse);
+			}, botListQuery());
+			return;
+		}
+		bots = [];
+		botsTotal = null;
+		botsNextCursor = undefined;
+		seenBotCursors = new Set();
+		void fetchBots();
 	}
 
 	function setupGlobalBotRealtime(generation: number) {
@@ -1062,8 +1116,8 @@
 					>
 						<BotIcon class="hidden md:block h-3.5 w-3.5" strokeWidth={1.5} />
 						My Bots
-						{#if (botsTotal ?? bots.length) > 0}
-							<span class="rounded-full bg-s7 px-1.5 py-0.5 text-[10px] text-g5">{Math.max(botsTotal ?? 0, bots.length)}</span>
+						{#if (allBotsTotal ?? bots.length) > 0}
+							<span class="rounded-full bg-s7 px-1.5 py-0.5 text-[10px] text-g5">{Math.max(allBotsTotal ?? 0, bots.length)}</span>
 						{/if}
 						{#if mainTab === 'bots'}<div class="absolute bottom-0 left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-grn"></div>{/if}
 					</button>
@@ -1134,7 +1188,7 @@
 										<button onclick={() => { lbShowFilters = !lbShowFilters; }} class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg border transition-colors {lbShowFilters ? 'border-grn/40 bg-grn/10 text-grn' : 'border-bd bg-s4 text-g6 hover:text-tx'}"><Filter class="h-3 w-3" strokeWidth={2.5} /></button>
 									</div>
 									{#if lbShowFilters}
-										<div class="flex items-center gap-3 rounded-lg border border-bd/50 bg-s4/40 px-2.5 py-1.5">
+										<div class="flex items-center gap-3 rounded-lg border border-bd/40 bg-s4/40 px-2.5 py-1.5">
 											<div class="flex items-center gap-1.5">
 												<span class="text-[10px] text-g5 shrink-0">Win%</span>
 												<input type="range" min="0" max="100" step="5" value={lbMinWinRate || '0'} oninput={(e) => { lbMinWinRate = e.currentTarget.value === '0' ? '' : e.currentTarget.value; debouncedRefetchLb(); }} class="h-1 w-16 cursor-pointer accent-grn" />
@@ -1191,7 +1245,7 @@
 										<button onclick={() => { myShowFilters = !myShowFilters; }} class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg border transition-colors {myShowFilters ? 'border-grn/40 bg-grn/10 text-grn' : 'border-bd bg-s4 text-g6 hover:text-tx'}"><Filter class="h-3 w-3" strokeWidth={2.5} /></button>
 									</div>
 									{#if myShowFilters}
-										<div class="flex items-center gap-3 rounded-lg border border-bd/50 bg-s4/40 px-2.5 py-1.5">
+										<div class="flex items-center gap-3 rounded-lg border border-bd/40 bg-s4/40 px-2.5 py-1.5">
 											<div class="flex items-center gap-1.5">
 												<span class="text-[10px] text-g5 shrink-0">Win%</span>
 												<input type="range" min="0" max="100" step="5" value={myMinWinRate || '0'} oninput={(e) => { myMinWinRate = e.currentTarget.value === '0' ? '' : e.currentTarget.value; debouncedRefetchMy(); }} class="h-1 w-16 cursor-pointer accent-grn" />
@@ -1239,7 +1293,7 @@
 									<button onclick={() => { lbShowFilters = !lbShowFilters; }} class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg border transition-colors {lbShowFilters ? 'border-grn/40 bg-grn/10 text-grn' : 'border-bd bg-s4 text-g6 hover:text-tx'}"><Filter class="h-3 w-3" strokeWidth={2.5} /></button>
 								</div>
 								{#if lbShowFilters}
-									<div class="flex items-center gap-3 rounded-lg border border-bd/50 bg-s4/40 px-2.5 py-1.5">
+									<div class="flex items-center gap-3 rounded-lg border border-bd/40 bg-s4/40 px-2.5 py-1.5">
 										<div class="flex items-center gap-1.5">
 											<span class="text-[10px] text-g5 shrink-0">Win%</span>
 											<input type="range" min="0" max="100" step="5" value={lbMinWinRate || '0'} oninput={(e) => { lbMinWinRate = e.currentTarget.value === '0' ? '' : e.currentTarget.value; debouncedRefetchLb(); }} class="h-1 w-16 cursor-pointer accent-grn" />
@@ -1267,10 +1321,20 @@
 				</div>
 
 				{:else if mainTab === 'bots'}
-					<div class="mb-5 flex items-center justify-between">
-						<h2 class="text-lg font-bold text-tx">My Bots</h2>
+					<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+						<div class="flex items-center gap-3">
+							<h2 class="text-lg font-bold text-tx">My Bots</h2>
+							<div class="flex rounded-lg border border-bd bg-s1 p-0.5">
+								<button onclick={() => selectBotStatus('ALL')} class="cursor-pointer rounded-md px-2 py-1 text-[11px] {botStatusFilter === 'ALL' ? 'bg-s7 text-tx' : 'text-g5'}">All {allBotsTotal ?? ''}</button>
+								<button onclick={() => selectBotStatus('ACTIVE')} class="cursor-pointer rounded-md px-2 py-1 text-[11px] {botStatusFilter === 'ACTIVE' ? 'bg-s7 text-tx' : 'text-g5'}">Active {activeBotsTotal ?? ''}</button>
+								<button onclick={() => selectBotStatus('PAUSED')} class="cursor-pointer rounded-md px-2 py-1 text-[11px] {botStatusFilter === 'PAUSED' ? 'bg-s7 text-tx' : 'text-g5'}">Paused {pausedBotsTotal ?? ''}</button>
+							</div>
+						</div>
 						<button onclick={() => (showSourcePicker = true)} class="cursor-pointer rounded-lg bg-grn px-3 py-1.5 text-xs font-semibold text-s0 transition-all">+ Create Bot</button>
 					</div>
+					{#if botsLoading && bots.length === 0}
+						<div class="space-y-2">{#each Array(3) as _}<div class="skeleton h-20 rounded-xl"></div>{/each}</div>
+					{/if}
 
 					{#if bots.length > 0}
 						<h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-g6">Bots</h3>
@@ -1388,11 +1452,16 @@
 								</div>
 							{/each}
 						</div>
+						{#if botsNextCursor}
+							<div class="mb-6 flex justify-center">
+								<button onclick={loadMoreBots} disabled={botsLoadingMore} class="cursor-pointer rounded-lg border border-bd bg-s1 px-4 py-2 text-xs font-medium text-g7 hover:text-tx disabled:cursor-default disabled:opacity-50">{botsLoadingMore ? 'Loading…' : 'Load more'}</button>
+							</div>
+						{/if}
 					{/if}
 
-					{#if bots.length === 0 && !loading}
+					{#if bots.length === 0 && !botsLoading && !loading}
 						<div class="rounded-xl border border-bd bg-s1 p-12 text-center">
-							<div class="mb-3 text-sm text-g5">No bots yet. Create one from a caller, TG channel, list, or wallet.</div>
+							<div class="mb-3 text-sm text-g5">{botStatusFilter === 'ALL' ? 'No bots yet. Create one from a caller, TG channel, list, or wallet.' : `No ${botStatusFilter.toLowerCase()} bots.`}</div>
 							<button onclick={() => (showSourcePicker = true)} class="cursor-pointer rounded-lg bg-grn px-4 py-2 text-sm font-semibold text-s0 transition-all">+ Create Bot</button>
 						</div>
 					{/if}

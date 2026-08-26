@@ -1,0 +1,77 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fe-demo-predict-ui-probe
+  namespace: llm-dev
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 0
+  activeDeadlineSeconds: 1200
+  template:
+    metadata:
+      labels: { app: fe-demo-predict-ui-probe }
+    spec:
+      restartPolicy: Never
+      imagePullSecrets: [{ name: mirrorreg }]
+      tolerations: [{ operator: Exists }]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: probe
+          image: mcr.microsoft.com/playwright:v1.52.0-jammy
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile: { type: RuntimeDefault }
+          env:
+            - name: GITLAB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: agent-developer-gitlab-token
+                  key: token
+            - name: GITLAB_HOST
+              value: gitlab.com
+            - name: FE_DEMO_BRANCH
+              value: feature/hl-perps-fe
+          command: [bash, -lc]
+          args:
+            - |
+              set -euo pipefail
+              REPO="https://gitlab-ci-token:${GITLAB_TOKEN}@${GITLAB_HOST}/drakula-trade/fe-demo.git"
+              WORK=/tmp/fe-demo
+              rm -rf "$WORK"
+              git clone --depth 1 --branch "${FE_DEMO_BRANCH}" "$REPO" "$WORK"
+              cp /probe-scripts/predict-ui-probe.mjs "$WORK/scripts/predict-ui-probe.mjs"
+              cd "$WORK"
+              npm ci --ignore-scripts
+              npm run build
+              npx vite preview --host 127.0.0.1 --port 4173 &
+              for i in $(seq 1 90); do
+                curl -sf http://127.0.0.1:4173/predict >/dev/null && break
+                sleep 2
+              done
+              curl -sf http://127.0.0.1:4173/predict >/dev/null
+              PREDICT_BASE_URL=http://127.0.0.1:4173 \
+              PREDICT_PROBE_OUT=/tmp/probe-out \
+              node scripts/predict-ui-probe.mjs
+              echo '=== PROBE_REPORT ==='
+              cat /tmp/probe-out/report.json
+              echo PREDICT_LLM_DEV_PROBE_OK
+          volumeMounts:
+            - name: probe-scripts
+              mountPath: /probe-scripts
+              readOnly: true
+          resources:
+            requests: { cpu: "500m", memory: "2Gi" }
+            limits: { cpu: "2", memory: "4Gi" }
+      volumes:
+        - name: probe-scripts
+          configMap:
+            name: fe-demo-predict-probe-scripts

@@ -1025,7 +1025,7 @@
 										</div>
 									</div>
 								{#each chainWallets as wallet}
-									<div class="border-b border-bd/30 px-4 py-3 last:border-0">
+									<div class="border-b border-bd/40 px-4 py-3 last:border-0">
 										<div class="mb-2 flex items-center justify-between">
 											<div class="flex items-center gap-2">
 												<code class="text-sm text-tx">{shortAddress(wallet.address)}</code>
@@ -1068,7 +1068,7 @@
 													<tbody>
 														{#each [...wallet.assets].sort((a, b) => (b.isNative ? 1 : 0) - (a.isNative ? 1 : 0)) as bal}
 															{@const sellKey = `${wallet.chain}:${bal.token.address}`}
-															<tr class="group/row border-t border-bd/20">
+															<tr class="group/row border-t border-bd/40">
 																<td class="py-1">{#if !bal.isNative}<a href="/?chain={wallet.chain}&token={bal.token.address}" class="text-tx hover:text-grn transition-colors">{bal.token.symbol}</a>{:else}<span class="text-tx">{bal.token.symbol}</span>{/if}</td>
 																<td class="py-1 text-right text-g7">{bal.tokensBalance.toLocaleString('en-US', { maximumFractionDigits: 6 })}</td>
 																<td class="py-1 text-right text-g7">{formatUsd(bal.priceUsdStr)}</td>
@@ -1443,7 +1443,7 @@
 										</thead>
 										<tbody>
 											{#each commissionSummary.byChain as cs}
-												<tr class="border-b border-bd/30">
+												<tr class="border-b border-bd/40">
 													<td class="py-1.5 text-tx"><ChainIcon chain={cs.chain} class="h-3.5 w-3.5" /></td>
 													<td class="py-1.5 text-right text-grn">{formatUsd(cs.affiliateRevenueUsd)}</td>
 												</tr>
@@ -1464,7 +1464,7 @@
 										</thead>
 										<tbody>
 											{#each commissionSummary.topReferrals as ref}
-												<tr class="border-b border-bd/30">
+												<tr class="border-b border-bd/40">
 													<td class="py-1.5 text-tx">{ref.username || 'anon'}</td>
 													<td class="py-1.5 text-g7"><ChainIcon chain={ref.chain} class="h-3.5 w-3.5" /></td>
 													<td class="py-1.5 text-right text-g7">{formatUsd(ref.volumeUsd)}</td>
@@ -1496,7 +1496,7 @@
 				{:else}
 					<div class="rounded-xl border border-bd bg-s1">
 					{#each favourites as fav}
-						<div class="flex items-center justify-between border-b border-bd/30 px-4 py-3 last:border-0">
+						<div class="flex items-center justify-between border-b border-bd/40 px-4 py-3 last:border-0">
 							<div class="flex items-center gap-3">
 								<img src={tokenImage(fav.token.chain, fav.token.address)} alt="" class="h-8 w-8 rounded-lg object-cover" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
 								<div>
@@ -1784,7 +1784,7 @@
 								{/if}
 								<div class="rounded border border-bd bg-s1">
 									{#each filteredTgChats as chat (chat.chatId)}
-										<div class="flex items-center justify-between gap-3 border-b border-bd/30 px-4 py-3 last:border-0">
+										<div class="flex items-center justify-between gap-3 border-b border-bd/40 px-4 py-3 last:border-0">
 											<div class="flex min-w-0 flex-1 items-center gap-3">
 												{#if avatarUrl(chat.photoId)}
 													<img src={avatarUrl(chat.photoId)} alt="" loading="lazy" class="h-8 w-8 shrink-0 rounded-full object-cover" />

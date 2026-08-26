@@ -3789,6 +3789,8 @@ export interface components {
              */
             wins: number;
         };
+        /** @enum {string} */
+        BotStatus: "ACTIVE" | "PAUSED";
         /** @description Optional parameters for the authenticated global bot balance-change WebSocket feed, including filters, page size, and cursor controls. */
         BotsBalanceChangesLivecursorParams: {
             /** @description Return only balance changes on this chain. Omit it for every chain. */
@@ -3829,6 +3831,7 @@ export interface components {
             limit?: number | null;
             /** @description Filters bots by source category. Accepted values are CALLER, TG, LIST, and WALLET; `null` or omission applies no source-type filter. */
             sourceType?: null | components["schemas"]["CallerSource"];
+            status?: null | components["schemas"]["BotStatus"];
         };
         /** @description Optional filters and cursor parameters for live bot subscriptions. */
         BotsLivecursorParams: {
@@ -3845,6 +3848,7 @@ export interface components {
             sourceType?: null | components["schemas"]["CallerSource"];
             /** @description Start of the window. Omit it for a live subscription; setting it selects a fixed window and requires `endCursor` too. */
             startCursor?: string | null;
+            status?: null | components["schemas"]["BotStatus"];
         };
         /** @description Parameters for the authenticated `bots:logs` subscription, including filters for log category, chain, source family, and result status, plus pagination cursors and page size. Omitted filters match all values. `limit` defaults to 20 and values must be from 1 through 100. */
         BotsLogsLivecursorParams: {
@@ -3951,9 +3955,19 @@ export interface components {
             bots: components["schemas"]["Bot"][];
             /**
              * Format: int64
+             * @description Total active bots for the same source and chain filters.
+             */
+            totalActiveCount?: number;
+            /**
+             * Format: int64
              * @description Total number of items across every page for the same filters.
              */
             totalCount?: number;
+            /**
+             * Format: int64
+             * @description Total paused bots for the same source and chain filters.
+             */
+            totalPausedCount?: number;
         };
         /** @description Optional independent filters for bot statistics. Omit either field or set it to `null` to leave that dimension unfiltered. */
         BotsStatsPageSource: {
@@ -4517,6 +4531,7 @@ export interface components {
         };
         /** @description Cursor source for an active-trades or completed-trades page. Omit the cursor or set it to `null` for the first page; otherwise provide the opaque cursor returned by the corresponding list response. */
         CursorPageSource: {
+            chain?: null | components["schemas"]["Chain"];
             /** @description Page to fetch for this trade list. Omit it for the first page. A non-`null` value is currently rejected. */
             cursor?: string | null;
         };
@@ -5831,7 +5846,7 @@ export interface components {
         ScannerTokensSubscriptionParams: {
             /** @description Trading activity criteria, per time window. */
             activity?: null | components["schemas"]["TokenActivityFilter"];
-            /** @description Range for how many calls the token has. Counts only the sources selected in `sources`, or every unique call when none are selected. */
+            /** @description Inclusive range for matching call sources. When `sources` has no non-empty selector, it counts unique callers. When sources are selected, it counts the distinct selected callers, Telegram connections, Telegram senders, and wallets that called the token. */
             callCount?: null | {
                 /**
                  * Format: int64
@@ -5875,7 +5890,7 @@ export interface components {
         ScannerTrenchesSubscriptionParams: {
             /** @description Trading activity criteria, per time window. `graduating` adds one-hour minimums for the criteria you leave unset. */
             activity?: null | components["schemas"]["TokenActivityFilter"];
-            /** @description Range for how many calls the token has. Counts only the sources selected in `sources`, or every unique call when none are selected. */
+            /** @description Inclusive range for matching call sources. When `sources` has no non-empty selector, it counts unique callers. When sources are selected, it counts the distinct selected callers, Telegram connections, Telegram senders, and wallets that called the token. */
             callCount?: null | {
                 /**
                  * Format: int64
@@ -7072,7 +7087,7 @@ export interface components {
         TokenFilter: {
             /** @description Trading activity criteria, per time window. */
             activity?: null | components["schemas"]["TokenActivityFilter"];
-            /** @description Range for how many calls the token has. Counts only the sources selected in `sources`, or every unique call when none are selected. */
+            /** @description Inclusive range for matching call sources. When `sources` has no non-empty selector, it counts unique callers. When sources are selected, it counts the distinct selected callers, Telegram connections, Telegram senders, and wallets that called the token. */
             callCount?: null | {
                 /**
                  * Format: int64
@@ -7614,6 +7629,8 @@ export interface components {
             cashbackPct: number;
             /** @description Whether the token is a Pump.fun Agent token. */
             isAgent: boolean;
+            /** @description True when the token graduated from the pump.fun bonding curve to PumpSwap and was not a mayhem-mode launch. A token still on the curve is never boosted, even at 100% progress: boost describes the destination pool. Mayhem state carries across migration, so `isMayhem` and `isBoost` are never both `true`. */
+            isBoost: boolean;
             /** @description Whether the token is a Pump.fun Mayhem token. */
             isMayhem: boolean;
         };
@@ -16538,6 +16555,7 @@ export interface operations {
                 sourceType?: components["schemas"]["CallerSource"];
                 /** @description Only return bots on this chain. Omit it to include every chain. */
                 chain?: components["schemas"]["Chain"];
+                status?: components["schemas"]["BotStatus"];
             };
             header?: never;
             path?: never;
@@ -18753,6 +18771,8 @@ export interface operations {
             query?: {
                 /** @description Cursor from a previous page. Omit it for the first page. */
                 cursor?: string;
+                /** @description Restrict trades and totals to one chain. */
+                chain?: components["schemas"]["Chain"];
             };
             header?: never;
             path?: never;
@@ -18783,6 +18803,8 @@ export interface operations {
             query?: {
                 /** @description Cursor from a previous page. Omit it for the first page. */
                 cursor?: string;
+                /** @description Restrict trades and totals to one chain. */
+                chain?: components["schemas"]["Chain"];
             };
             header?: never;
             path?: never;

@@ -683,7 +683,7 @@
 				{/if}
 			</div>
 			{#if getSellTargets().length === 0}
-				<div class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-bd/50 text-[11px] text-g5">No targets — held until manual sell</div>
+				<div class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-bd/40 text-[11px] text-g5">No targets — held until manual sell</div>
 			{/if}
 			<div class="grid min-h-0 auto-rows-max content-start gap-1.5 overflow-y-auto {getSellTargets().length === 1 ? 'grid-cols-1' : 'grid-cols-2'} {presetLocked ? 'pointer-events-none opacity-60' : ''}">
 			{#each getSellTargets() as target, i}

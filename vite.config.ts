@@ -108,11 +108,6 @@ export default defineConfig({
 						changeOrigin: true,
 						configure: stripIdentityHeaders
 					},
-					'/polymarket': {
-						target: API_BASE,
-						changeOrigin: true,
-						configure: stripIdentityHeaders
-					},
 					'/rpc/sol': {
 						target: API_BASE,
 						changeOrigin: true,
