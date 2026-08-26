@@ -105,7 +105,12 @@ export class VirtualList {
 
 	end = $derived.by(() => {
 		if (this.length === 0) return 0;
-		const last = this.#indexAt(this.scrollTop + this.viewport) + 1 + this.#overscan;
+		// A container that hasn't been laid out yet (or a mis-wired `viewport_`)
+		// reports 0, which would pin the window to a handful of rows and look like
+		// the list is broken. Fall back to a generous height so the failure mode is
+		// "renders too much" rather than "renders almost nothing".
+		const height = this.viewport > 0 ? this.viewport : 900;
+		const last = this.#indexAt(this.scrollTop + height) + 1 + this.#overscan;
 		return Math.min(this.length, Math.max(last, this.start + 1));
 	});
 

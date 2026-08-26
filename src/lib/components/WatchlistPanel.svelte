@@ -2027,12 +2027,7 @@
 					</button>
 				</div>
 			</div>
-			<div
-				class="flex-1 overflow-y-auto"
-				bind:this={callsScrollEl}
-				onscroll={(e) => { handleCallsScroll(e); callsVirtual.handleScroll(e.currentTarget); }}
-				use:callsVirtual.viewport_
-			>
+			<div class="flex-1 overflow-y-auto" bind:this={callsScrollEl} onscroll={handleCallsScroll}>
 				<div class="flex flex-wrap content-start items-center justify-center gap-3 p-4">
 					{#each callBubbles as b (b.key)}
 						{@const sz = bubbleSize(b.count)}
@@ -2069,7 +2064,12 @@
 				{/if}
 			</div>
 		{:else}
-			<div class="flex-1 overflow-y-auto" bind:this={callsScrollEl} onscroll={handleCallsScroll}>
+			<div
+				class="flex-1 overflow-y-auto"
+				bind:this={callsScrollEl}
+				onscroll={(e) => { handleCallsScroll(e); callsVirtual.handleScroll(e.currentTarget); }}
+				use:callsVirtual.viewport_
+			>
 			{#if bubbleDrillToken}
 				<button onclick={() => (bubbleDrillToken = null)} class="flex w-full cursor-pointer items-center gap-1.5 border-b border-bd bg-s1 px-3 py-2 text-xs font-medium text-g7 transition-colors hover:text-tx">
 					<ChevronDown class="h-3.5 w-3.5 rotate-90" /> Back to bubbles

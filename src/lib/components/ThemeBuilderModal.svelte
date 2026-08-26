@@ -14,22 +14,37 @@
 	import { setCustomTheme, getCustomSeed, resetToBuiltin, previewTheme, getTheme, initTheme } from '$lib/stores/theme.svelte';
 	import { getThemeBg, setThemeBg, clearThemeBg, getCustomWallpapers, addCustomWallpaper, removeCustomWallpaper } from '$lib/stores/themeBg.svelte';
 
-	const BG_FULL = 'auto=format&fit=crop&w=3840&q=80';
-	const BG_THUMB = 'auto=format&fit=crop&w=320&q=60';
-	const BG_PRESETS: { name: string; id?: string; url?: string }[] = [
-		{ name: 'Midnight Blue', id: 'photo-1451187580459-43490279c0fa' },
-		{ name: 'Aurora', id: 'photo-1483086431886-3590a88317fe' },
-		{ name: 'Nebula', id: 'photo-1462331940025-496dfbfc7564' },
-		{ name: 'Deep Space', id: 'photo-1419242902214-272b3f66ee7a' },
-		{ name: 'Totoro', url: 'https://r4.wallpaperflare.com/wallpaper/726/707/600/movie-my-neighbor-totoro-satsuki-kusakabe-studio-ghibli-totoro-my-neighbor-totoro-hd-wallpaper-c9e025a1e76f433b6236526265d9d976.jpg' },
-		{ name: 'Dusk Guardian', url: 'https://raw.githubusercontent.com/basecamp/omarchy/master/themes/retro-82/backgrounds/2-dusk-guardian.jpg' }
+	// One wallpaper per built-in theme, bundled locally (was: Unsplash/hotlinked
+	// URLs, which broke offline, leaked referrers and could vanish). Each was
+	// picked against that theme's seed palette — see static/wallpapers/README.md.
+	const BG_PRESETS: { name: string; slug: string }[] = [
+		{ name: 'Ombra', slug: 'ombra' },
+		{ name: 'Tomorrow', slug: 'tomorrow' },
+		{ name: 'Clean', slug: 'clean' },
+		{ name: 'Midnight Blue', slug: 'midnight-blue' },
+		{ name: 'Deep Purple', slug: 'deep-purple' },
+		{ name: 'Emerald', slug: 'emerald' },
+		{ name: 'Warm Sand', slug: 'warm-sand' },
+		{ name: 'Arctic', slug: 'arctic' },
+		{ name: 'Cyber Punk', slug: 'cyber-punk' },
+		{ name: 'DEXC', slug: 'dexc' },
+		{ name: 'Solarized', slug: 'solarized' },
+		{ name: 'Monokai', slug: 'monokai' },
+		{ name: 'Nord', slug: 'nord' },
+		{ name: 'Dracula', slug: 'dracula' },
+		{ name: 'Gruvbox', slug: 'gruvbox' },
+		{ name: 'Catppuccin', slug: 'catppuccin' },
+		{ name: 'Catppuccin Macho', slug: 'catppuccin-macho' },
+		{ name: 'Rose Pine', slug: 'rose-pine' },
+		{ name: 'Studio Ghibli', slug: 'studio-ghibli' },
+		{ name: 'Hotdog Stand', slug: 'hotdog-stand' }
 	];
 
-	function bgFull(p: { id?: string; url?: string }): string {
-		return p.url ?? `https://images.unsplash.com/${p.id}?${BG_FULL}`;
+	function bgFull(p: { slug: string }): string {
+		return `/wallpapers/${p.slug}.webp`;
 	}
-	function bgThumb(p: { id?: string; url?: string }): string {
-		return p.url ?? `https://images.unsplash.com/${p.id}?${BG_THUMB}`;
+	function bgThumb(p: { slug: string }): string {
+		return `/wallpapers/thumb/${p.slug}.webp`;
 	}
 
 	let bgUrl = $state('');
