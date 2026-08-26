@@ -12,6 +12,8 @@
 	import { getTokenTabs, getPopouts, popoutToken, closeTokenTab, closePopout, type TokenTab } from '$lib/stores/tokenTabs.svelte';
 	import PictureInPicture2 from 'lucide-svelte/icons/picture-in-picture-2';
 	import X from 'lucide-svelte/icons/x';
+	import BookOpen from 'lucide-svelte/icons/book-open';
+	import { siGithub } from 'simple-icons';
 
 	let { mobile = false }: { mobile?: boolean } = $props();
 
@@ -88,12 +90,8 @@
 		return getWsHealthTone(diagnostics.state, pongAgeMs, diagnostics.lastPongRttMs);
 	});
 
-	let toneClass = $derived(
-		tone === 'green'
-			? 'bg-grn text-grn'
-			: tone === 'yellow'
-				? 'bg-yel text-yel'
-				: 'bg-red text-red'
+	let pingClass = $derived(
+		tone === 'green' ? 'text-grn' : tone === 'yellow' ? 'text-yel' : 'text-red'
 	);
 	let rtt = $derived(
 		diagnostics.lastPongRttMs === undefined ? '—' : `${Math.round(diagnostics.lastPongRttMs)}`
@@ -113,31 +111,57 @@
 
 </script>
 
+{#snippet railDivider()}
+	<span class="mx-1 h-3 w-px shrink-0 bg-bd2" aria-hidden="true"></span>
+{/snippet}
+
 {#snippet statusGroup()}
 	<div class="flex min-w-0 items-center gap-1.5 whitespace-nowrap" title={statusTitle} aria-label={statusTitle}>
-		<ChainIcon chain="SOL" class="h-3 w-3 text-grn" />
-		<span class="font-semibold text-g6">SOL</span>
-		<span class="{solPrice ? getPegFlash('SOL') : ''} {priceStale && solPrice ? 'text-yel' : solPrice ? 'text-g9' : 'text-g6'}" title={priceStale ? 'Last accepted SOL/USD price is older than 60 seconds' : 'Live SOL/USD price'}>
-			{solPrice ? formatUsd(solPrice) : '—'}
+		<span class="inline-flex items-center gap-1" title={priceStale ? 'Last accepted SOL/USD price is older than 60 seconds' : 'Live SOL/USD price'}>
+			<ChainIcon chain="SOL" class="h-3 w-3 text-grn" />
+			<span class="sr-only">SOL</span>
+			<span class="font-mono {solPrice ? getPegFlash('SOL') : ''} {priceStale && solPrice ? 'text-yel' : solPrice ? 'text-g9' : 'text-g6'}">
+				{solPrice ? formatUsd(solPrice) : '—'}
+			</span>
 		</span>
-		<span class="mx-1 h-3 w-px bg-bd" aria-hidden="true"></span>
+		{@render railDivider()}
 		<span class="inline-flex items-center gap-1" title={statusTitle}>
-			<span class="h-1.5 w-1.5 rounded-full {toneClass.split(' ')[0]}" aria-hidden="true"></span>
 			<span class="sr-only">{connectionLabel}</span>
 			<span class="text-g5">RTT</span>
-			<span class="font-mono text-g8">{rtt}</span>
-			{#if diagnostics.lastPongRttMs !== undefined}<span class="text-g5">ms</span>{/if}
+			<span class="font-mono {pingClass}">{rtt}</span>
+			{#if diagnostics.lastPongRttMs !== undefined}<span class="{pingClass}">ms</span>{/if}
 		</span>
-		<span class="mx-1 h-3 w-px bg-bd" aria-hidden="true"></span>
+		{@render railDivider()}
 		<span class="inline-flex items-center gap-1" title="Rendering frames per second">
 			<span class="text-g5">FPS</span>
 			<span class="font-mono {fpsClass}">{fps || '—'}</span>
 		</span>
+		{@render railDivider()}
+		<a
+			href="https://portal.opendex.ws/docs"
+			target="_blank"
+			rel="noopener noreferrer"
+			class="inline-flex items-center gap-1 text-g6 transition-colors hover:text-tx"
+			title="Docs"
+		>
+			<BookOpen class="h-3 w-3" strokeWidth={2} />
+			<span>Docs</span>
+		</a>
+		<a
+			href="https://github.com/opendex-ws/ombra"
+			target="_blank"
+			rel="noopener noreferrer"
+			class="inline-flex items-center gap-1 text-g6 transition-colors hover:text-tx"
+			title="GitHub"
+		>
+			<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={siGithub.path} /></svg>
+			<span>GitHub</span>
+		</a>
 	</div>
 {/snippet}
 
 {#if mobile}
-	<div class="ml-auto flex min-w-0 shrink-0 items-center rounded-md border border-bd/60 bg-s2/70 px-2 py-1 text-[10px]">
+	<div class="ml-auto flex min-w-0 shrink-0 items-center rounded-md border border-bd bg-s2/70 px-2 py-1 text-[10px]">
 		{@render statusGroup()}
 	</div>
 {:else}
