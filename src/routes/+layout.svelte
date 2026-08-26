@@ -23,7 +23,7 @@
 	import { tokenImage } from '$lib/api/config';
 	import { formatMarketCap } from '$lib/utils/format';
 	import type { Chain } from '$lib/api/types';
-	import { getIsDesktop } from '$lib/stores/viewport.svelte';
+	import { getIsDesktop, startViewport } from '$lib/stores/viewport.svelte';
 	import { getIsLoggedIn, initAuth, onAuthTokenChange } from '$lib/stores/auth.svelte';
 	import { applyFavouritesSnapshot, applySettingsSnapshot } from '$lib/stores/settings.svelte';
 	import { applyTradePresetsSnapshot, handleBalanceUpdate, fetchManagedWallets } from '$lib/stores/trade.svelte';
@@ -278,6 +278,7 @@
 			}
 		};
 		window.addEventListener('vite:preloadError', handlePreloadError);
+		startViewport();
 		initAuth();
 		const unbindAuth = onAuthTokenChange((next) => authenticate(next));
 		startPegPrices();

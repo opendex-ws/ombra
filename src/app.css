@@ -288,6 +288,26 @@ html[data-bg="on"] {
 html[data-bg="on"] .glass { @apply backdrop-blur-sm; }
 html[data-bg="on"] .glass-strong { @apply backdrop-blur-md; }
 
+/* Hover-only frost for live list rows/cards (memescope cards, watchlist calls).
+   A permanent per-row backdrop-filter is banned — it costs one compositor
+   surface per row — but scoping it to :hover means at most one exists at a
+   time, so the hovered item reads as frosted glass like the Twitter feed panel.
+   Uses @apply for the same Firefox-Android rasterization reason as .glass. */
+
+/* Transparent rows (watchlist calls): the row has no surface of its own, so the
+   standard --t-hover wash over the panel is already the right look. */
+html[data-bg="on"] .glass-hover:hover { @apply backdrop-blur-sm; }
+
+/* Rows that carry their OWN surface (memescope cards): the global row-hover rule
+   sets `background-color: var(--t-hover) !important`, which REPLACES the card's
+   bg-s1 instead of layering over it — the dark surface disappears and the
+   wallpaper glares through. Re-assert the surface and match TwitterFeedPanel
+   exactly (bg-s2 + .glass-strong) so a hovered card reads identically. */
+html[data-bg="on"] .glass-hover-card:hover {
+	@apply backdrop-blur-md;
+	background-color: color-mix(in srgb, var(--t-s2) calc((var(--surface-alpha) + 0.03) * 100%), transparent) !important;
+}
+
 /* text-s0 is the CONTRAST ink on accent fills (Buy/Sell, badges). bg-s0 goes
    translucent under the wallpaper, but the TEXT must stay solid to read. */
 html[data-bg="on"] .text-s0 { color: var(--t-s0) !important; }
@@ -457,14 +477,14 @@ table {
 	50% { transform: translateY(-2px); }
 }
 
-@keyframes flash-bg-up {
-	0% { background-color: color-mix(in srgb, var(--t-grn) 12%, transparent); }
-	100% { background-color: transparent; }
-}
-
-@keyframes flash-bg-down {
-	0% { background-color: color-mix(in srgb, var(--t-red) 12%, transparent); }
-	100% { background-color: transparent; }
+/* Value flashes are the highest-frequency animation in the app (measured ~2000
+   starts / 28s on memescope, ~100 running concurrently). Animating
+   `background-color` repaints the element every frame, so the tint lives on a
+   `::before` overlay with a static colour and only `opacity` animates — that
+   composites. `::after` is the ▲/▼ arrow, hence `::before` here. */
+@keyframes flash-bg-fade {
+	0% { opacity: 1; }
+	100% { opacity: 0; }
 }
 
 @keyframes flash-arrow {
@@ -478,12 +498,24 @@ table {
 	border-radius: 3px;
 }
 
-.flash-up {
-	animation: flash-bg-up 0.8s ease-out;
+.flash-up::before,
+.flash-down::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	opacity: 0;
+	z-index: -1;
+	animation: flash-bg-fade 0.45s ease-out;
 }
 
-.flash-down {
-	animation: flash-bg-down 0.8s ease-out;
+.flash-up::before {
+	background-color: color-mix(in srgb, var(--t-grn) 12%, transparent);
+}
+
+.flash-down::before {
+	background-color: color-mix(in srgb, var(--t-red) 12%, transparent);
 }
 
 .flash-up::after,
@@ -496,7 +528,7 @@ table {
 	font-size: 0.5em;
 	pointer-events: none;
 	white-space: nowrap;
-	animation: flash-arrow 0.8s ease-out forwards;
+	animation: flash-arrow 0.45s ease-out forwards;
 }
 
 .flash-up::after {
@@ -509,46 +541,57 @@ table {
 	color: var(--t-red);
 }
 
-@keyframes row-flash-update {
-	0% { background-color: color-mix(in srgb, var(--t-wh) 6%, transparent); }
-	100% { background-color: transparent; }
-}
-
-@keyframes row-flash-new {
-	0% { background-color: color-mix(in srgb, var(--t-grn) 12%, transparent); box-shadow: inset 0 0 20px color-mix(in srgb, var(--t-grn) 8%, transparent); }
-	100% { background-color: transparent; box-shadow: none; }
+/* Predict tab enter — thin odds line only (never animate the heavy shell). */
+/* Nav underline accent — transform only, no box-shadow paint thrash. */
+@media (prefers-reduced-motion: reduce) {
+	/* Same rule as the card flashes: tint via a pseudo-element and animate only
+   `opacity`, so a flashing row composites instead of repainting (and the `new`
+   variant no longer animates box-shadow, which repainted on every frame). */
+@keyframes row-flash-fade {
+	0% { opacity: 1; }
+	100% { opacity: 0; }
 }
 
 @keyframes row-flash-remove {
-	0% { background-color: color-mix(in srgb, var(--t-red) 15%, transparent); opacity: 1; }
-	70% { background-color: color-mix(in srgb, var(--t-red) 8%, transparent); opacity: 0.5; }
-	100% { background-color: transparent; opacity: 0; }
+	0% { opacity: 1; }
+	70% { opacity: 0.5; }
+	100% { opacity: 0; }
 }
 
-.row-flash-update {
-	animation: row-flash-update 1.2s ease-out;
+.row-flash-update, .row-flash-new {
+	position: relative;
 }
 
-.row-flash-new {
-	animation: row-flash-new 1.5s ease-out;
+.row-flash-update::after, .row-flash-new::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	opacity: 0;
+	z-index: 0;
+}
+
+.row-flash-update::after {
+	background-color: color-mix(in srgb, var(--t-wh) 6%, transparent);
+	animation: row-flash-fade 1.2s ease-out;
+}
+
+.row-flash-new::after {
+	background-color: color-mix(in srgb, var(--t-grn) 12%, transparent);
+	box-shadow: inset 0 0 20px color-mix(in srgb, var(--t-grn) 8%, transparent);
+	animation: row-flash-fade 1.5s ease-out;
 }
 
 .row-flash-remove {
 	animation: row-flash-remove 0.8s ease-out forwards;
 }
 
-/* Overlay-based flashes for cards with their own bg (memescope) — never stomps bg-s1 */
-@keyframes card-flash-update-o {
-	0% { opacity: 1; background-color: color-mix(in srgb, var(--t-wh) 8%, transparent); }
-	100% { opacity: 0; background-color: transparent; }
-}
-@keyframes card-flash-new-o {
-	0% { opacity: 1; background-color: color-mix(in srgb, var(--t-grn) 14%, transparent); }
-	100% { opacity: 0; background-color: transparent; }
-}
-@keyframes card-flash-remove-o {
-	0% { opacity: 1; background-color: color-mix(in srgb, var(--t-red) 16%, transparent); }
-	100% { opacity: 0; background-color: transparent; }
+/* Overlay-based flashes for cards with their own bg (memescope) — never stomps bg-s1.
+   Only `opacity` is animated: animating background-color repaints the whole card
+   every frame, and with a live feed dozens of cards flash at once. */
+@keyframes card-flash-fade-o {
+	0% { opacity: 1; }
+	100% { opacity: 0; }
 }
 .card-flash-update, .card-flash-new, .card-flash-remove {
 	position: relative;
@@ -560,10 +603,20 @@ table {
 	border-radius: inherit;
 	pointer-events: none;
 	z-index: 1;
+	opacity: 0;
 }
-.card-flash-update::after { animation: card-flash-update-o 1.2s ease-out; }
-.card-flash-new::after { animation: card-flash-new-o 1.5s ease-out; }
-.card-flash-remove::after { animation: card-flash-remove-o 0.8s ease-out forwards; }
+.card-flash-update::after {
+	background-color: color-mix(in srgb, var(--t-wh) 8%, transparent);
+	animation: card-flash-fade-o 1.2s ease-out;
+}
+.card-flash-new::after {
+	background-color: color-mix(in srgb, var(--t-grn) 14%, transparent);
+	animation: card-flash-fade-o 1.5s ease-out;
+}
+.card-flash-remove::after {
+	background-color: color-mix(in srgb, var(--t-red) 16%, transparent);
+	animation: card-flash-fade-o 0.8s ease-out forwards;
+}
 
 .animate-fade-in {
 	animation: fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
