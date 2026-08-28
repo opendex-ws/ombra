@@ -45,6 +45,17 @@
 		}
 	}
 
+	/**
+	 * The row/card is one big <a>, so a click on a social icon would still trigger
+	 * the anchor's DEFAULT navigation — the icon's own handler cannot be relied on
+	 * to cancel it (nothing calls preventDefault when `onselect` is absent, as on
+	 * the scanner). Cancel it here in the CAPTURE phase, before the target runs, so
+	 * the icon still opens its link but the row never navigates.
+	 */
+	function guardSocialClick(e: MouseEvent) {
+		if ((e.target as HTMLElement | null)?.closest('[data-social]')) e.preventDefault();
+	}
+
 	function openSocial(e: MouseEvent, url: string | null | undefined) {
 		e.preventDefault();
 		e.stopPropagation();
@@ -170,6 +181,7 @@
 <a
 	href="/?chain={token.chain}&token={token.tokenAddress}"
 	use:onVisibility={(v) => (onScreen = v)}
+	onclickcapture={guardSocialClick}
 	class="group grid h-[72px] items-center gap-x-2 border-b border-bd/40 px-4 transition-colors duration-75 hover:bg-wh/5 [contain:layout_paint_style] {selected ? 'bg-wh/5' : ''} {rowFlash ? `row-flash-${rowFlash}` : ''}"
 	style:grid-template-columns={cols}
 	onclick={handleClick}
@@ -228,19 +240,19 @@
 			</div>
 			<div class="mt-0.5 flex items-center gap-1">
 				{#if soc.twitter}
-					<button onclick={(e) => openSocial(e, soc.twitter)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Twitter"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path}/></svg></button>
+					<button data-social onclick={(e) => openSocial(e, soc.twitter)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Twitter"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path}/></svg></button>
 				{/if}
 				{#if soc.telegram}
-					<button onclick={(e) => openSocial(e, soc.telegram)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Telegram"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siTelegram.path}/></svg></button>
+					<button data-social onclick={(e) => openSocial(e, soc.telegram)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Telegram"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siTelegram.path}/></svg></button>
 				{/if}
 				{#if soc.instagram}
-					<button onclick={(e) => openSocial(e, soc.instagram)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Instagram"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siInstagram.path}/></svg></button>
+					<button data-social onclick={(e) => openSocial(e, soc.instagram)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Instagram"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siInstagram.path}/></svg></button>
 				{/if}
 				{#if soc.discord}
-					<button onclick={(e) => openSocial(e, soc.discord)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Discord"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siDiscord.path}/></svg></button>
+					<button data-social onclick={(e) => openSocial(e, soc.discord)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Discord"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siDiscord.path}/></svg></button>
 				{/if}
 				{#if soc.website}
-					<button onclick={(e) => openSocial(e, soc.website)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Website"><Globe class="h-3 w-3" strokeWidth={2.5} /></button>
+					<button data-social onclick={(e) => openSocial(e, soc.website)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Website"><Globe class="h-3 w-3" strokeWidth={2.5} /></button>
 				{/if}
 			</div>
 		</div>

@@ -118,14 +118,13 @@
 						placeholder="0"
 						class="min-w-0 flex-1 rounded-lg border border-bd bg-s4 px-2.5 py-1.5 text-xs text-tx outline-none"
 					/>
-					{#if !asset.isNative}
-						<button
-							onclick={() => (amount = asset.tokensBalanceStr)}
-							class="btn-secondary px-2.5 py-1.5 text-xs"
-						>
-							Max
-						</button>
-					{/if}
+					<button
+						onclick={() => (amount = asset.tokensBalanceStr)}
+						class="btn-secondary px-2.5 py-1.5 text-xs"
+						title="Withdraw the full balance"
+					>
+						Max
+					</button>
 				</div>
 				<div class="mt-1 text-[11px] text-g6">Available: {asset.tokensBalance.toLocaleString('en-US', { maximumFractionDigits: 9 })}</div>
 			</div>

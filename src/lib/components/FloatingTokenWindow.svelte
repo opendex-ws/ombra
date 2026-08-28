@@ -1,5 +1,12 @@
 <script lang="ts">
 	import { tokenImage } from '$lib/api/config';
+	import {
+		isNetProfit,
+		netPnlMultiplier as pnlNetMultiplier,
+		netPnlNative as pnlNetNative,
+		netPnlPct as pnlNetPct,
+		netPnlUsd as pnlNetUsd
+	} from '$lib/utils/pnl';
 	import { onDestroy, onMount } from 'svelte';
 	import X from 'lucide-svelte/icons/x';
 	import LoaderCircle from 'lucide-svelte/icons/loader-circle';
@@ -87,20 +94,11 @@
 
 	const position = $derived(getTradeForToken(popout.chain, popout.address));
 	const hasPosition = $derived(!!position && position.tokensRemaining > 0);
-	// API pnl is gross; show net of fees.
-	const netPnlUsd = $derived(position ? position.pnl.usd - (position.totalFees?.usd ?? 0) : 0);
-	const netPnlNative = $derived(position ? position.pnl.native - (position.totalFees?.native ?? 0) : 0);
-	const netPnlPct = $derived.by(() => {
-		if (!position) return 0;
-		const basis = position.totalBought?.usd ?? 0;
-		return basis > 0 ? (netPnlUsd / basis) * 100 : position.pnl.pct;
-	});
-	const netPnlMultiplier = $derived.by(() => {
-		if (!position) return 0;
-		const basis = position.totalBought?.usd ?? 0;
-		return basis > 0 ? Math.max(0, (basis + netPnlUsd) / basis) : position.pnl.multiplier;
-	});
-	const pnlColor = $derived(netPnlUsd < 0 ? 'text-red' : 'text-grn');
+	const netPnlUsd = $derived(position ? pnlNetUsd(position) : 0);
+	const netPnlNative = $derived(position ? pnlNetNative(position) : 0);
+	const netPnlPct = $derived(position ? pnlNetPct(position) : 0);
+	const netPnlMultiplier = $derived(position ? pnlNetMultiplier(position) : 0);
+	const pnlColor = $derived(position && !isNetProfit(position) ? 'text-red' : 'text-grn');
 
 	const buyLoading = $derived(getQuickTradeLoading(popout.chain, popout.address));
 	const tradeErr = $derived(getQuickTradeError(popout.chain, popout.address));

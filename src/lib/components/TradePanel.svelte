@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Lock from 'lucide-svelte/icons/lock';
+	import { netPnlPct, netPnlUsd } from '$lib/utils/pnl';
 	import Plus from 'lucide-svelte/icons/plus';
 	import Check from 'lucide-svelte/icons/check';
 	import Copy from 'lucide-svelte/icons/copy';
@@ -191,13 +192,8 @@
 
 	const nativeSymbol = $derived(chain === 'SOL' ? 'SOL' : chain === 'ETH' ? 'ETH' : chain === 'BASE' ? 'ETH' : chain === 'BSC' ? 'BNB' : 'ETH');
 	const existingTrade = $derived(getTradeForToken(chain, tokenAddress));
-	// API pnl is gross; show net of fees.
-	const existingNetPnlUsd = $derived(existingTrade ? existingTrade.pnl.usd - (existingTrade.totalFees?.usd ?? 0) : 0);
-	const existingNetPnlPct = $derived.by(() => {
-		if (!existingTrade) return 0;
-		const basis = existingTrade.totalBought?.usd ?? 0;
-		return basis > 0 ? (existingNetPnlUsd / basis) * 100 : existingTrade.pnl.pct;
-	});
+	const existingNetPnlUsd = $derived(existingTrade ? netPnlUsd(existingTrade) : 0);
+	const existingNetPnlPct = $derived(existingTrade ? netPnlPct(existingTrade) : 0);
 	$effect(() => {
 		if (!existingTrade && getActiveTradeTab() === 'sell') setActiveTradeTab('buy');
 	});
@@ -447,26 +443,31 @@
 			{/if}
 
 			<div>
-				<div class="relative">
-					<input
-						type="text"
-						inputmode="decimal"
-						placeholder="0.00"
-						value={getBuyAmount()}
-						oninput={(e) => setBuyAmount((e.target as HTMLInputElement).value)}
-						class="w-full rounded-lg border border-bd bg-s4 py-2 pl-3 pr-14 text-lg font-bold text-tx placeholder-g3 outline-none transition-all focus:border-grn/40"
-					/>
-					<span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 flex items-center text-xs font-bold text-g5">{#if isUsd()}USD{:else}<ChainIcon chain={chain} class="h-4 w-4 text-g5" />{/if}</span>
-				</div>
-				<div class="mt-1 flex gap-1">
-					{#each quickBuyAmounts as amt}
-						<button
-							class="flex-1 cursor-pointer rounded-md py-1 text-[11px] font-bold transition-all duration-150 {getBuyAmount() === amt ? 'bg-grn/20 text-grn' : 'bg-s4 text-g6 hover:bg-s7 hover:text-g9'}"
-							onclick={() => setBuyAmount(amt)}
-						>
-							{isUsd() ? `$${amt}` : amt}
-						</button>
-					{/each}
+				<!-- Chips sit beside the input as a 3x2 grid rather than a row beneath it:
+				     the input is tall enough to cover both chip rows, so this is free height. -->
+				<div class="flex items-stretch gap-1.5">
+					<div class="relative min-w-0 flex-1">
+						<input
+							type="text"
+							inputmode="decimal"
+							placeholder="0.00"
+							value={getBuyAmount()}
+							oninput={(e) => setBuyAmount((e.target as HTMLInputElement).value)}
+							class="h-full w-full rounded-lg border border-bd bg-s4 py-1.5 pl-3 pr-12 text-base font-bold text-tx placeholder-g3 outline-none transition-all focus:border-grn/40"
+						/>
+						<span class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center text-xs font-bold text-g5">{#if isUsd()}USD{:else}<ChainIcon chain={chain} class="h-4 w-4 text-g5" />{/if}</span>
+					</div>
+					<!-- 4 presets tile as 2x2, 5-6 as 3x2, so there is no ragged hole. -->
+					<div class="grid shrink-0 gap-1 {quickBuyAmounts.length <= 4 ? 'grid-cols-2' : 'grid-cols-3'}">
+						{#each quickBuyAmounts as amt}
+							<button
+								class="cursor-pointer rounded-md px-1.5 py-0.5 text-[11px] font-bold transition-all duration-150 {getBuyAmount() === amt ? 'bg-grn/20 text-grn' : 'bg-s4 text-g6 hover:bg-s7 hover:text-g9'}"
+								onclick={() => setBuyAmount(amt)}
+							>
+								{isUsd() ? `$${amt}` : amt}
+							</button>
+						{/each}
+					</div>
 				</div>
 				<div class="mt-1 flex items-center justify-between px-0.5 text-[10px] text-g5">
 					<span>{#if getFeeEstimate()}Fee {@html fmtVal(getFeeEstimate()?.gasFeeUsdStr ?? '0', getFeeEstimate()?.gasFeeNativeStr ?? '0', chain)}{/if}</span>
@@ -511,27 +512,28 @@
 							<button onclick={() => { setLimitPrice(String(currentPriceUsd)); limitPctOffset = 0; }} class="cursor-pointer text-[10px] text-grn hover:text-grn-dim">Current: {formatPriceText(currentPriceUsd)}</button>
 						{/if}
 					</div>
-					<input
-						type="text"
-						inputmode="decimal"
-						placeholder="0.001"
-						value={getLimitPrice()}
-						oninput={(e) => { setLimitPrice((e.target as HTMLInputElement).value); limitPctOffset = 0; }}
-						class="w-full rounded-md border border-bd bg-s4 px-2 py-1.5 text-sm font-bold text-tx placeholder-g3 outline-none transition-all focus:border-grn/40"
-					/>
+					<!-- Slider rides alongside the price input; its -99/+100 end labels are
+					     dropped since the live offset readout already says where you are. -->
+					<div class="flex items-center gap-2">
+						<input
+							type="text"
+							inputmode="decimal"
+							placeholder="0.001"
+							value={getLimitPrice()}
+							oninput={(e) => { setLimitPrice((e.target as HTMLInputElement).value); limitPctOffset = 0; }}
+							class="min-w-0 flex-1 rounded-md border border-bd bg-s4 px-2 py-1.5 text-sm font-bold text-tx placeholder-g3 outline-none transition-all focus:border-grn/40"
+						/>
 					{#if currentPriceUsd > 0}
 						{@const thumbPos = (limitPctOffset + 99) / 199 * 100}
 						{@const midPos = 99 / 199 * 100}
-						<div class="mt-1.5">
-							<div class="mb-1 flex items-center justify-between text-[10px]">
-								<span class="text-g5">-99%</span>
+						<div class="w-[46%] shrink-0">
+							<div class="mb-0.5 text-center text-[10px]">
 								<span class="font-semibold {limitPctOffset > 0 ? 'text-grn' : limitPctOffset < 0 ? 'text-red' : 'text-g7'}">{limitPctOffset > 0 ? '+' : ''}{limitPctOffset.toFixed(0)}%</span>
-								<span class="text-g5">+100%</span>
 							</div>
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
 							<div
 								bind:this={sliderEl}
-								class="relative h-5 cursor-pointer select-none touch-none"
+								class="relative h-4 cursor-pointer select-none touch-none"
 								onmousedown={onSliderDown}
 								ontouchstart={onSliderTouchStart}
 							>
@@ -548,6 +550,7 @@
 							</div>
 						</div>
 					{/if}
+					</div>
 				</div>
 			{/if}
 		{:else}
@@ -599,12 +602,11 @@
 			{/if}
 		{/if}
 
-		<div class="relative flex items-end gap-2 rounded-lg border border-bd bg-s2 px-2.5 py-2 {presetLocked ? 'opacity-60' : ''}">
+		<div class="relative flex items-center gap-2 rounded-lg border border-bd bg-s2 px-2.5 py-1.5 {presetLocked ? 'opacity-60' : ''}">
 			{#if presetLocked}
 				<div class="absolute -top-2 right-2 rounded bg-s6 px-1.5 py-px text-[8px] font-semibold uppercase tracking-wider text-yel ring-1 ring-yel/40 shadow-sm">Set by {getSelectedConfigId()}</div>
 			{/if}
 			<div class="min-w-0 flex-1">
-				<div class="mb-0.5 text-[9px] font-medium uppercase tracking-wider text-g5">Gas</div>
 				<select
 					disabled={presetLocked}
 					value={getActiveTradeTab() === 'buy' ? getBuyGasType() : getSellGasType()}
@@ -615,6 +617,8 @@
 					}}
 					class="w-full cursor-pointer rounded-md border border-bd bg-s4 px-1.5 py-1 text-[11px] font-semibold text-tx outline-none disabled:cursor-not-allowed"
 					style="color-scheme:dark"
+					title="Gas preset"
+					aria-label="Gas preset"
 				>
 					{#each gasOptions as opt}
 						<option value={opt.value}>{opt.label}</option>
@@ -622,7 +626,6 @@
 				</select>
 			</div>
 			<div class="min-w-0 flex-1">
-				<div class="mb-0.5 text-[9px] font-medium uppercase tracking-wider text-g5">Slippage</div>
 				<select
 					disabled={presetLocked}
 					value={slipValue === null ? 'AUTO' : String(slipValue)}
@@ -632,6 +635,8 @@
 					}}
 					class="w-full cursor-pointer rounded-md border border-bd bg-s4 px-1.5 py-1 text-[11px] font-semibold text-tx outline-none disabled:cursor-not-allowed"
 					style="color-scheme:dark"
+					title="Slippage"
+					aria-label="Slippage"
 				>
 					<option value="AUTO">Auto{autoSlippage != null ? ` ~${autoSlippage.toFixed(1)}%` : ''}</option>
 					{#if slipValue !== null && ![1, 5, 10, 25].includes(slipValue)}
@@ -643,12 +648,12 @@
 				</select>
 			</div>
 			<div class="shrink-0">
-				<div class="mb-0.5 text-center text-[9px] font-medium uppercase tracking-wider text-g5">MEV</div>
 				<button
 					disabled={presetLocked}
-					class="relative mb-0.5 block h-5 w-9 cursor-pointer rounded-full transition-all duration-200 disabled:cursor-not-allowed {getAntiMev() ? 'bg-grn' : 'bg-bd2'}"
+					class="relative block h-5 w-9 cursor-pointer rounded-full transition-all duration-200 disabled:cursor-not-allowed {getAntiMev() ? 'bg-grn' : 'bg-bd2'}"
 					onclick={() => setAntiMev(!getAntiMev())}
 					aria-label="Toggle Anti-MEV protection"
+					title="Anti-MEV (private tx)"
 				>
 					<div class="absolute top-0.5 h-4 w-4 rounded-full bg-wh shadow-sm transition-transform duration-200 {getAntiMev() ? 'left-[18px]' : 'left-0.5'}"></div>
 				</button>
@@ -657,7 +662,7 @@
 
 		{#if getActiveTradeTab() === 'buy'}
 		<div class="flex max-h-52 flex-col">
-			<div class="mb-1.5 flex shrink-0 items-center justify-between">
+			<div class="mb-1 flex shrink-0 items-center justify-between">
 				<span class="text-[10px] font-medium uppercase tracking-wider text-g6">Targets{#if presetLocked} <span class="normal-case text-yel/80">— set by {getSelectedConfigId()}</span>{/if}</span>
 				{#if !presetLocked}
 					<div class="flex items-center gap-1">

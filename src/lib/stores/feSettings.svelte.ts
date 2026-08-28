@@ -16,6 +16,8 @@ interface FeSettings {
 	multiTab: boolean;
 	/** FE-only: watchlist source ids that fire a call toast (per-individual-source). */
 	callToastSourceIds: string[];
+	/** FE-only: trade ids hidden from the positions list (long-term holds). */
+	hiddenTradeIds: number[];
 }
 
 const defaults: FeSettings = {
@@ -31,6 +33,7 @@ const defaults: FeSettings = {
 	bubbleWatchlist: false,
 	multiTab: false,
 	callToastSourceIds: [],
+	hiddenTradeIds: [],
 };
 
 let settings = $state<FeSettings>({ ...defaults });
@@ -191,4 +194,23 @@ export function getActiveToken(): string {
 
 export function setActiveToken(address: string) {
 	activeToken = address;
+}
+
+/**
+ * Hidden trades — a local "don't tempt me" list for long-term holds. FE-only and
+ * per-browser: hiding is a UI preference, not a change to the position itself.
+ */
+export function getHiddenTradeIds(): number[] {
+	return settings.hiddenTradeIds;
+}
+
+export function isTradeHidden(id: number): boolean {
+	return settings.hiddenTradeIds.includes(id);
+}
+
+export function toggleTradeHidden(id: number) {
+	settings.hiddenTradeIds = settings.hiddenTradeIds.includes(id)
+		? settings.hiddenTradeIds.filter((t) => t !== id)
+		: [...settings.hiddenTradeIds, id];
+	persist();
 }

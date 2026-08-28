@@ -1000,15 +1000,27 @@
 		if (result.rebuiltIndex) candleDiagnostics.add('indexRebuilds');
 		candleDiagnostics.max('maxLoadedCandles', allCandleData.length);
 		canonicalVersion += 1;
-		if (canProject()) {
+		// An `insert` is a time the series has never seen, spliced into the middle of
+		// the canonical array. `update(bar, true)` demands the point already exist —
+		// lightweight-charts throws "Cannot update non-existing data point when
+		// historicalUpdate is true" — and `update(bar, false)` rejects a bar older
+		// than the tip. Neither works, so a mid-series insert has to go through a
+		// full setData projection.
+		const hasInsert = result.changes.some((change) => change.kind === 'insert');
+		if (canProject() && !hasInsert) {
 			for (const change of result.changes) {
-				const isHistorical = change.index < allCandleData.length - 1;
+				// Only a correction to an already-plotted bar is a historical update;
+				// an append is the new tip.
+				const isHistorical = change.kind === 'correct' && change.index < allCandleData.length - 1;
 				candleSeries.update(change.point.candle, isHistorical);
 				volumeSeries.update(change.point.volume, isHistorical);
 				areaSeries?.update(change.point.area, isHistorical);
 			}
 			if (result.changes.some((change) => markerTimes.has(change.point.candle.time))) updateMarkers();
 			projectedVersion = canonicalVersion;
+		} else if (canProject()) {
+			projectionDirty = true;
+			projectCanonicalState();
 		} else {
 			candleDiagnostics.add('suppressedProjections');
 			projectionDirty = true;

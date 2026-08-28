@@ -331,7 +331,10 @@
 	let showCtWalletModal = $state(false);
 	let showCtAddModal = $state(false);
 	let ctName = $state('');
-	let ctChain = $state<Chain | ''>('');
+	let ctChain = $state<Chain>(chains[0]);
+	let ctBulk = $state(false);
+	let ctBulkText = $state('');
+	let ctBulkResults = $state<{ line: string; status: string; reason: string | null }[]>([]);
 	let ctAddress = $state('');
 	let ctSaving = $state(false);
 	let ctError = $state('');
@@ -1092,6 +1095,15 @@
 		return (item as { id: string }).id;
 	}
 
+	/**
+	 * The edit modal needs the managed chat, and a TG source's `id` is its filter
+	 * UUID — not the Telegram chat id. Match on the source's own `chatId`.
+	 */
+	function tgChatForSource(item: WatchlistSourceItem): TgManagedChat | null {
+		if (item.type !== 'TG') return null;
+		return tgChats.find((c) => c.chatId === item.chatId) ?? null;
+	}
+
 	function resetListForm() {
 		ulName = '';
 		ulChain = '';
@@ -1399,9 +1411,70 @@
 
 	function resetCtForm() {
 		ctName = '';
-		ctChain = '';
+		ctChain = chains[0];
 		ctAddress = '';
 		ctError = '';
+		ctBulk = false;
+		ctBulkText = '';
+		ctBulkResults = [];
+	}
+
+	/**
+	 * One wallet per line, `address` or `address, name` (comma or whitespace
+	 * separated). Blank lines and duplicates are left to the API, which reports a
+	 * per-item outcome we surface below the form.
+	 */
+	function parseBulkWallets(text: string): { walletAddress: string; name: string; chain: Chain }[] {
+		const out: { walletAddress: string; name: string; chain: Chain }[] = [];
+		for (const raw of text.split(/\r?\n/)) {
+			const line = raw.trim();
+			if (!line) continue;
+			const [addressPart, ...rest] = line.split(/[,\t]|\s{2,}|\s+(?=\S+$)/).filter(Boolean);
+			const address = (addressPart ?? '').trim();
+			if (!address) continue;
+			const name = rest.join(' ').trim() || `${address.slice(0, 4)}…${address.slice(-4)}`;
+			out.push({ walletAddress: address, name, chain: ctChain });
+		}
+		return out;
+	}
+
+	async function saveCtWalletsBulk() {
+		const wallets = parseBulkWallets(ctBulkText);
+		if (wallets.length === 0) {
+			ctError = 'Add at least one wallet address';
+			return;
+		}
+		if (wallets.length > 50) {
+			ctError = `The API accepts 50 per batch — you pasted ${wallets.length}`;
+			return;
+		}
+		ctSaving = true;
+		ctError = '';
+		ctBulkResults = [];
+		try {
+			const { data, error } = await api.POST('/v2/watchlist/manage/wallets/create-bulk', {
+				body: { wallets }
+			});
+			if (error) throw new Error((error as ErrorResponse)?.message ?? 'Failed to add wallets');
+			// Best-effort endpoint: a batch can mix successes and failures, so report
+			// each line rather than claiming the whole thing worked.
+			const results = data?.results ?? [];
+			ctBulkResults = results.map((r) => ({
+				line: wallets[r.inputIndex]?.walletAddress ?? `#${r.inputIndex + 1}`,
+				status: r.status,
+				reason: r.reason
+			}));
+			await fetchCtWallets();
+			const failed = ctBulkResults.filter((r) => r.status !== 'CREATED' && r.status !== 'ALREADY_EXISTS');
+			if (failed.length === 0) {
+				showCtAddModal = false;
+				resetCtForm();
+			}
+		} catch (e: unknown) {
+			ctError = e instanceof Error ? e.message : 'Failed to add wallets';
+		} finally {
+			ctSaving = false;
+		}
 	}
 
 	function openAddWallet() {
@@ -1650,8 +1723,12 @@
 				{:else if activeTab === 'Telegram' && getIsLoggedIn() && tgLoggedIn && tgSources.length > 0}
 					<button onclick={() => { selectedChannelIds = new Set(); feedSourceId = null; sourceRanking = null; fetchCalls(); }} class="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors {selectedChannelIds.size === 0 ? 'bg-grn/20 text-grn' : 'text-g6 hover:text-g9'}">All</button>
 					{#each tgSources as src (getSourceId(src))}
+						{@const tgChat = tgChatForSource(src)}
 						<div class="group flex shrink-0 items-center gap-0.5">
 							<button onclick={() => toggleChannelFilter(getSourceId(src))} class="cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors {selectedChannelIds.has(getSourceId(src)) ? 'bg-grn/20 text-grn' : 'text-g6 hover:text-g9'}"><span class="max-w-[80px] truncate">{getSourceName(src)}</span></button>
+							{#if tgChat}
+								<button onclick={() => openEditModal(tgChat)} class="hidden cursor-pointer text-g4 transition-colors hover:text-tx group-hover:inline-flex" title="Edit channel filters"><Settings class="h-3 w-3" strokeWidth={1.5} /></button>
+							{/if}
 						</div>
 					{/each}
 				{/if}
@@ -2097,7 +2174,7 @@
 						<a
 							href="/?chain={d.chain}&token={d.baseTokenAddress}"
 							onclick={onnavigate}
-							class="flex min-w-0 flex-1 items-center gap-1.5"
+							class="flex min-w-0 flex-1 self-stretch items-center gap-1.5"
 						>
 							<span class="shrink-0 text-[13px] font-semibold text-tx">{d.baseTokenSymbol ?? '?'}</span>
 							<span class="truncate text-[11px] text-g6">{d.baseTokenName ?? ''}</span>
@@ -2129,7 +2206,7 @@
 					<a
 						href="/?chain={d.chain}&token={d.baseTokenAddress}"
 						onclick={onnavigate}
-						class="mt-0.5 flex min-w-0 flex-col gap-0.5"
+						class="flex min-w-0 flex-col gap-0.5 pt-0.5"
 					>
 						<div class="group/caller flex items-center justify-between text-xs">
 						<div class="flex items-center gap-1 min-w-0">
@@ -2532,45 +2609,99 @@
 				<Wallet class="h-5 w-5 text-grn" strokeWidth={1.5} />
 				<h2 class="text-base font-semibold text-tx">Add Wallet</h2>
 			</div>
-			<p class="mb-4 text-xs text-g7">Track a wallet address to copy trade and see their calls in your feed.</p>
+			<p class="mb-3 text-xs text-g7">Track a wallet address to copy trade and see their calls in your feed.</p>
+
+			<div class="mb-3 flex gap-1">
+				{#each [{ id: false, label: 'Single' }, { id: true, label: 'Bulk' }] as mode}
+					<button
+						onclick={() => { ctBulk = mode.id; ctError = ''; ctBulkResults = []; }}
+						class="flex-1 cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors {ctBulk === mode.id ? 'border-tx text-tx' : 'border-bd text-g6 hover:text-g9'}"
+					>{mode.label}</button>
+				{/each}
+			</div>
 
 			<div class="space-y-3">
-				<div>
-					<label class="mb-1 block text-xs text-g7" for="ct-name-wl">Name</label>
-					<input
-						id="ct-name-wl"
-						type="text"
-						placeholder="Whale wallet..."
-						bind:value={ctName}
-						class="w-full rounded-lg border border-bd bg-s4 px-3 py-2 text-sm text-tx placeholder-g4 outline-none focus:border-grn"
-					/>
-				</div>
-				<div>
-					<label class="mb-1 block text-xs text-g7" for="ct-chain-wl">Chain</label>
-					<select id="ct-chain-wl" bind:value={ctChain} class="w-full rounded-lg border border-bd bg-s4 px-3 py-2 text-sm text-tx outline-none">
-						<option value="">Select chain</option>
-						{#each chains as c}<option value={c}>{c}</option>{/each}
-					</select>
-				</div>
-				<div>
-					<label class="mb-1 block text-xs text-g7" for="ct-addr-wl">Wallet Address</label>
-					<input
-						id="ct-addr-wl"
-						type="text"
-						placeholder="0x... or base58..."
-						bind:value={ctAddress}
-						onkeydown={(e) => e.key === 'Enter' && saveCtWallet()}
-						class="w-full rounded-lg border border-bd bg-s4 px-3 py-2 text-sm text-tx placeholder-g4 outline-none focus:border-grn"
-					/>
-				</div>
-				<button
-					onclick={saveCtWallet}
-					disabled={ctSaving || !ctName.trim() || !ctChain || !ctAddress.trim()}
-					class="btn-primary w-full px-6 py-2 text-sm"
-				>
-					{ctSaving ? 'Adding...' : 'Add Wallet'}
-				</button>
+				<fieldset>
+					<legend class="mb-1 block text-xs text-g7">Chain</legend>
+					<div class="flex gap-1">
+						{#each chains as c}
+							<label class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors {ctChain === c ? 'border-tx text-tx' : 'border-bd text-g6 hover:text-g9'}">
+								<input type="radio" name="ct-chain" value={c} bind:group={ctChain} class="sr-only" />
+								<ChainIcon chain={c} class="h-3.5 w-3.5" />
+								{c}
+							</label>
+						{/each}
+					</div>
+				</fieldset>
+
+				{#if ctBulk}
+					{@const parsedCount = parseBulkWallets(ctBulkText).length}
+					<div>
+						<label class="mb-1 block text-xs text-g7" for="ct-bulk-wl">Wallets</label>
+						<textarea
+							id="ct-bulk-wl"
+							rows="6"
+							placeholder={'One per line:\naddress\naddress, Name'}
+							bind:value={ctBulkText}
+							class="w-full resize-y rounded-lg border border-bd bg-s4 px-3 py-2 font-mono text-xs text-tx placeholder-g4 outline-none focus:border-grn"
+						></textarea>
+						<div class="mt-1 flex justify-between text-[10px] text-g5">
+							<span>Address, or "address, Name" — name defaults to the short address.</span>
+							<span class={parsedCount > 50 ? 'text-red' : ''}>{parsedCount}/50</span>
+						</div>
+					</div>
+					<button
+						onclick={saveCtWalletsBulk}
+						disabled={ctSaving || parsedCount === 0}
+						class="btn-primary w-full px-6 py-2 text-sm"
+					>
+						{ctSaving ? 'Adding...' : `Add ${parsedCount || ''} Wallets`}
+					</button>
+				{:else}
+					<div>
+						<label class="mb-1 block text-xs text-g7" for="ct-name-wl">Name</label>
+						<input
+							id="ct-name-wl"
+							type="text"
+							placeholder="Whale wallet..."
+							bind:value={ctName}
+							class="w-full rounded-lg border border-bd bg-s4 px-3 py-2 text-sm text-tx placeholder-g4 outline-none focus:border-grn"
+						/>
+					</div>
+					<div>
+						<label class="mb-1 block text-xs text-g7" for="ct-addr-wl">Wallet Address</label>
+						<input
+							id="ct-addr-wl"
+							type="text"
+							placeholder="base58..."
+							bind:value={ctAddress}
+							onkeydown={(e) => e.key === 'Enter' && saveCtWallet()}
+							class="w-full rounded-lg border border-bd bg-s4 px-3 py-2 text-sm text-tx placeholder-g4 outline-none focus:border-grn"
+						/>
+					</div>
+					<button
+						onclick={saveCtWallet}
+						disabled={ctSaving || !ctName.trim() || !ctChain || !ctAddress.trim()}
+						class="btn-primary w-full px-6 py-2 text-sm"
+					>
+						{ctSaving ? 'Adding...' : 'Add Wallet'}
+					</button>
+				{/if}
 			</div>
+
+			{#if ctBulkResults.length > 0}
+				<div class="mt-3 max-h-40 space-y-0.5 overflow-y-auto rounded-lg border border-bd bg-s4 p-2">
+					{#each ctBulkResults as r}
+						{@const ok = r.status === 'CREATED' || r.status === 'ALREADY_EXISTS'}
+						<div class="flex items-center justify-between gap-2 text-[10px]">
+							<span class="truncate font-mono text-g6">{shortAddress(r.line)}</span>
+							<span class={ok ? 'text-grn' : 'text-red'}>
+								{r.status === 'CREATED' ? 'added' : r.status === 'ALREADY_EXISTS' ? 'already tracked' : (r.reason ?? r.status).toLowerCase().replace(/_/g, ' ')}
+							</span>
+						</div>
+					{/each}
+				</div>
+			{/if}
 
 			{#if ctError}
 				<div class="mt-3 text-xs text-red">{ctError}</div>

@@ -81,8 +81,9 @@
 		Bot
 	} from '$lib/api/types';
 	import { positivePercentTargetTrigger } from '$lib/utils/trade-targets';
+	import { isNetProfit, netPnlMultiplier, netPnlNative, netPnlPct, netPnlUsd } from '$lib/utils/pnl';
 	import { completedTradeTimestamp } from '$lib/utils/completed-trades';
-	import { getExpandPositions } from '$lib/stores/feSettings.svelte';
+	import { getExpandPositions, getHiddenTradeIds, isTradeHidden, toggleTradeHidden } from '$lib/stores/feSettings.svelte';
 	import { liveAccumulatedParams } from '$lib/utils/livecursor';
 
 	type BotInfo = { sourceType: string; sourceName: string };
@@ -512,25 +513,8 @@
 	// API pnl is GROSS (fees excluded). Subtract cumulative trade fees so the UI
 	// reflects true net profit/loss. USD/native pnl are plain numbers; fees carry
 	// exact string + number — we use the numbers for display arithmetic.
-	function netPnlUsd(trade: TradeResponse): number {
-		return trade.pnl.usd - (trade.totalFees?.usd ?? 0);
-	}
-	function netPnlNative(trade: TradeResponse): number {
-		return trade.pnl.native - (trade.totalFees?.native ?? 0);
-	}
-	function netPnlPct(trade: TradeResponse): number {
-		const basis = trade.totalBought?.usd ?? 0;
-		if (basis <= 0) return trade.pnl.pct;
-		return (netPnlUsd(trade) / basis) * 100;
-	}
-	function netPnlMultiplier(trade: TradeResponse): number {
-		const basis = trade.totalBought?.usd ?? 0;
-		if (basis <= 0) return trade.pnl.multiplier;
-		const mult = (basis + netPnlUsd(trade)) / basis;
-		return mult > 0 ? mult : 0;
-	}
 	function pnlColor(trade: TradeResponse): string {
-		return netPnlUsd(trade) < 0 ? 'text-red' : 'text-grn';
+		return isNetProfit(trade) ? 'text-grn' : 'text-red';
 	}
 
 	const pegSymbol: Record<string, string> = {
@@ -603,7 +587,10 @@
 		{ label: 'History', value: 'history' }
 	];
 
-	function currentTrades(): (ActiveTrade | CompletedTrade)[] {
+	/** Session-only: hidden trades come back on reload, which is the point. */
+	let showHidden = $state(false);
+
+	function tabTrades(): (ActiveTrade | CompletedTrade)[] {
 		switch (activeTab) {
 			case 'active':
 				return getActivePositions();
@@ -612,6 +599,20 @@
 			case 'history':
 				return getCompletedTrades();
 		}
+	}
+
+	function currentTrades(): (ActiveTrade | CompletedTrade)[] {
+		if (showHidden) return tabTrades();
+		const hidden = getHiddenTradeIds();
+		if (hidden.length === 0) return tabTrades();
+		return tabTrades().filter((t) => !hidden.includes(t.id));
+	}
+
+	/** Hidden trades in THIS tab, so the toggle doesn't advertise a count you can't see. */
+	function hiddenHereCount(): number {
+		const hidden = getHiddenTradeIds();
+		if (hidden.length === 0) return 0;
+		return tabTrades().reduce((n, t) => n + (hidden.includes(t.id) ? 1 : 0), 0);
 	}
 
 	function displayedTradeTimestamp(trade: ActiveTrade | CompletedTrade): number {
@@ -1310,6 +1311,20 @@
 					</button>
 				</div>
 			{/if}
+
+		</div>
+	{/if}
+
+	<!-- Panel footer: outside the scroll container, so it stays put and is still
+	     reachable when every trade in the tab is hidden. -->
+	{#if showHidden || hiddenHereCount() > 0}
+		<div class="flex shrink-0 justify-end border-t border-bd/40 px-2.5 py-1.5">
+			<button
+				onclick={() => (showHidden = !showHidden)}
+				class="cursor-pointer text-[11px] text-g4 transition-colors hover:text-g8"
+			>
+				{showHidden ? 'Hide hidden' : `Show hidden (${hiddenHereCount()})`}
+			</button>
 		</div>
 	{/if}
 
@@ -1353,12 +1368,21 @@
 							</div>
 						</div>
 					</div>
-					<button
-						onclick={() => (selectedTrade = null)}
-						class="cursor-pointer rounded-lg p-1.5 text-g4 transition-colors hover:bg-s7 hover:text-g9"
-					>
-						<X class="h-5 w-5" strokeWidth={2} />
-					</button>
+					<div class="flex items-center gap-2">
+						<button
+							onclick={() => toggleTradeHidden(trade.id)}
+							class="cursor-pointer text-[11px] text-g4 transition-colors hover:text-g8"
+							title={isTradeHidden(trade.id)
+								? 'Show this position in the list again'
+								: 'Hide from the list — for holds you do not want to be tempted to sell'}
+						>{isTradeHidden(trade.id) ? 'unhide' : 'hide'}</button>
+						<button
+							onclick={() => (selectedTrade = null)}
+							class="cursor-pointer rounded-lg p-1.5 text-g4 transition-colors hover:bg-s7 hover:text-g9"
+						>
+							<X class="h-5 w-5" strokeWidth={2} />
+						</button>
+					</div>
 				</div>
 
 				<div

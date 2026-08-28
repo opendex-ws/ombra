@@ -108,7 +108,9 @@ describe('create bot modal wallet settings', () => {
 		expect(screen.getByDisplayValue('1.25')).toBeVisible();
 		expect(screen.getByDisplayValue('25')).toBeVisible();
 		expect(screen.getByDisplayValue('12.5')).toBeVisible();
-		expect(screen.getByText('STOP LOSS')).toBeVisible();
+		// Badge is abbreviated in the compact target card; the click-to-cycle title
+		// is what actually names the kind.
+		expect(screen.getByTitle('Click to change target type')).toHaveTextContent('SL');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Update Bot' }));
 		await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1));

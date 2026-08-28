@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tokenImage } from '$lib/api/config';
+	import { isNetProfit, netPnlPct, netPnlUsd } from '$lib/utils/pnl';
 	import { untrack } from 'svelte';
 	import BarChart3 from 'lucide-svelte/icons/chart-column';
 	import BotIcon from 'lucide-svelte/icons/bot';
@@ -63,6 +64,7 @@
 	type ErrorResponse = components['schemas']['ErrorResponse'];
 	type UpdateBotStatusRequest = components['schemas']['UpdateBotStatusRequest'];
 	type WalletSourceIdentity = components['schemas']['WalletSourceIdentity'];
+	type WalletSourceItem = Extract<WatchlistSourceItem, { type: 'WALLET' }>;
 	type TransactionErrorResponse = components['schemas']['TransactionErrorResponse'];
 	type WatchlistRankingRankBy = components['schemas']['RankingRankBy'];
 	type WatchlistRankingOrderBy = 'asc' | 'desc';
@@ -118,7 +120,7 @@
 	let globalBotTrades = $state<{ active: ActiveTrade[]; completed: CompletedTrade[] }>({ active: [], completed: [] });
 	let globalBotLogs = $state<BotLog[]>([]);
 	let globalBotBalanceChanges = $state<BotBalanceChange[]>([]);
-	let walletSources = $state<WalletSourceIdentity[]>([]);
+	let walletSources = $state<WalletSourceItem[]>([]);
 
 	let loading = $state(false);
 	let error = $state('');
@@ -689,7 +691,7 @@
 	async function fetchWalletSources() {
 		try {
 			const { data } = await api.GET('/v2/watchlist/sources/wallets');
-			walletSources = (data?.sources ?? []).filter((s): s is WalletSourceIdentity & { type: 'WALLET' } => s.type === 'WALLET') as WalletSourceIdentity[];
+			walletSources = (data?.sources ?? []).filter((s): s is WalletSourceItem => s.type === 'WALLET');
 		} catch { walletSources = []; }
 	}
 
@@ -1415,8 +1417,8 @@
 																	<span class="rounded px-1 py-0.5 text-[9px] {'status' in trade && trade.status === 'ACTIVE' ? 'bg-grn/10 text-grn' : 'status' in trade && trade.status === 'PENDING' ? 'bg-yel/10 text-yel' : 'bg-g1 text-g7'}">{'status' in trade ? trade.status : ''}</span>
 																</div>
 																<div class="shrink-0 text-right">
-																	<div class="{trade.pnl.usd >= 0 && trade.pnl.pct >= 0 ? 'text-grn' : 'text-red'} font-bold">{formatUsd(String(trade.pnl.usd))}</div>
-																	<div class="{trade.pnl.pct >= 0 ? 'text-grn' : 'text-red'} text-[10px]">{Number(trade.pnl.pct).toFixed(1)}%</div>
+																	<div class="{isNetProfit(trade) ? 'text-grn' : 'text-red'} font-bold">{formatUsd(String(netPnlUsd(trade)))}</div>
+																	<div class="{isNetProfit(trade) ? 'text-grn' : 'text-red'} text-[10px]">{netPnlPct(trade).toFixed(1)}%</div>
 																</div>
 															</a>
 														{/each}

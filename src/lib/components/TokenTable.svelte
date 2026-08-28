@@ -214,8 +214,8 @@
 		onmouseleave={unpinRow}
 		onclick={unpinRow}
 		onwheel={onPinWheel}
-		class="fixed z-[120] origin-top overflow-hidden rounded-lg bg-s5 shadow-2xl ring-1 ring-bd3"
-		style="left: {pinRect.left}px; top: {pinRect.top}px; width: {pinRect.width}px; height: {pinRect.height}px; transform: scale(1.02);"
+		class="fixed z-[120] overflow-hidden rounded-lg bg-s5 shadow-2xl ring-1 ring-bd3"
+		style="left: {pinRect.left}px; top: {pinRect.top}px; width: {pinRect.width}px; height: {pinRect.height}px;"
 	>
 		<TokenRow token={pinnedToken} rank={pinnedRank} {cols} {compact} rowFlash={rowFlashes.get(pinnedToken.pairAddress)} showImage={true} {onselect} />
 	</div>

@@ -34,6 +34,17 @@
 		return num > 0 ? 'text-grn' : num < 0 ? 'text-red' : 'text-g6';
 	}
 
+	/**
+	 * The row/card is one big <a>, so a click on a social icon would still trigger
+	 * the anchor's DEFAULT navigation — the icon's own handler cannot be relied on
+	 * to cancel it (nothing calls preventDefault when `onselect` is absent, as on
+	 * the scanner). Cancel it here in the CAPTURE phase, before the target runs, so
+	 * the icon still opens its link but the row never navigates.
+	 */
+	function guardSocialClick(e: MouseEvent) {
+		if ((e.target as HTMLElement | null)?.closest('[data-social]')) e.preventDefault();
+	}
+
 	function openSocial(e: MouseEvent, url: string | null | undefined) {
 		e.preventDefault();
 		e.stopPropagation();
@@ -189,6 +200,7 @@
 <a
 	href="/?chain={token.chain}&token={token.tokenAddress}"
 	use:onVisibility={(v) => (onScreen = v)}
+	onclickcapture={guardSocialClick}
 	class="glass-hover-card @container group relative block h-[152px] overflow-hidden rounded-xl border border-bd bg-s1 transition-colors duration-200 hover:border-bd3 hover:bg-wh/5 [contain:layout_paint_style] {rowFlash ? `card-flash-${rowFlash}` : ''}"
 >
 	{#if spark}
@@ -411,27 +423,27 @@
 		{#if hasSocials}
 			<div class="ml-auto flex shrink-0 items-center gap-1">
 				{#if soc.twitter}
-					<button onclick={(e) => openSocial(e, soc.twitter)} class={socialBtn} title="Twitter">
+					<button data-social onclick={(e) => openSocial(e, soc.twitter)} class={socialBtn} title="Twitter">
 						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path}/></svg>
 					</button>
 				{/if}
 				{#if soc.website}
-					<button onclick={(e) => openSocial(e, soc.website)} class={socialBtn} title="Website">
+					<button data-social onclick={(e) => openSocial(e, soc.website)} class={socialBtn} title="Website">
 						<Globe class="h-3 w-3" strokeWidth={2.25} />
 					</button>
 				{/if}
 				{#if soc.telegram}
-					<button onclick={(e) => openSocial(e, soc.telegram)} class={socialBtn} title="Telegram">
+					<button data-social onclick={(e) => openSocial(e, soc.telegram)} class={socialBtn} title="Telegram">
 						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siTelegram.path}/></svg>
 					</button>
 				{/if}
 				{#if soc.discord}
-					<button onclick={(e) => openSocial(e, soc.discord)} class={socialBtn} title="Discord">
+					<button data-social onclick={(e) => openSocial(e, soc.discord)} class={socialBtn} title="Discord">
 						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siDiscord.path}/></svg>
 					</button>
 				{/if}
 				{#if soc.instagram}
-					<button onclick={(e) => openSocial(e, soc.instagram)} class={socialBtn} title="Instagram">
+					<button data-social onclick={(e) => openSocial(e, soc.instagram)} class={socialBtn} title="Instagram">
 						<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siInstagram.path}/></svg>
 					</button>
 				{/if}

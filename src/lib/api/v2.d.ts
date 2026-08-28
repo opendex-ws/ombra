@@ -153,7 +153,7 @@ export interface paths {
         };
         /**
          * List your bots
-         * @description Returns bots owned by the authenticated user and organization in cursor-paginated order. Omit `limit` for the default page size of 20; otherwise, `limit` must be from 1 through 100. Use the opaque `nextCursor` to request the next page, and optionally filter results by `sourceType` or `chain`.
+         * @description Returns bots owned by the authenticated user and organization in cursor-paginated order, optionally filtered by `status`, `sourceType`, and `chain`. Use the opaque `nextCursor` to request the next page.
          */
         get: operations["bots_list"];
         put?: never;
@@ -1336,7 +1336,7 @@ export interface paths {
         };
         /**
          * List active trades
-         * @description Returns the authenticated user's active trades in cursor-paginated pages. Pass the opaque `nextCursor` value from a response as `cursor` to retrieve the next page.
+         * @description Returns the authenticated user's active trades in cursor-paginated pages. Pass the opaque `nextCursor` value from a response as `cursor` to retrieve the next page. When provided, `chain` scopes both returned trades and totals.
          */
         get: operations["trade_list_active"];
         put?: never;
@@ -1356,7 +1356,7 @@ export interface paths {
         };
         /**
          * List completed trades
-         * @description Returns the authenticated user’s completed trades in cursor-paginated pages of up to 20 trades. Send a bearer access token; omit `cursor` for the first page.
+         * @description Returns the authenticated user’s completed trades in cursor-paginated pages of up to 20 trades. When provided, `chain` scopes both returned trades and totals.
          */
         get: operations["trade_list_completed"];
         put?: never;
@@ -3831,6 +3831,7 @@ export interface components {
             limit?: number | null;
             /** @description Filters bots by source category. Accepted values are CALLER, TG, LIST, and WALLET; `null` or omission applies no source-type filter. */
             sourceType?: null | components["schemas"]["CallerSource"];
+            /** @description Filters bots by active or paused status. Omit it to include both statuses. */
             status?: null | components["schemas"]["BotStatus"];
         };
         /** @description Optional filters and cursor parameters for live bot subscriptions. */
@@ -3848,6 +3849,7 @@ export interface components {
             sourceType?: null | components["schemas"]["CallerSource"];
             /** @description Start of the window. Omit it for a live subscription; setting it selects a fixed window and requires `endCursor` too. */
             startCursor?: string | null;
+            /** @description Return only active or paused bots. Omit it to include both statuses. */
             status?: null | components["schemas"]["BotStatus"];
         };
         /** @description Parameters for the authenticated `bots:logs` subscription, including filters for log category, chain, source family, and result status, plus pagination cursors and page size. Omitted filters match all values. `limit` defaults to 20 and values must be from 1 through 100. */
@@ -3955,17 +3957,17 @@ export interface components {
             bots: components["schemas"]["Bot"][];
             /**
              * Format: int64
-             * @description Total active bots for the same source and chain filters.
+             * @description Total active bots matching source type and chain, regardless of the status filter.
              */
             totalActiveCount?: number;
             /**
              * Format: int64
-             * @description Total number of items across every page for the same filters.
+             * @description Total bots matching status, source type, and chain.
              */
             totalCount?: number;
             /**
              * Format: int64
-             * @description Total paused bots for the same source and chain filters.
+             * @description Total paused bots matching source type and chain, regardless of the status filter.
              */
             totalPausedCount?: number;
         };
@@ -8519,6 +8521,7 @@ export interface components {
              * @description UUID of the autobuy or copy-trade bot.
              */
             id: string;
+            isEnabled: boolean;
             /** @description What the bot follows: a caller, a Telegram chat, a list, or a wallet. */
             source: components["schemas"]["WatchlistSourceIdentity"];
         };
@@ -11024,6 +11027,7 @@ export interface components {
         };
         /** @description Performance summary for one watchlist source over a ranking timeframe. */
         WatchlistRankItem: {
+            automation: components["schemas"]["TradeAutomation"];
             /** @description Average return multiplier across calls in the timeframe. */
             averageMultiplier: number;
             /** @description Highest return multiplier across calls in the timeframe. */
@@ -11275,6 +11279,7 @@ export interface components {
         } & components["schemas"]["WalletSourceIdentity"]);
         /** @description A watchlist source returned by source or list endpoints. The `type` value identifies the source variant: `CALLER`, `TG`, `LIST`, or `WALLET`; some variants include source-specific identity or `sourceDetails`. */
         WatchlistSourceItem: {
+            automation: components["schemas"]["TradeAutomation"];
             /** @description Public identifier of the caller source. Use it to identify or select this `CALLER` source. */
             id: string;
             /** @description Human-readable name of the caller source. */
@@ -11293,6 +11298,7 @@ export interface components {
              */
             type: "TG";
         } & components["schemas"]["TgSourceIdentity"] & {
+            automation: components["schemas"]["TradeAutomation"];
             /** @description Telegram-specific metadata, including the chat type and filter definition. */
             sourceDetails: {
                 /** @description Telegram chat classification: `GROUP`, `USER`, `BOT`, or `CHANNEL`. Supergroup status is not represented by this field. */
@@ -11301,6 +11307,7 @@ export interface components {
                 filter: components["schemas"]["TgChatFilter"];
             };
         }) | {
+            automation: components["schemas"]["TradeAutomation"];
             /** @description String form of the saved list's UUID. Use it to identify or select this `LIST` source. */
             id: string;
             /** @description Configured human-readable name of the saved list. */
@@ -11325,7 +11332,9 @@ export interface components {
              * @enum {string}
              */
             type: "WALLET";
-        } & components["schemas"]["WalletSourceIdentity"]);
+        } & components["schemas"]["WalletSourceIdentity"] & {
+            automation: components["schemas"]["TradeAutomation"];
+        });
         /** @description Optional filters and cursor boundaries for a watchlist source live subscription. */
         WatchlistSourceLivecursorParams: {
             /** @description Chains to include. An empty list means all chains. */
@@ -16555,6 +16564,7 @@ export interface operations {
                 sourceType?: components["schemas"]["CallerSource"];
                 /** @description Only return bots on this chain. Omit it to include every chain. */
                 chain?: components["schemas"]["Chain"];
+                /** @description Only return active or paused bots. Omit it to include both statuses. */
                 status?: components["schemas"]["BotStatus"];
             };
             header?: never;
@@ -16563,7 +16573,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The request succeeded. The response contains the matching bots and cursor-pagination fields, including `nextCursor` when another page is available and `prevCursor` when a previous page exists. */
+            /** @description Contains matching bots, scoped totals, and `nextCursor` when another page is available. */
             200: {
                 headers: {
                     [name: string]: unknown;

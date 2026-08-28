@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { portal } from '$lib/actions/portal';
+	import { decimalToNumber, isNetProfit, netPnlMultiplier, netPnlPct, netPnlUsd } from '$lib/utils/pnl';
 	import X from 'lucide-svelte/icons/x';
 	import Download from 'lucide-svelte/icons/download';
-	import { formatUsd, formatPriceText } from '$lib/utils/format';
+	import { formatUsd, formatPriceText, ageFromSeconds } from '$lib/utils/format';
+	import { completedTradeTimestamp } from '$lib/utils/completed-trades';
+	import { loadTradeChart, type SparkPoint, type TradeChart } from '$lib/utils/pnl-chart';
 	import type { CompletedTrade } from '$lib/api/types';
 
 	import profitMoney from '$lib/assets/pnl-bg/profit-3.webp';
@@ -22,10 +25,14 @@
 		trade: CompletedTrade | null;
 	} = $props();
 
+	// Swap-marker colours, kept distinct from the sparkline accent.
+	const MARKER_BUY = '#00ff88';
+	const MARKER_SELL = '#ff4466';
+
 	type BgOption = { label: string; src?: string; gradient?: [string, string, string]; pattern?: string };
 
 	const PROFIT_BGS: BgOption[] = [
-		{ label: 'Candles', gradient: ['#0a1a0f', '#0d2614', '#071a0a'], pattern: 'candles' },
+		{ label: 'Deep Green', gradient: ['#0a1a0f', '#0d2614', '#071a0a'] },
 		{ label: 'Matrix', gradient: ['#020d02', '#061206', '#020a02'], pattern: 'matrix' },
 		{ label: 'Neon', gradient: ['#0a0815', '#100d20', '#08061a'], pattern: 'neon' },
 		{ label: 'Money', src: profitMoney },
@@ -36,7 +43,7 @@
 	];
 
 	const LOSS_BGS: BgOption[] = [
-		{ label: 'Blood', gradient: ['#1a0505', '#2e0a0a', '#140404'], pattern: 'candles' },
+		{ label: 'Blood', gradient: ['#1a0505', '#2e0a0a', '#140404'] },
 		{ label: 'Ember', gradient: ['#1a0808', '#150505', '#100303'], pattern: 'ember' },
 		{ label: 'Storm', src: lossStorm },
 		{ label: 'Joker', src: lossJoker },
@@ -47,17 +54,14 @@
 	];
 
 	let selectedBg = $state(0);
+	/** Overlay the trade's real price line on whichever background is chosen. */
+	let showChart = $state(true);
 	let previewUrl = $state('');
 	let imgCache = new Map<string, HTMLImageElement>();
 
 	function close() { show = false; previewUrl = ''; selectedBg = 0; }
 
-	// Net of fees (API pnl is gross).
-	function netPnlUsdOf(t: { pnl: { usd: number }; totalFees?: { usd: number } }): number {
-		return (t.pnl.usd as number) - (t.totalFees?.usd ?? 0);
-	}
-
-	let isProfit = $derived(trade ? netPnlUsdOf(trade) >= 0 : true);
+	let isProfit = $derived(trade ? isNetProfit(trade) : true);
 	let bgOptions = $derived(isProfit ? PROFIT_BGS : LOSS_BGS);
 
 	function loadBgImage(src: string): Promise<HTMLImageElement> {
@@ -84,20 +88,41 @@
 
 	$effect(() => {
 		const bg = selectedBg;
+		void showChart;
 		const s = show;
 		const t = trade;
 		if (!s || !t) return;
 		void doRender(t, bg);
 	});
 
+	// Candles are fetched once per trade and reused while the user flips through
+	// backgrounds; only the chart-backed option needs them.
+	let chartCache: { tradeId: number; chart: TradeChart | null } | null = null;
+
+	async function tradeChart(t: CompletedTrade): Promise<TradeChart | null> {
+		if (chartCache?.tradeId === t.id) return chartCache.chart;
+		const chart = await loadTradeChart(t);
+		chartCache = { tradeId: t.id, chart };
+		return chart;
+	}
+
 	async function doRender(t: CompletedTrade, bgIdx: number) {
-		const opts = netPnlUsdOf(t) >= 0 ? PROFIT_BGS : LOSS_BGS;
+		const opts = isNetProfit(t) ? PROFIT_BGS : LOSS_BGS;
 		const bg = opts[bgIdx] ?? opts[0];
 		let bgImg: HTMLImageElement | null = null;
 		if (bg.src) {
 			try { bgImg = await loadBgImage(bg.src); } catch {}
 		}
-		renderCard(t, bg, bgImg);
+		let chart: TradeChart | null = null;
+		if (showChart) {
+			// Paint without the chart first so the preview is never blank while the
+			// candles are in flight.
+			if (chartCache?.tradeId !== t.id) renderCard(t, bg, bgImg, null);
+			chart = await tradeChart(t);
+			// The user may have switched trade, background or toggle while we waited.
+			if (trade?.id !== t.id || selectedBg !== bgIdx || !showChart) return;
+		}
+		renderCard(t, bg, bgImg, chart);
 	}
 
 	function drawProceduralBg(ctx: CanvasRenderingContext2D, w: number, h: number, bg: BgOption) {
@@ -110,53 +135,7 @@
 		ctx.fillRect(0, 0, w, h);
 		const accent = isProfit ? '#22c55e' : '#ef4444';
 
-		if (bg.pattern === 'candles') {
-			const candleCount = 24;
-			const gap = w / candleCount;
-			const opens: number[] = [];
-			const closes: number[] = [];
-			const startPrice = isProfit ? 0.75 : 0.25;
-			const endPrice = isProfit ? 0.15 : 0.85;
-			for (let i = 0; i < candleCount; i++) {
-				const progress = i / (candleCount - 1);
-				const target = startPrice + (endPrice - startPrice) * progress;
-				const noise = (Math.random() - 0.5) * 0.12;
-				const spike = Math.random() < 0.12 ? (Math.random() - 0.5) * 0.15 : 0;
-				const open = Math.max(0.05, Math.min(0.95, target + noise + spike));
-				const moveSize = 0.03 + Math.random() * 0.08;
-				const moveBias = isProfit ? -0.3 : 0.3;
-				const move = (Math.random() - 0.5 + moveBias) * moveSize;
-				const close = Math.max(0.05, Math.min(0.95, open + move));
-				opens.push(open);
-				closes.push(close);
-			}
-			ctx.strokeStyle = accent + '12';
-			ctx.lineWidth = 1;
-			for (let gy = 0; gy < h; gy += h / 8) {
-				ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
-			}
-			for (let i = 0; i < candleCount; i++) {
-				const x = i * gap + gap * 0.15;
-				const cw = gap * 0.6;
-				const o = opens[i];
-				const c = closes[i];
-				const up = c < o;
-				const hi = Math.min(o, c);
-				const lo = Math.max(o, c);
-				const wickTop = hi - (0.015 + Math.random() * 0.08);
-				const wickBot = lo + (0.015 + Math.random() * 0.08);
-				const bodyTop = hi * h * 0.7 + h * 0.1;
-				const bodyBot = lo * h * 0.7 + h * 0.1;
-				const bodyH = Math.max(4, bodyBot - bodyTop);
-				const wTop = wickTop * h * 0.7 + h * 0.1;
-				const wBot = wickBot * h * 0.7 + h * 0.1;
-				const candleColor = up ? '#22c55e' : '#ef4444';
-				ctx.fillStyle = candleColor + '40';
-				ctx.fillRect(x, bodyTop, cw, bodyH);
-				ctx.fillStyle = candleColor + '25';
-				ctx.fillRect(x + cw / 2 - 1, wTop, 2, wBot - wTop);
-			}
-		} else if (bg.pattern === 'matrix') {
+		if (bg.pattern === 'matrix') {
 			const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
 			ctx.font = '18px monospace';
 			const cols = Math.floor(w / 22);
@@ -299,7 +278,118 @@
 		}
 	}
 
-	function renderCard(t: CompletedTrade, bg: BgOption, bgImg: HTMLImageElement | null) {
+	/**
+	 * The real price line for the trade window, with a marker on every swap.
+	 * Drawn in the upper half so the PnL text and stat row stay legible.
+	 */
+	function drawTradeSparkline(
+		ctx: CanvasRenderingContext2D,
+		w: number,
+		h: number,
+		data: TradeChart,
+		accent: string
+	) {
+		// Right half only. The card's text is all left-aligned — token name at the
+		// top, the big %/$/x block at mid-left — and the chart is painted first, so
+		// a full-width plot runs straight through it. Bottom clears the stats card.
+		const left = w * 0.46;
+		const right = w - 80;
+		const top = h * 0.14;
+		const bottom = h * 0.62;
+		// Markers ride the curve, so only the candles set the value domain — folding
+		// swap prices in here just flattened the line.
+		const times = data.points.map((p: SparkPoint) => p.time);
+		const values = data.points.map((p: SparkPoint) => p.value);
+		for (const m of data.markers) times.push(m.time);
+		const tMin = Math.min(...times);
+		const tMax = Math.max(...times);
+		const vMin = Math.min(...values);
+		const vMax = Math.max(...values);
+		const tSpan = tMax - tMin || 1;
+		const vSpan = vMax - vMin || Math.max(vMax * 0.02, 1e-12);
+		const px = (t: number) => left + ((t - tMin) / tSpan) * (right - left);
+		const py = (v: number) => bottom - ((v - vMin) / vSpan) * (bottom - top);
+
+		// Smooth the line with midpoint quadratics so a 1s series reads as a curve
+		// instead of a jagged staircase.
+		const coords = data.points.map((pt: SparkPoint) => ({ x: px(pt.time), y: py(pt.value) }));
+		const linePath = new Path2D();
+		linePath.moveTo(coords[0].x, coords[0].y);
+		for (let i = 1; i < coords.length; i++) {
+			const prev = coords[i - 1];
+			const cur = coords[i];
+			const midX = (prev.x + cur.x) / 2;
+			const midY = (prev.y + cur.y) / 2;
+			linePath.quadraticCurveTo(prev.x, prev.y, midX, midY);
+		}
+		linePath.lineTo(coords[coords.length - 1].x, coords[coords.length - 1].y);
+
+		/** Y of the drawn curve at a given x, so markers sit ON the line. */
+		const curveY = (x: number): number => {
+			if (x <= coords[0].x) return coords[0].y;
+			const last = coords[coords.length - 1];
+			if (x >= last.x) return last.y;
+			for (let i = 1; i < coords.length; i++) {
+				const a = coords[i - 1];
+				const b = coords[i];
+				if (x <= b.x) {
+					const t = b.x === a.x ? 0 : (x - a.x) / (b.x - a.x);
+					return a.y + (b.y - a.y) * t;
+				}
+			}
+			return last.y;
+		};
+		const fillPath = new Path2D(linePath);
+		fillPath.lineTo(coords[coords.length - 1].x, bottom);
+		fillPath.lineTo(coords[0].x, bottom);
+		fillPath.closePath();
+		const grad = ctx.createLinearGradient(0, top, 0, bottom);
+		grad.addColorStop(0, accent + '3d');
+		grad.addColorStop(1, accent + '00');
+		ctx.fillStyle = grad;
+		ctx.fill(fillPath);
+
+		// Fade in from the left so the plot blends into the card instead of starting
+		// with a hard vertical cut at the text boundary.
+		const lineGrad = ctx.createLinearGradient(left, 0, right, 0);
+		lineGrad.addColorStop(0, accent + '00');
+		lineGrad.addColorStop(0.18, accent + 'cc');
+		lineGrad.addColorStop(1, accent);
+		ctx.strokeStyle = lineGrad;
+		ctx.lineWidth = 5;
+		ctx.lineJoin = 'round';
+		ctx.lineCap = 'round';
+		ctx.stroke(linePath);
+
+		for (const marker of data.markers) {
+			const x = px(marker.time);
+			// Snap to the rendered curve: the swap's fill price and the candle close
+			// for that bucket differ slightly, which floated the badges off the line.
+			const y = curveY(x);
+			const buy = marker.side === 'BUY';
+			// Deliberately NOT the sparkline's accent: on a winning trade the line is
+			// green, so a green-on-green badge disappears (same for a red line and a
+			// sell). These are the brighter brand accents, filled rather than
+			// outlined, so they read against a line of either colour.
+			const color = buy ? MARKER_BUY : MARKER_SELL;
+			ctx.beginPath();
+			ctx.arc(x, y, 21, 0, Math.PI * 2);
+			ctx.fillStyle = color;
+			ctx.fill();
+			ctx.lineWidth = 4;
+			ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+			ctx.stroke();
+			ctx.fillStyle = '#04140b';
+			ctx.font = 'bold 24px system-ui, -apple-system, sans-serif';
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			ctx.fillText(buy ? 'B' : 'S', x, y + 1);
+		}
+		ctx.textAlign = 'left';
+		ctx.textBaseline = 'alphabetic';
+	}
+
+	function renderCard(t: CompletedTrade, bg: BgOption, bgImg: HTMLImageElement | null, chart: TradeChart | null) {
 		const w = 1920;
 		const h = 1080;
 		const offscreen = document.createElement('canvas');
@@ -332,13 +422,18 @@
 		ctx.fillStyle = bottomGrad;
 		ctx.fillRect(0, 0, w, h);
 
-		// API pnl is gross (fees excluded) — show net of fees to match the rest of the UI.
-		const feeUsd = t.totalFees?.usd ?? 0;
-		const boughtUsd = t.totalBought?.usd ?? 0;
-		const pnlUsdVal = (t.pnl.usd as number) - feeUsd;
-		const pnlPctVal = boughtUsd > 0 ? (pnlUsdVal / boughtUsd) * 100 : (t.pnl.pct as number);
-		const pnlMultVal = boughtUsd > 0 ? Math.max(0, (boughtUsd + pnlUsdVal) / boughtUsd) : (t.pnl.multiplier as number);
-		const profit = pnlUsdVal >= 0;
+		// Trade chart is an overlay, not a background: it composes with the artwork
+		// backgrounds too, and is drawn under the text so nothing is obscured.
+		if (chart) drawTradeSparkline(ctx, w, h, chart, isProfit ? '#22c55e' : '#ef4444');
+
+		// Net of fees, matching every PnL readout in the app. The stat row shows the
+		// cost basis but deliberately NOT the sale total: `Sold - Bought` would not
+		// equal a net PnL, and every comparable card (pump.fun, Trojan, …) shows one
+		// cost figure plus the result rather than two sums that invite subtraction.
+		const pnlUsdVal = netPnlUsd(t);
+		const pnlPctVal = netPnlPct(t);
+		const pnlMultVal = netPnlMultiplier(t);
+		const profit = isNetProfit(t);
 		const pnlColor = profit ? '#22c55e' : '#ef4444';
 		const sign = profit ? '+' : '';
 		const pad = 80;
@@ -372,13 +467,18 @@
 		ctx.font = `bold 38px ${font}`;
 		ctx.fillText(`${pnlMultVal.toFixed(2)}x`, pad, h / 2 + 165);
 
-		const statsY = h - 200;
+
+		const heldSeconds = Math.max(
+			0,
+			Math.round((completedTradeTimestamp(t) - (t.createdAtTimestamp ?? 0)) / 1000)
+		);
 		const stats = [
-			{ label: 'Bought', value: formatUsd(t.totalBought.usd as number) },
-			{ label: 'Sold', value: formatUsd(t.totalSold.usd as number) },
+			{ label: 'Bought', value: formatUsd(decimalToNumber(t.totalBought.usd)) },
+			{ label: 'Held', value: heldSeconds > 0 ? ageFromSeconds(heldSeconds) : '—' },
 			{ label: 'Entry', value: formatPriceText(t.avgEntryPrice.usd) },
 			{ label: 'Exit', value: formatPriceText(t.avgClosingPrice.usd) },
 		];
+		const statsY = h - 200;
 
 		ctx.fillStyle = 'rgba(0,0,0,0.5)';
 		roundRect(ctx, pad - 20, statsY - 65, w - pad * 2 + 40, 185, 16);
@@ -392,7 +492,14 @@
 			ctx.textAlign = 'left';
 			ctx.fillText(stats[i].label, x, statsY);
 			ctx.fillStyle = '#ffffff';
-			ctx.font = `bold 50px ${font}`;
+			// Prices are the long ones (subscript-zero form); shrink to fit the cell
+			// rather than letting a value run into its neighbour.
+			let valueSize = 50;
+			do {
+				ctx.font = `bold ${valueSize}px ${font}`;
+				if (ctx.measureText(stats[i].value).width <= statW - 16) break;
+				valueSize -= 2;
+			} while (valueSize > 30);
 			ctx.fillText(stats[i].value, x, statsY + 65);
 		}
 
@@ -459,10 +566,8 @@
 				await navigator.share({ files: [file], title: `${trade.tokenSymbol} PnL` });
 				return;
 			}
-			const netUsd = netPnlUsdOf(trade);
-			const boughtUsd = trade.totalBought?.usd ?? 0;
-			const netPct = boughtUsd > 0 ? (netUsd / boughtUsd) * 100 : (trade.pnl.pct as number);
-			const pnlSign = netUsd >= 0 ? '+' : '';
+			const netPct = netPnlPct(trade);
+			const pnlSign = isNetProfit(trade) ? '+' : '';
 			const text = `${trade.tokenSymbol} ${pnlSign}${netPct.toFixed(1)}% PnL`;
 			if (navigator.canShare?.({ text })) {
 				await navigator.share({ text, title: `${trade.tokenSymbol} PnL` });
@@ -492,6 +597,10 @@
 						>{bg.label}</button>
 					{/each}
 				</div>
+				<label class="mb-3 flex cursor-pointer items-center justify-center gap-2 text-[11px] text-g6">
+					<input type="checkbox" bind:checked={showChart} class="accent-grn" />
+					Overlay trade chart
+				</label>
 				{#if previewUrl}
 					<img src={previewUrl} alt="PnL Card" class="mx-auto w-full rounded-xl" />
 				{:else}
