@@ -17,7 +17,7 @@
 	import { initTheme, getTheme, getThemeVersion, tc } from '$lib/stores/theme.svelte';
 	import { initThemeBg } from '$lib/stores/themeBg.svelte';
 	import { initCurrency } from '$lib/stores/currency.svelte';
-	import { initFeSettings, getWatchlistOpen, toggleWatchlistOpen, getActiveToken, getMultiTab, getCallToastSourceIds, isCallToastSourceEnabled } from '$lib/stores/feSettings.svelte';
+	import { initFeSettings, getWatchlistOpen, toggleWatchlistOpen, getActiveToken, getMultiTab, getCallToastSourceIds, isCallToastSourceEnabled, getSwapFeedPopout, getTwitterFeedPopout, setSwapFeedPopout, setTwitterFeedPopout, getSwapFeedFloat, setSwapFeedFloatPos, setSwapFeedFloatSize, getThesisFeedPopout, setThesisFeedPopout, getThesisFeedFloat, setThesisFeedFloatPos, setThesisFeedFloatSize, getTwitterFeedFloat, setTwitterFeedFloatPos, setTwitterFeedFloatSize } from '$lib/stores/feSettings.svelte';
 	import { initTokenTabs, getPopouts, openTokenAsPopout, consumePopoutRedirectSuppressed } from '$lib/stores/tokenTabs.svelte';
 	import { beforeNavigate, preloadCode, goto } from '$app/navigation';
 	import { tokenImage } from '$lib/api/config';
@@ -68,6 +68,10 @@
 
 	let WatchlistPanel = $state<any>(null);
 	let TwitterFeedPanel = $state<any>(null);
+	let SocialFeedPanel = $state<any>(null);
+	let SwapFeedPanel = $state<any>(null);
+	let ThesisFeedPanel = $state<any>(null);
+	let FeedWindow = $state<any>(null);
 	let PositionsPanel = $state<any>(null);
 	let FloatingTokenWindow = $state<any>(null);
 	let TraderOverviewDrawer = $state<any>(null);
@@ -79,6 +83,12 @@
 	}
 	async function ensureTwitterFeedPanel() {
 		if (!TwitterFeedPanel) TwitterFeedPanel = (await import('$lib/components/TwitterFeedPanel.svelte')).default;
+		if (!SocialFeedPanel) SocialFeedPanel = (await import('$lib/components/SocialFeedPanel.svelte')).default;
+		if (!SwapFeedPanel) SwapFeedPanel = (await import('$lib/components/SwapFeedPanel.svelte')).default;
+		if (!ThesisFeedPanel) ThesisFeedPanel = (await import('$lib/components/ThesisFeedPanel.svelte')).default;
+	}
+	async function ensureFeedWindow() {
+		if (!FeedWindow) FeedWindow = (await import('$lib/components/FeedWindow.svelte')).default;
 	}
 	async function ensurePositionsPanel() {
 		if (!PositionsPanel) PositionsPanel = (await import('$lib/components/PositionsPanel.svelte')).default;
@@ -153,6 +163,7 @@
 	});
 	$effect(() => {
 		if (getPopouts().length > 0) void ensureFloatingTokenWindow();
+		if (isDesktop && (getSwapFeedPopout() || getTwitterFeedPopout() || getThesisFeedPopout())) void ensureFeedWindow();
 	});
 	$effect(() => {
 		if (getTraderOverviewTarget()) void ensureTraderOverviewDrawer();
@@ -385,8 +396,8 @@
 				<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 					<WatchlistPanel selectedAddress={getActiveToken()} active={true} />
 				</div>
-				{#if TwitterFeedPanel}
-					<TwitterFeedPanel active={true} />
+				{#if SocialFeedPanel}
+					<SocialFeedPanel active={true} />
 				{/if}
 			{/if}
 		</div>
@@ -468,6 +479,47 @@
 	{/each}
 {/if}
 
+<!-- Each feed floats in its own window, independent of the other, and lives here
+     so it survives route changes like the token popouts do. -->
+{#if isDesktop && FeedWindow}
+	{#if getTwitterFeedPopout() && TwitterFeedPanel}
+		<FeedWindow
+			id="twitter"
+			title="X"
+			float={getTwitterFeedFloat()}
+			onmove={setTwitterFeedFloatPos}
+			onresize={setTwitterFeedFloatSize}
+			ondock={() => setTwitterFeedPopout(false)}
+		>
+			<TwitterFeedPanel active compact />
+		</FeedWindow>
+	{/if}
+	{#if getSwapFeedPopout() && SwapFeedPanel}
+		<FeedWindow
+			id="swaps"
+			title="Swaps"
+			float={getSwapFeedFloat()}
+			onmove={setSwapFeedFloatPos}
+			onresize={setSwapFeedFloatSize}
+			ondock={() => setSwapFeedPopout(false)}
+		>
+			<SwapFeedPanel active />
+		</FeedWindow>
+	{/if}
+	{#if getThesisFeedPopout() && ThesisFeedPanel}
+		<FeedWindow
+			id="thesis"
+			title="Thesis"
+			float={getThesisFeedFloat()}
+			onmove={setThesisFeedFloatPos}
+			onresize={setThesisFeedFloatSize}
+			ondock={() => setThesisFeedPopout(false)}
+		>
+			<ThesisFeedPanel active />
+		</FeedWindow>
+	{/if}
+{/if}
+
 <div class="fixed bottom-14 left-0 right-0 z-50 flex items-center gap-2 border-t border-bd bg-s1/95 px-3 py-1.5 backdrop-blur-md hide-desktop">
 	{#if getIsLoggedIn()}
 		<button
@@ -528,7 +580,7 @@
 	{#if isOpen}
 		{@const sheetId = title.toLowerCase().replace(/\s/g, '-')}
 		<div class="fixed inset-0 z-[100] md:hidden flex flex-col justify-end">
-			<button class="absolute inset-0 bg-s0/50" onclick={closeFn} aria-label="Close"></button>
+			<button class="cursor-default absolute inset-0 bg-s0/50" onclick={closeFn} aria-label="Close"></button>
 			<div
 				class="glass-strong relative mobile-panel-enter flex flex-col rounded-t-2xl border-t border-bd bg-s2 mobile-safe-bottom"
 				style="height: {height}; transform: translateY({sheetDragY}px); transition: {sheetDragging ? 'none' : 'transform 0.25s ease-out'};"
@@ -562,7 +614,7 @@
 <div
 	class="fixed inset-0 z-[100] md:hidden flex flex-col justify-end transition-opacity duration-250 {mobilePositionsOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}"
 >
-	<button class="absolute inset-0 bg-s0/50" onclick={() => (mobilePositionsOpen = false)} aria-label="Close"></button>
+	<button class="cursor-default absolute inset-0 bg-s0/50" onclick={() => (mobilePositionsOpen = false)} aria-label="Close"></button>
 	<div
 		class="glass-strong relative flex flex-col rounded-t-2xl border-t border-bd bg-s2 mobile-safe-bottom transition-transform duration-250 ease-out {mobilePositionsOpen ? 'translate-y-0' : 'translate-y-full'}"
 		style="height: 75vh; transform: translateY({mobilePositionsOpen ? sheetDragY : 0}px); transition: {sheetDragging ? 'none' : 'transform 0.25s ease-out'};"
@@ -596,7 +648,7 @@
 <div
 	class="fixed inset-0 z-[100] md:hidden flex flex-col justify-end transition-opacity duration-250 {mobileWatchlistOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}"
 >
-	<button class="absolute inset-0 bg-s0/50" onclick={() => (mobileWatchlistOpen = false)} aria-label="Close"></button>
+	<button class="cursor-default absolute inset-0 bg-s0/50" onclick={() => (mobileWatchlistOpen = false)} aria-label="Close"></button>
 	<div
 		class="glass-strong relative flex flex-col rounded-t-2xl border-t border-bd bg-s2 mobile-safe-bottom transition-transform duration-250 ease-out {mobileWatchlistOpen ? 'translate-y-0' : 'translate-y-full'}"
 		style="height: 80vh; transform: translateY({mobileWatchlistOpen ? sheetDragY : 0}px); transition: {sheetDragging ? 'none' : 'transform 0.25s ease-out'};"
@@ -630,7 +682,7 @@
 <div
 	class="fixed inset-0 z-[100] md:hidden flex flex-col justify-end transition-opacity duration-250 {mobileTwitterOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}"
 >
-	<button class="absolute inset-0 bg-s0/50" onclick={() => (mobileTwitterOpen = false)} aria-label="Close"></button>
+	<button class="cursor-default absolute inset-0 bg-s0/50" onclick={() => (mobileTwitterOpen = false)} aria-label="Close"></button>
 	<div
 		class="glass-strong relative flex flex-col rounded-t-2xl border-t border-bd bg-s2 mobile-safe-bottom transition-transform duration-250 ease-out {mobileTwitterOpen ? 'translate-y-0' : 'translate-y-full'}"
 		style="height: 80vh; transform: translateY({mobileTwitterOpen ? sheetDragY : 0}px); transition: {sheetDragging ? 'none' : 'transform 0.25s ease-out'};"
@@ -647,15 +699,15 @@
 				<div class="h-1 w-10 rounded-full bg-g3"></div>
 			</div>
 			<div class="flex items-center justify-between px-4 py-2 border-b border-bd">
-				<span class="text-sm font-bold text-tx">X Feed</span>
+				<span class="text-sm font-bold text-tx">Social Feed</span>
 				<button onclick={() => (mobileTwitterOpen = false)} class="cursor-pointer rounded-lg p-1.5 text-g5 active:text-tx">
 					<span class="text-lg">✕</span>
 				</button>
 			</div>
 		</div>
 		<div class="flex flex-1 flex-col min-h-0 overflow-hidden">
-			{#if !isDesktop && mobileTwitterOpen && TwitterFeedPanel}
-				<TwitterFeedPanel mobile />
+			{#if !isDesktop && mobileTwitterOpen && SocialFeedPanel}
+				<SocialFeedPanel mobile />
 			{/if}
 		</div>
 	</div>

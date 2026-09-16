@@ -534,12 +534,12 @@
 															<button
 																onclick={(e) => { e.stopPropagation(); sellToken(wallet.chain, asset.token.address); }}
 																disabled={sellingToken === sellKey}
-																class="w-12 cursor-pointer rounded bg-red/10 px-1.5 py-0.5 text-[9px] font-semibold text-red opacity-0 transition-all hover:bg-red/20 group-hover/asset:opacity-100 disabled:opacity-50 {sellingToken === sellKey ? '!opacity-100' : ''}"
+																class="w-12 cursor-pointer rounded bg-red/10 px-1.5 py-1 md:py-0.5 text-[10px] font-semibold text-red transition-all hover:bg-red/20 disabled:opacity-50 md:text-[9px] md:opacity-0 md:group-hover/asset:opacity-100 {sellingToken === sellKey ? '!opacity-100' : ''}"
 															>{sellingToken === sellKey ? '...' : 'Sell'}</button>
 														{:else}
 															<button
 																onclick={(e) => { e.stopPropagation(); openWithdraw(wallet.chain, asset); }}
-																class="w-12 cursor-pointer rounded bg-s7 px-1.5 py-0.5 text-[9px] font-semibold text-g7 opacity-0 transition-all hover:bg-s6 hover:text-tx group-hover/asset:opacity-100"
+																class="w-12 cursor-pointer rounded bg-s7 px-1.5 py-1 md:py-0.5 text-[10px] font-semibold text-g7 transition-all hover:bg-s6 hover:text-tx md:text-[9px] md:opacity-0 md:group-hover/asset:opacity-100"
 															>Withdraw</button>
 														{/if}
 													</div>
@@ -591,7 +591,7 @@
 
 {#if showSearch}
 	<div class="fixed inset-0 z-[100] flex items-start justify-center pt-[2vh] md:pt-[12vh]">
-		<button class="absolute inset-0 bg-s0/60 backdrop-blur-[2px]" onclick={closeSearch} aria-label="Close search"></button>
+		<button class="cursor-default absolute inset-0 bg-s0/60 backdrop-blur-[2px]" onclick={closeSearch} aria-label="Close search"></button>
 		<div class="animate-fade-in relative w-full max-w-xl mx-2 md:mx-0 rounded-2xl border border-bd bg-s5 shadow-2xl backdrop-blur-xl">
 			<div class="flex items-center gap-3 border-b border-bd px-4 py-3.5">
 				<Search size={20} strokeWidth={2} class="shrink-0 text-g5" />
@@ -657,8 +657,8 @@
 							{/if}
 						</div>
 							<div class="min-w-0 flex-1">
-								<div class="flex items-center gap-2">
-									<span class="text-sm font-semibold text-tx">{result.tokenSymbol}</span>
+								<div class="flex min-w-0 items-center gap-2">
+									<span class="min-w-0 max-w-[55%] shrink truncate text-sm font-semibold text-tx" title={result.tokenSymbol ?? ''}>{result.tokenSymbol}</span>
 									<span class="truncate text-sm text-g5">{result.tokenName}</span>
 									<ChainIcon chain={result.chain} class="h-3.5 w-3.5 text-g6" />
 								</div>
