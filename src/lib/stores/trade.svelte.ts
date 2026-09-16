@@ -30,6 +30,7 @@ import {
 	explorerTxUrl
 } from '$lib/utils/format';
 import { positivePercentTargetTrigger } from '$lib/utils/trade-targets';
+import { getBuyWith } from '$lib/stores/feSettings.svelte';
 import type { CursorTriplet } from '$lib/utils/livecursor';
 import { mergeCompletedTrades, sortCompletedTrades } from '$lib/utils/completed-trades';
 import { mergeUniqueById, totalAtLeastLoaded, unseenCursor } from '$lib/utils/paginated-rows';
@@ -1081,6 +1082,7 @@ export async function executeBuy(chain: Chain, tokenAddress: string, presetSlot?
 			? {
 					preset: slot as TradePresetSlot,
 					amount: { type: amountType, value: amountVal },
+					buyWith: getBuyWith(),
 					// The form mirrors the loaded preset, so this is the user's current
 					// visible order type. Omitting it would make the API fall back to the
 					// preset's stored strategy (e.g. DIP) even when MARKET is selected.
@@ -1088,6 +1090,7 @@ export async function executeBuy(chain: Chain, tokenAddress: string, presetSlot?
 				}
 			: {
 					amount: { type: amountType, value: amountVal },
+					buyWith: getBuyWith(),
 					strategy: buildStrategy(),
 					settings: buildSettings()
 				};
@@ -1187,6 +1190,7 @@ export async function quickBuy(
 			params: { path: { chain, token: tokenAddress } },
 			body: {
 				amount: { type: amountType, value: amountVal },
+				buyWith: getBuyWith(),
 				strategy: { type: 'MARKET' },
 				settings: {
 					antiMev,

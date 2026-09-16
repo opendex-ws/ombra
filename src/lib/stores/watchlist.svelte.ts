@@ -1,4 +1,6 @@
-type SourceType = 'CALLER' | 'TG' | 'LIST' | 'WALLET';
+import type { CallerSource } from '$lib/api/types';
+
+type SourceType = CallerSource;
 type CallerSelection = { id: string; sourceType: SourceType };
 
 let pendingCallerSelection = $state<CallerSelection | null>(null);

@@ -5,15 +5,17 @@
 	import type { WatchlistSourceItem, CallerSource } from '$lib/api/types';
 	import X from 'lucide-svelte/icons/x';
 	import Check from 'lucide-svelte/icons/check';
-	import { typeBadge } from '$lib/utils/format';
+	import { typeBadge, avatarUrl } from '$lib/utils/format';
+	import { dedupeSourceItems } from '$lib/utils/list-sources';
+	import { getWalletIconUrl } from '$lib/utils/walleticon';
 
-	type SourceTab = 'callers' | 'tg' | 'wallets' | 'lists';
+	type SourceTab = 'callers' | 'tg' | 'wallets' | 'theses' | 'lists';
 	type TabConfig = { key: SourceTab; label: string };
 
 	let {
 		show = $bindable(false),
 		mode = 'single' as 'single' | 'multi',
-		tabs = ['callers', 'tg', 'wallets'] as SourceTab[],
+		tabs = ['callers', 'tg', 'wallets', 'theses'] as SourceTab[],
 		selectedIds = $bindable<string[]>([]),
 		activeTab: initialTab = undefined as SourceTab | undefined,
 		title = 'Select Source',
@@ -38,7 +40,7 @@
 	let loading = $state(false);
 	let fetched = $state(false);
 	let searchDebounce: ReturnType<typeof setTimeout> | null = null;
-	const requestSeqByTab: Record<SourceTab, number> = { callers: 0, tg: 0, wallets: 0, lists: 0 };
+	const requestSeqByTab: Record<SourceTab, number> = { callers: 0, tg: 0, wallets: 0, theses: 0, lists: 0 };
 
 	type TabData = { items: WatchlistSourceItem[]; cursor?: string; hasMore: boolean; loadingMore: boolean; search: string };
 	const emptyTab = (): TabData => ({ items: [], cursor: undefined, hasMore: false, loadingMore: false, search: '' });
@@ -46,13 +48,15 @@
 		callers: emptyTab(),
 		tg: emptyTab(),
 		wallets: emptyTab(),
+		theses: emptyTab(),
 		lists: emptyTab()
 	});
 
-	const pathMap: Record<SourceTab, '/v2/watchlist/sources/callers' | '/v2/watchlist/sources/tg' | '/v2/watchlist/sources/wallets' | '/v2/watchlist/sources/lists'> = {
+	const pathMap: Record<SourceTab, '/v2/watchlist/sources/callers' | '/v2/watchlist/sources/tg' | '/v2/watchlist/sources/wallets' | '/v2/watchlist/sources/theses' | '/v2/watchlist/sources/lists'> = {
 		callers: '/v2/watchlist/sources/callers',
 		tg: '/v2/watchlist/sources/tg',
 		wallets: '/v2/watchlist/sources/wallets',
+		theses: '/v2/watchlist/sources/theses',
 		lists: '/v2/watchlist/sources/lists'
 	};
 
@@ -60,6 +64,7 @@
 		callers: 'Callers',
 		tg: 'Telegram',
 		wallets: 'Wallets',
+		theses: 'Thesis Authors',
 		lists: 'User Lists'
 	};
 
@@ -75,6 +80,14 @@
 
 	function getSourceType(item: WatchlistSourceItem): CallerSource {
 		return (item as { type: CallerSource }).type;
+	}
+
+	/** Thesis authors are identified by wallet, so they carry an avatar plus the
+	 * platform they post on. Other source kinds have no identity art here. */
+	function getThesisIdentity(item: WatchlistSourceItem) {
+		const rec = item as { type?: string; walletAddress?: string; photoId?: string | null; source?: 'PUMPFUN' | 'FOMO' };
+		if (rec.type !== 'THESIS' || !rec.walletAddress) return null;
+		return { walletAddress: rec.walletAddress, photoId: rec.photoId ?? null, source: rec.source };
 	}
 
 	const filteredItems = $derived(tabData[currentTab].items);
@@ -97,7 +110,7 @@
 			if (seq !== requestSeqByTab[tab]) return;
 			const newItems = data?.sources ?? [];
 			tabData[tab] = {
-				items: reset ? newItems : [...tabData[tab].items, ...newItems],
+				items: dedupeSourceItems(reset ? newItems : [...tabData[tab].items, ...newItems]),
 				cursor: data?.nextCursor,
 				hasMore: !!data?.nextCursor,
 				loadingMore: false,
@@ -178,7 +191,7 @@
 		<div class="animate-fade-in w-full max-w-md rounded-2xl border border-bd bg-s5 shadow-2xl backdrop-blur-xl" onclick={(e) => e.stopPropagation()}>
 			<div class="flex items-center justify-between border-b border-bd px-5 py-4">
 				<h3 class="text-sm font-semibold text-tx">{title}</h3>
-				<button onclick={close} class="cursor-pointer text-g4 transition-colors hover:text-tx">
+				<button onclick={close} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 					<X class="h-4 w-4" />
 				</button>
 			</div>
@@ -208,13 +221,36 @@
 					<div class="py-8 text-center text-sm text-g5">No sources found</div>
 				{:else}
 					<div class="max-h-[400px] space-y-1 overflow-y-auto" onscroll={handleScroll}>
-						{#each filteredItems as item}
+						{#each filteredItems as item (getSourceId(item))}
 							{@const id = getSourceId(item)}
 							{@const selected = selectedIds.includes(id)}
+							{@const thesis = getThesisIdentity(item)}
 							<button
 								onclick={() => handleSelect(item)}
 								class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors {selected ? 'bg-grn/10 ring-1 ring-grn/20' : 'hover:bg-wh/5'}"
 							>
+								{#if thesis}
+									<div class="relative h-6 w-6 shrink-0">
+										<img
+											src={avatarUrl(thesis.photoId) ?? getWalletIconUrl(thesis.walletAddress)}
+											alt=""
+											class="h-6 w-6 rounded-full object-cover ring-1 ring-bd"
+											loading="lazy"
+										/>
+										{#if thesis.source}
+											<span
+												class="absolute -bottom-1 -left-1 flex h-3 w-3 items-center justify-center overflow-hidden rounded-full bg-s6 ring-1 ring-s6"
+												title={thesis.source === 'FOMO' ? 'FOMO' : 'Pump.fun'}
+											>
+												<img
+													src={thesis.source === 'FOMO' ? '/entity-icons/fomo.webp' : '/entity-icons/pumpfun.webp'}
+													alt=""
+													class="h-full w-full object-cover"
+												/>
+											</span>
+										{/if}
+									</div>
+								{/if}
 								<div class="min-w-0 flex-1">
 									<div class="truncate text-sm font-medium text-tx">{getSourceName(item)}</div>
 								</div>

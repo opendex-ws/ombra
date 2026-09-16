@@ -1,4 +1,5 @@
 import { getAuthToken } from '$lib/stores/auth.svelte';
+import { addToast } from '$lib/stores/toast.svelte';
 import { WS_PROBE_INTERVAL_MS } from '$lib/utils/ws-health';
 import { wsBase } from '$lib/api/config';
 import { dev } from '$app/environment';
@@ -86,6 +87,9 @@ type InboundItem = { generation: number; raw: string; process: (raw: string) => 
 let inboundQueue: InboundItem[] = [];
 let inboundQueueHead = 0;
 let inboundQueueBytes = 0;
+// Frames evicted from the hidden-tab ring. Non-zero means the backlog has a
+// gap, so the deltas left in it can no longer be applied to our stale state.
+let hiddenDroppedFrames = 0;
 let drainScheduled = false;
 let drainChannel: MessageChannel | null = null;
 let outstandingPing: { requestId: string; generation: number; sentAt: number } | null = null;
@@ -123,10 +127,10 @@ const RECOVERY_STALL_MS = 30000;
 // keep only a small ring of the most recent frames while hidden, then drop it
 // entirely on resume and let the server re-seed every live window.
 const MAX_HIDDEN_QUEUE_MESSAGES = 2000;
-// On resume, if we dropped more than this many hidden-tab frames, the UI has
-// diverged enough that we force a reconnect + full server reseed. Below it, a
-// quick tab switch, we keep the existing socket + subscriptions and just probe.
-const RESUME_RESEED_BACKLOG = 100;
+// A hidden tab still answers transport-level pings, but some proxies and
+// gateways close a connection that sends nothing for long enough. Background
+// timers are throttled to roughly once a minute, so this is best-effort: it
+// costs one tiny frame and buys us a much longer idle survival window.
 
 function isDocHidden(): boolean {
 	return typeof document !== 'undefined' && document.visibilityState === 'hidden';
@@ -197,6 +201,7 @@ function inboundQueueSize() {
 function resetInboundQueue() {
 	inboundQueue = [];
 	inboundQueueHead = 0;
+	hiddenDroppedFrames = 0;
 	inboundQueueBytes = 0;
 }
 
@@ -265,6 +270,7 @@ function enqueueInbound(generation: number, raw: string, process: (raw: string) 
 		while (inboundQueueSize() > MAX_HIDDEN_QUEUE_MESSAGES) {
 			const dropped = inboundQueue[inboundQueueHead++];
 			inboundQueueBytes = Math.max(0, inboundQueueBytes - dropped.raw.length);
+			hiddenDroppedFrames++;
 		}
 		// Reclaim the dropped prefix so the backing array can't grow unbounded
 		// over a long hidden period (head advances but slots stay allocated).
@@ -283,6 +289,16 @@ function enqueueInbound(generation: number, raw: string, process: (raw: string) 
 	inboundQueueBytes += raw.length;
 	noteRecoveryProgress();
 	scheduleInboundDrain();
+}
+
+/**
+ * Keepalive for a hidden tab. Deliberately skips the recovery bookkeeping: we
+ * are not draining, so a pong could not be observed anyway, and an outstanding
+ * probe would block the real one we issue on resume.
+ */
+function sendKeepalive() {
+	if (!socket || socket.readyState !== WebSocket.OPEN) return;
+	safeSend(JSON.stringify({ type: 'ping', requestId: `ws_keepalive_${connectionGeneration}_${++requestCounter}` }));
 }
 
 function startApplicationProbe(reason: 'periodic' | 'resume' | 'open') {
@@ -369,18 +385,19 @@ function handleVisibilityChange() {
 		clearRecoveryWatchdog();
 		return;
 	}
-	// Returning to a visible tab. Two cases:
-	//  - Large backlog (long background period): drop it and force a clean
-	//    reconnect so the server re-seeds every live window from scratch —
-	//    replaying an hour of deltas would flood the main thread (low FPS), and
-	//    the reseed makes the dropped deltas irrelevant.
-	//  - Small backlog (a quick tab switch): just drain it normally on the
-	//    existing socket (no flood risk) so no updates are lost, then probe.
-	const staleBacklog = inboundQueueSize();
+	// Returning to a visible tab. What matters is whether the backlog still has
+	// every frame, not how big it is:
+	//  - Frames were evicted from the ring: the remaining deltas would be applied
+	//    on top of state they no longer follow, so drop everything and force a
+	//    reconnect to get a clean server reseed.
+	//  - Nothing was evicted: the backlog is complete and bounded by the ring, so
+	//    drain it on the existing socket. The drain is time-sliced, so this costs
+	//    a few frames of work instead of a full reconnect + reseed.
 	if (socket?.readyState === WebSocket.OPEN) {
-		if (staleBacklog >= RESUME_RESEED_BACKLOG) {
+		if (hiddenDroppedFrames > 0) {
+			wsLog('resume:reseed', { droppedWhileHidden: hiddenDroppedFrames });
 			resetInboundQueue();
-			forceReconnect('resume with large stale backlog');
+			forceReconnect('resume after dropping hidden-tab frames');
 		} else {
 			startApplicationProbe('resume');
 			scheduleInboundDrain();
@@ -393,6 +410,9 @@ function handleVisibilityChange() {
 
 function installLifecycleHandlers() {
 	if (lifecycleInstalled || typeof window === 'undefined') return;
+	// Reachable from the console as `__wsDiag()` so a feed that goes quiet can be
+	// diagnosed in a live session without a dev build or a rebuild.
+	(window as unknown as { __wsDiag?: () => WsDiagnostics }).__wsDiag = getWsDiagnostics;
 	document.addEventListener('visibilitychange', handleVisibilityChange);
 	window.addEventListener('pageshow', handleVisibilityChange);
 	window.addEventListener('online', handleVisibilityChange);
@@ -406,6 +426,20 @@ function removeLifecycleHandlers() {
 	window.removeEventListener('online', handleVisibilityChange);
 	lifecycleInstalled = false;
 }
+
+/** Per-topic delivery accounting, so a silently-dropped feed is visible. */
+export type TopicDelivery = {
+	/** Frames the server sent for this topic. */
+	received: number;
+	/** Frames handed to at least one subscriber. */
+	delivered: number;
+	/** Frames matched by base topic but rejected by window/cursor gating. */
+	rejectedWindow: number;
+	/** Frames that matched no live subscription at all. */
+	unmatched: number;
+	lastReceivedAtMs?: number;
+	lastDeliveredAtMs?: number;
+};
 
 export type WsDiagnostics = {
 	generation: number;
@@ -423,6 +457,8 @@ export type WsDiagnostics = {
 	reconnectScheduled: boolean;
 	lastCloseCode?: number;
 	lastCloseReason?: string;
+	/** Keyed by topic base (suffix stripped), newest activity first. */
+	topics: Record<string, TopicDelivery>;
 };
 
 export function getWsDiagnostics(): WsDiagnostics {
@@ -441,7 +477,8 @@ export function getWsDiagnostics(): WsDiagnostics {
 		reconnectAttempt,
 		reconnectScheduled: reconnectTimeout !== null,
 		lastCloseCode,
-		lastCloseReason
+		lastCloseReason,
+		topics: Object.fromEntries([...topicDelivery.entries()].map(([k, v]) => [k, { ...v }]))
 	};
 }
 
@@ -482,8 +519,32 @@ function serverKeyFor(topic: string, params?: Record<string, any>): string {
 	return params ? `${topic}\n${JSON.stringify(params)}` : topic;
 }
 
-function topicMatches(expected: string, actual: string): boolean {
-	return expected === actual || actual.startsWith(expected + ':') || expected.startsWith(actual + ':');
+function topicBase(topic: string): string {
+	const q = topic.indexOf('?');
+	return q === -1 ? topic : topic.slice(0, q);
+}
+
+function topicFilterSuffix(topic: string): string | undefined {
+	const q = topic.indexOf('?');
+	return q === -1 ? undefined : topic.slice(q + 1);
+}
+
+/**
+ * Broadcast topics may echo a canonical filter suffix (`wallets:feed?minUsd=10`),
+ * so a plain string compare against the subscribed topic drops every frame.
+ */
+export function topicMatches(expected: string, actual: string): boolean {
+	const expectedBase = topicBase(expected);
+	const actualBase = topicBase(actual);
+	const baseMatches =
+		expectedBase === actualBase
+		|| actualBase.startsWith(expectedBase + ':')
+		|| expectedBase.startsWith(actualBase + ':');
+	if (!baseMatches) return false;
+	const expectedSuffix = topicFilterSuffix(expected);
+	const actualSuffix = topicFilterSuffix(actual);
+	if (expectedSuffix === undefined || actualSuffix === undefined) return true;
+	return expectedSuffix === actualSuffix;
 }
 
 function frameWindowId(meta: any): string | undefined {
@@ -539,6 +600,70 @@ function takePendingServerKey(requestId: string): string | undefined {
 	}
 }
 
+/**
+ * Delivery accounting per topic. A feed that goes quiet is either not arriving
+ * (received stops climbing) or arriving and being dropped (received climbs while
+ * delivered does not) — without this the two are indistinguishable at runtime.
+ */
+const topicDelivery = new Map<string, TopicDelivery>();
+
+function noteTopicDelivery(topic: string, delivered: number, rejectedWindow: number) {
+	const key = topicBase(topic);
+	let entry = topicDelivery.get(key);
+	if (!entry) {
+		entry = { received: 0, delivered: 0, rejectedWindow: 0, unmatched: 0 };
+		topicDelivery.set(key, entry);
+	}
+	const now = Date.now();
+	entry.received++;
+	entry.lastReceivedAtMs = now;
+	entry.rejectedWindow += rejectedWindow;
+	if (delivered > 0) {
+		entry.delivered++;
+		entry.lastDeliveredAtMs = now;
+	} else if (rejectedWindow === 0) {
+		entry.unmatched++;
+	}
+}
+
+/**
+ * The server drops a topic it can no longer serve us (backpressure, and whatever
+ * reasons come later). The socket stays open and the subscription silently stops
+ * producing, so surface it rather than letting the feed just go quiet.
+ */
+const DROP_REASON_TEXT: Record<string, string> = {
+	backpressure: 'the server could not keep up with this feed'
+};
+/** Same topic can be dropped repeatedly; do not stack identical toasts. */
+const recentDropToasts = new Map<string, number>();
+const DROP_TOAST_COOLDOWN_MS = 30_000;
+
+function handleTopicDropped(topic: unknown, reason: unknown) {
+	const topicName = typeof topic === 'string' && topic ? topic : 'a live feed';
+	const reasonKey = typeof reason === 'string' ? reason : '';
+	wsLog('topic:dropped', { topic: topicName, reason: reasonKey });
+
+	// State first: only the TOAST is throttled. A repeat drop inside the cooldown
+	// must still mark the subscription dead.
+	for (const serverSub of serverSubscriptions.values()) {
+		if (topicMatches(serverSub.topic, topicName) || serverSub.displayTopic === topicName) {
+			serverSub.failed = true;
+			serverSub.subId = undefined;
+		}
+	}
+
+	const now = Date.now();
+	const last = recentDropToasts.get(topicName);
+	if (last !== undefined && now - last < DROP_TOAST_COOLDOWN_MS) return;
+	recentDropToasts.set(topicName, now);
+	const detail = DROP_REASON_TEXT[reasonKey] ?? (reasonKey ? `reason: ${reasonKey}` : undefined);
+	addToast(
+		'warning',
+		'Live updates stopped',
+		detail ? `${topicName} — ${detail}. Reload to resume.` : `${topicName}. Reload to resume.`
+	);
+}
+
 function dispatchMessage(msgTopic: string, event: string, data: any, meta?: any) {
 	let delivered = 0;
 	let rejectedWindow = 0;
@@ -558,7 +683,14 @@ function dispatchMessage(msgTopic: string, event: string, data: any, meta?: any)
 
 		const serverSub = sub.serverKey ? serverSubscriptions.get(sub.serverKey) : undefined;
 		if (serverSub && !serverSub.pendingRequestId && !serverSub.failed) {
-			const strictAckRouting = sub.topic.startsWith('twitter:') && !!serverSub.displayTopic;
+			// Topics that model a filtered room as a `?suffix` on the topic must route
+			// on the acknowledged canonical topic ONLY. The server publishes each
+			// room's frames under that room's own topic, so a scoped subscriber
+			// (`wallets:thesis?tokenAddress=X`) must NOT also accept the unscoped
+			// room's bare-topic frames — that is what leaked every thesis into the
+			// token-scoped popover.
+			const roomTopic = sub.topic.startsWith('twitter:') || sub.topic.startsWith('wallets:');
+			const strictAckRouting = roomTopic && !!serverSub.displayTopic;
 			const displayMatch = serverSub.displayTopic ? (strictAckRouting ? serverSub.displayTopic === msgTopic : topicMatches(serverSub.displayTopic, msgTopic)) : false;
 			const requestedMatch = strictAckRouting ? false : topicMatches(sub.topic, msgTopic);
 			if (displayMatch || requestedMatch) {
@@ -613,7 +745,8 @@ function dispatchMessage(msgTopic: string, event: string, data: any, meta?: any)
 			});
 		}
 	}
-	wsLog('event:dispatch', { eventTopic: msgTopic, event, delivered, windowId, endCursor });
+	noteTopicDelivery(msgTopic, delivered, rejectedWindow);
+	wsLog('event:dispatch', { eventTopic: msgTopic, event, delivered, rejectedWindow, windowId, endCursor });
 }
 
 function notifyServerSubscriptionError(serverKey: string | undefined, error: WsErrorInfo) {
@@ -682,7 +815,8 @@ function connect() {
 
 		if (pingInterval) clearInterval(pingInterval);
 		pingInterval = setInterval(() => {
-			startApplicationProbe('periodic');
+			if (isDocHidden()) sendKeepalive();
+			else startApplicationProbe('periodic');
 		}, WS_PROBE_INTERVAL_MS);
 		startApplicationProbe('open');
 	};
@@ -796,6 +930,11 @@ function connect() {
 		}
 
 		if (msg.type === 'unsubscribed') {
+			return;
+		}
+
+		if (msg.type === 'topic_dropped') {
+			handleTopicDropped(msg.topic, msg.reason);
 			return;
 		}
 

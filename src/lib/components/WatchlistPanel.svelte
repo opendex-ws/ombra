@@ -78,6 +78,9 @@
 	let { selectedAddress = '', onnavigate = () => {}, active = true }: { selectedAddress?: string; onnavigate?: () => void; active?: boolean } = $props();
 
 	let activeTab: WatchlistTab = $state('Callers');
+	// The per-source edit gears are hover-revealed, which touch devices cannot
+	// do. This pins them open so they stay reachable without a pointer.
+	let sourceEditMode = $state(false);
 	let calls: WatchlistCallItem[] = $state([]);
 	let loading: boolean = $state(false);
 	let hasMore: boolean = $state(false);
@@ -306,6 +309,7 @@
 	function selectTab(tab: WatchlistTab) {
 		if (activeTab === tab) return;
 		clearFeedFilters();
+		sourceEditMode = false;
 		activeTab = tab;
 		feedSourceRequestId++;
 		feedSourceItems = [];
@@ -326,6 +330,17 @@
 
 	type WalletSource = WalletSourceIdentity;
 	let ctWallets = $state<WalletSource[]>([]);
+	const hasEditableSources = $derived.by(() => {
+		if (!getIsLoggedIn()) return false;
+		if (activeTab === 'Lists') return userLists.length > 0;
+		if (activeTab === 'Wallets') return ctWallets.length > 0;
+		if (activeTab === 'Telegram') return !!tgLoggedIn && tgSources.length > 0;
+		return false;
+	});
+	const editSourcesLabel = $derived.by(() =>
+		activeTab === 'Lists' ? 'Edit lists' : activeTab === 'Wallets' ? 'Manage wallets' : 'Edit channel filters'
+	);
+
 	let ctWalletsLoading = $state(false);
 	let ctWalletsFetched = $state(false);
 	let showCtWalletModal = $state(false);
@@ -1709,7 +1724,7 @@
 					{#each userLists as list (list.id)}
 						<div class="group flex shrink-0 items-center gap-0.5">
 							<button onclick={() => toggleListFilter(list.id)} class="cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors {selectedListIds.has(list.id) ? 'bg-grn/20 text-grn' : 'text-g6 hover:text-g9'}"><span class="max-w-[80px] truncate">{list.name}</span></button>
-							<button onclick={() => openEditList(list)} class="hidden cursor-pointer text-g4 transition-colors hover:text-tx group-hover:inline-flex" title="Edit list"><Settings class="h-3 w-3" strokeWidth={1.5} /></button>
+							<button onclick={() => openEditList(list)} class="{sourceEditMode ? 'flex' : 'hidden group-hover:flex'} h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-g4 transition-colors hover:bg-s7 hover:text-tx md:h-5 md:w-5" title="Edit list"><Settings class="h-3.5 w-3.5" strokeWidth={1.75} /></button>
 						</div>
 					{/each}
 				{:else if activeTab === 'Wallets' && getIsLoggedIn() && ctWallets.length > 0}
@@ -1717,7 +1732,7 @@
 					{#each ctWallets as wallet (wallet.id)}
 						<div class="group flex shrink-0 items-center gap-0.5">
 							<button onclick={() => toggleWalletFilter(wallet.id)} class="cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors {selectedWalletIds.has(wallet.id) ? 'bg-grn/20 text-grn' : 'text-g6 hover:text-g9'}"><span class="max-w-[80px] truncate">{wallet.name}</span></button>
-							<button onclick={() => { showCtWalletModal = true; }} class="hidden cursor-pointer text-g4 transition-colors hover:text-tx group-hover:inline-flex" title="Manage wallets"><Settings class="h-3 w-3" strokeWidth={1.5} /></button>
+							<button onclick={() => { showCtWalletModal = true; }} class="{sourceEditMode ? 'flex' : 'hidden group-hover:flex'} h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-g4 transition-colors hover:bg-s7 hover:text-tx md:h-5 md:w-5" title="Manage wallets"><Settings class="h-3.5 w-3.5" strokeWidth={1.75} /></button>
 						</div>
 					{/each}
 				{:else if activeTab === 'Telegram' && getIsLoggedIn() && tgLoggedIn && tgSources.length > 0}
@@ -1727,12 +1742,23 @@
 						<div class="group flex shrink-0 items-center gap-0.5">
 							<button onclick={() => toggleChannelFilter(getSourceId(src))} class="cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors {selectedChannelIds.has(getSourceId(src)) ? 'bg-grn/20 text-grn' : 'text-g6 hover:text-g9'}"><span class="max-w-[80px] truncate">{getSourceName(src)}</span></button>
 							{#if tgChat}
-								<button onclick={() => openEditModal(tgChat)} class="hidden cursor-pointer text-g4 transition-colors hover:text-tx group-hover:inline-flex" title="Edit channel filters"><Settings class="h-3 w-3" strokeWidth={1.5} /></button>
+								<button onclick={() => openEditModal(tgChat)} class="{sourceEditMode ? 'flex' : 'hidden group-hover:flex'} h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-g4 transition-colors hover:bg-s7 hover:text-tx md:h-5 md:w-5" title="Edit channel filters"><Settings class="h-3.5 w-3.5" strokeWidth={1.75} /></button>
 							{/if}
 						</div>
 					{/each}
 				{/if}
 			</div>
+
+			{#if hasEditableSources}
+				<button
+					onclick={() => { sourceEditMode = !sourceEditMode; }}
+					class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors {sourceEditMode ? 'bg-tx/20 text-tx' : 'bg-s7 text-g7 hover:bg-s6 hover:text-tx'}"
+					title={sourceEditMode ? 'Done editing' : editSourcesLabel}
+					aria-pressed={sourceEditMode}
+				>
+					<Settings class="h-3.5 w-3.5" strokeWidth={2} />
+				</button>
+			{/if}
 
 			<button
 				onclick={() => { if (!showFeedFilter) fetchFeedSources(); showFeedFilter = !showFeedFilter; }}
@@ -1909,12 +1935,12 @@
 						<button onclick={cycleRankTimeframe} class="cursor-pointer rounded bg-s7 px-1.5 py-0.5 text-[10px] font-medium uppercase text-g6 transition-colors hover:text-tx">{r.timeframe}</button>
 						<button
 							onclick={() => (rankingCollapsed = !rankingCollapsed)}
-							class="cursor-pointer text-g4 transition-colors hover:text-tx"
+							class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx"
 							aria-label={rankingCollapsed ? 'Expand ranking' : 'Collapse ranking'}
 						>
 							<ChevronDown class="h-3.5 w-3.5 transition-transform duration-200 {rankingCollapsed ? 'rotate-180' : ''}" />
 						</button>
-						<button onclick={() => { selectedCallerId = null; selectedChannelIds = new Set(); selectedListIds = new Set(); selectedWalletIds = new Set(); sourceRanking = null; fetchCalls(); }} class="cursor-pointer text-g4 transition-colors hover:text-tx">
+						<button onclick={() => { selectedCallerId = null; selectedChannelIds = new Set(); selectedListIds = new Set(); selectedWalletIds = new Set(); sourceRanking = null; fetchCalls(); }} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 							<X class="h-3.5 w-3.5" />
 						</button>
 					</div>
@@ -2010,7 +2036,7 @@
 					<div class="flex shrink-0 items-center gap-1.5">
 						<StarRating score={r.performanceScore} size={8} />
 						<span class="text-[9px] text-g5">{r.performanceScore}/30</span>
-						<button onclick={() => { selectedCallerId = null; selectedChannelIds = new Set(); selectedListIds = new Set(); selectedWalletIds = new Set(); sourceRanking = null; fetchCalls(); }} class="cursor-pointer text-g4 transition-colors hover:text-tx">
+						<button onclick={() => { selectedCallerId = null; selectedChannelIds = new Set(); selectedListIds = new Set(); selectedWalletIds = new Set(); sourceRanking = null; fetchCalls(); }} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 							<X class="h-3 w-3" />
 						</button>
 					</div>
@@ -2176,8 +2202,8 @@
 							onclick={onnavigate}
 							class="flex min-w-0 flex-1 self-stretch items-center gap-1.5"
 						>
-							<span class="shrink-0 text-[13px] font-semibold text-tx">{d.baseTokenSymbol ?? '?'}</span>
-							<span class="truncate text-[11px] text-g6">{d.baseTokenName ?? ''}</span>
+							<span class="min-w-0 max-w-[55%] shrink truncate text-[13px] font-semibold text-tx" title={d.baseTokenSymbol ?? ''}>{d.baseTokenSymbol ?? '?'}</span>
+							<span class="min-w-0 truncate text-[11px] text-g6" title={d.baseTokenName ?? ''}>{d.baseTokenName ?? ''}</span>
 						</a>
 						<div class="flex shrink-0 items-center gap-1">
 							{#if d.athMultiplier}
@@ -2191,7 +2217,7 @@
 							<button
 								type="button"
 								onclick={() => void openBotForCall(call)}
-								class="flex h-5 w-5 items-center justify-center rounded-md {hasBot(call)
+								class="cursor-pointer flex h-5 w-5 items-center justify-center rounded-md {hasBot(call)
 									? getBotForCall(call)?.status === 'ACTIVE'
 										? 'bg-grn/20 text-grn'
 										: 'bg-red/20 text-red'
@@ -2227,7 +2253,7 @@
 								>
 									{'name' in m && m.name ? m.name : shortAddress(m.walletAddress)}
 									<span
-										class="text-g5 opacity-0 transition-opacity group-hover/wallet:opacity-100"
+										class="cursor-pointer text-g5 transition-opacity md:opacity-0 md:group-hover/wallet:opacity-100"
 										onclick={(e) => { e.stopPropagation(); e.preventDefault(); window.open(explorerAddressUrl(m.chain, m.walletAddress), '_blank', 'noopener'); }}
 										onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); window.open(explorerAddressUrl(m.chain, m.walletAddress), '_blank', 'noopener'); } }}
 										role="link"
@@ -2313,7 +2339,7 @@
 {#if showTgLoginModal}
 	<div use:portal class="fixed inset-0 z-[200] flex items-center justify-center bg-s0/60 backdrop-blur-[2px]" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) { showTgLoginModal = false; } }} onkeydown={(e) => { if (e.key === 'Escape') showTgLoginModal = false; }}>
 		<div class="relative mx-4 w-full max-w-sm rounded-2xl border border-bd bg-s5 p-6 shadow-2xl backdrop-blur-xl" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
-			<button onclick={() => { showTgLoginModal = false; }} class="absolute right-4 top-4 cursor-pointer text-g4 transition-colors hover:text-tx">
+			<button onclick={() => { showTgLoginModal = false; }} class="absolute right-3 top-3 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 				<X class="h-4 w-4" />
 			</button>
 
@@ -2345,7 +2371,7 @@
 						<RefreshCw class="h-3 w-3 {tgSyncing ? 'animate-spin' : ''}" strokeWidth={1.5} />
 						{tgSyncing ? 'Syncing' : 'Sync'}
 					</button>
-					<button onclick={() => { showChannelModal = false; }} class="cursor-pointer text-g4 transition-colors hover:text-tx">
+					<button onclick={() => { showChannelModal = false; }} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 						<X class="h-4 w-4" />
 					</button>
 				</div>
@@ -2423,7 +2449,7 @@
 					<h2 class="truncate text-base font-semibold text-tx">{editChat.chatName}</h2>
 					<span class="text-xs text-g5">Filter Settings</span>
 				</div>
-				<button onclick={() => { showEditModal = false; editChat = null; }} class="cursor-pointer text-g4 transition-colors hover:text-tx">
+				<button onclick={() => { showEditModal = false; editChat = null; }} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 					<X class="h-4 w-4" />
 				</button>
 			</div>
@@ -2546,7 +2572,7 @@
 						<Plus class="h-3 w-3" strokeWidth={2} />
 						Add
 					</button>
-					<button onclick={() => { showCtWalletModal = false; }} class="cursor-pointer text-g4 transition-colors hover:text-tx">
+					<button onclick={() => { showCtWalletModal = false; }} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 						<X class="h-4 w-4" />
 					</button>
 				</div>
@@ -2601,7 +2627,7 @@
 {#if showCtAddModal}
 	<div use:portal class="fixed inset-0 z-[200] flex items-center justify-center bg-s0/60 backdrop-blur-[2px]" role="presentation" onclick={(e) => { if (e.target === e.currentTarget) { showCtAddModal = false; resetCtForm(); } }} onkeydown={(e) => { if (e.key === 'Escape') { showCtAddModal = false; resetCtForm(); } }}>
 		<div class="relative mx-4 w-full max-w-sm rounded-2xl border border-bd bg-s5 p-6 shadow-2xl backdrop-blur-xl" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
-			<button onclick={() => { showCtAddModal = false; resetCtForm(); }} class="absolute right-4 top-4 cursor-pointer text-g4 transition-colors hover:text-tx">
+			<button onclick={() => { showCtAddModal = false; resetCtForm(); }} class="absolute right-3 top-3 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 				<X class="h-4 w-4" />
 			</button>
 

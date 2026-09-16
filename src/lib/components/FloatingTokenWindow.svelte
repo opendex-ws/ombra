@@ -20,6 +20,7 @@
 	import { subscribe, unsubscribe } from '$lib/ws/client';
 	import { api } from '$lib/api/client';
 	import { formatPrice, formatMarketCap, formatNumber, formatUsd, fmtVal, shortAddress } from '$lib/utils/format';
+	import { feeShareholders, feeShareTitle } from '$lib/utils/fee-sharing';
 	import { isUsd } from '$lib/stores/currency.svelte';
 	import { getIsLoggedIn } from '$lib/stores/auth.svelte';
 	import { quickBuy, quickSell, getQuickTradeLoading, getQuickTradeError, getTradeForToken } from '$lib/stores/trade.svelte';
@@ -30,7 +31,9 @@
 	import Globe from 'lucide-svelte/icons/globe';
 	import Sparkles from 'lucide-svelte/icons/sparkles';
 	import Flame from 'lucide-svelte/icons/flame';
+	import Trophy from 'lucide-svelte/icons/trophy';
 	import Coins from 'lucide-svelte/icons/coins';
+	import Users from 'lucide-svelte/icons/users';
 	import { siX, siTelegram, siDiscord, siInstagram } from 'simple-icons';
 	import { portal } from '$lib/actions/portal';
 
@@ -62,10 +65,12 @@
 	let socialLinks = $state<{ website?: string | null; twitter?: string | null; twitterHandle?: string | null; telegram?: string | null; instagram?: string | null; discord?: string | null } | null>(null);
 	let aiNarrative = $state<string | null>(null);
 	let isMayhem = $state(false);
+	let isHolderReward = $state(false);
 	let cashbackPct = $state(0);
+	let feeShareSummary = $state('');
 	let aiOpen = $state(false);
 	const hasLinks = $derived(!!(socialLinks && (socialLinks.website || socialLinks.twitter || socialLinks.telegram || socialLinks.instagram || socialLinks.discord)));
-	const hasMetaRow = $derived(hasLinks || !!aiNarrative || isMayhem || cashbackPct > 0);
+	const hasMetaRow = $derived(hasLinks || !!aiNarrative || isMayhem || isHolderReward || cashbackPct > 0 || !!feeShareSummary);
 
 	let copied = $state(false);
 
@@ -142,7 +147,9 @@
 		socialLinks = null;
 		aiNarrative = null;
 		isMayhem = false;
+		isHolderReward = false;
 		cashbackPct = 0;
+		feeShareSummary = '';
 		aiOpen = false;
 		(async () => {
 			try {
@@ -170,7 +177,9 @@
 				aiNarrative = data.socials?.aiNarrative?.trim() || null;
 				const pf = data.launchPad?.pumpfun ?? null;
 				isMayhem = pf?.isMayhem ?? false;
+				isHolderReward = pf?.isHolderReward ?? false;
 				cashbackPct = pf?.cashbackPct ?? 0;
+				feeShareSummary = feeShareTitle(feeShareholders(pf));
 			} catch {}
 		})();
 		return () => { cancelled = true; };
@@ -296,28 +305,34 @@
 		<div data-no-drag class="shrink-0 border-b border-bd bg-s1/60 px-2.5 py-1">
 			<div class="flex flex-wrap items-center gap-1.5">
 				{#if socialLinks?.website}
-					<a href={socialLinks.website} target="_blank" rel="noopener" title="Website" class="text-g5 transition-colors hover:text-grn"><Globe class="h-3 w-3" strokeWidth={2.5} /></a>
+					<a href={socialLinks.website} target="_blank" rel="noopener" title="Website" class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><Globe class="h-3 w-3" strokeWidth={2.5} /></a>
 				{/if}
 				{#if socialLinks?.twitter}
-					<a href={socialLinks.twitter} target="_blank" rel="noopener" title={socialLinks.twitterHandle ? `@${socialLinks.twitterHandle}` : 'Twitter'} class="text-g5 transition-colors hover:text-grn"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path}/></svg></a>
+					<a href={socialLinks.twitter} target="_blank" rel="noopener" title={socialLinks.twitterHandle ? `@${socialLinks.twitterHandle}` : 'Twitter'} class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path}/></svg></a>
 				{/if}
 				{#if socialLinks?.telegram}
-					<a href={socialLinks.telegram} target="_blank" rel="noopener" title="Telegram" class="text-g5 transition-colors hover:text-grn"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siTelegram.path}/></svg></a>
+					<a href={socialLinks.telegram} target="_blank" rel="noopener" title="Telegram" class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siTelegram.path}/></svg></a>
 				{/if}
 				{#if socialLinks?.instagram}
-					<a href={socialLinks.instagram} target="_blank" rel="noopener" title="Instagram" class="text-g5 transition-colors hover:text-grn"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siInstagram.path}/></svg></a>
+					<a href={socialLinks.instagram} target="_blank" rel="noopener" title="Instagram" class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siInstagram.path}/></svg></a>
 				{/if}
 				{#if socialLinks?.discord}
-					<a href={socialLinks.discord} target="_blank" rel="noopener" title="Discord" class="text-g5 transition-colors hover:text-grn"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siDiscord.path}/></svg></a>
+					<a href={socialLinks.discord} target="_blank" rel="noopener" title="Discord" class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siDiscord.path}/></svg></a>
 				{/if}
 				{#if aiNarrative}
-					<button onclick={() => (aiOpen = !aiOpen)} title="AI summary" class="text-g5 transition-colors hover:text-grn {aiOpen ? 'text-grn' : ''}"><Sparkles class="h-3 w-3" /></button>
+					<button onclick={() => (aiOpen = !aiOpen)} title="AI summary" class="cursor-pointer text-g5 transition-colors hover:text-grn {aiOpen ? 'text-grn' : ''}"><Sparkles class="h-3 w-3" /></button>
 				{/if}
 				{#if isMayhem}
 					<span class="text-org" title="Mayhem"><Flame class="h-3 w-3" /></span>
 				{/if}
+				{#if isHolderReward}
+					<span class="text-pnk" title="Holder rewards"><Trophy class="h-3 w-3" /></span>
+				{/if}
 				{#if cashbackPct > 0}
 					<span class="flex items-center gap-0.5 text-grn" title="Cashback {cashbackPct}%"><Coins class="h-3 w-3" /></span>
+				{/if}
+				{#if feeShareSummary}
+					<span class="flex items-center gap-0.5 text-blu" title={feeShareSummary}><Users class="h-3 w-3" /></span>
 				{/if}
 			</div>
 			{#if aiNarrative && aiOpen}
@@ -344,7 +359,7 @@
 	<div bind:this={chartWrapEl} class="shrink-0 overflow-hidden p-1.5" style="height: {chartHeight + 58}px;">
 		{#if TokenChart}
 			{#key popout.chain + ':' + popout.address}
-				<TokenChart chain={popout.chain} address={popout.address} chartHeight={chartHeight} athPrice={athPriceStr} athMcap={athMcapStr} />
+				<TokenChart chain={popout.chain} address={popout.address} chartHeight={chartHeight} athPrice={athPriceStr} athMcap={athMcapStr} compact />
 			{/key}
 		{:else}
 			<div class="flex h-full items-center justify-center text-g5"><LoaderCircle class="h-5 w-5 animate-spin" /></div>

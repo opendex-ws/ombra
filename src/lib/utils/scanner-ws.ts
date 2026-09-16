@@ -150,6 +150,8 @@ export function applyScannerWsEvent(
 			if (upd.rugged !== undefined) merged.rugged = upd.rugged;
 			if (upd.isFavourited !== undefined) merged.isFavourited = upd.isFavourited;
 			if (upd.calls !== undefined) merged.calls = upd.calls;
+			if (upd.theses !== undefined) merged.theses = upd.theses;
+			if (upd.tweets !== undefined) merged.tweets = upd.tweets;
 			if (upd.createdAtAgeSeconds !== undefined) merged.createdAtAgeSeconds = upd.createdAtAgeSeconds;
 
 			if (!out) out = current.slice();

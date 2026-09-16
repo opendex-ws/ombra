@@ -1,16 +1,27 @@
 <script lang="ts">
 	import type { Chain, WalletTimeRange } from '$lib/api/types';
-	import { WALLET_TIME_RANGE_OPTIONS, type TraderRankingFilterKey, type TraderRankingFilterValues } from './config';
+	import {
+		TRADER_RANKING_SOURCE_OPTIONS,
+		WALLET_TIME_RANGE_OPTIONS,
+		type TraderRankingFilterKey,
+		type TraderRankingFilterValues,
+		type TraderRankingSource
+	} from './config';
+	import FomoIcon from '../FomoIcon.svelte';
+	import PumpFunIcon from '../PumpFunIcon.svelte';
 	import Filter from 'lucide-svelte/icons/funnel';
 	import RotateCcw from 'lucide-svelte/icons/rotate-ccw';
+	import Users from 'lucide-svelte/icons/users';
 	import X from 'lucide-svelte/icons/x';
 
 	let {
 		chain,
 		timeRange,
+		source,
 		filters,
 		onchainchange,
 		ontimechange,
+		onsourcechange,
 		onfilterchange,
 		onapply,
 		onreset,
@@ -18,9 +29,11 @@
 	}: {
 		chain: Chain;
 		timeRange: WalletTimeRange;
+		source: TraderRankingSource;
 		filters: TraderRankingFilterValues;
 		onchainchange: (chain: Chain) => void;
 		ontimechange: (timeRange: WalletTimeRange) => void;
+		onsourcechange: (source: TraderRankingSource) => void;
 		onfilterchange: (key: TraderRankingFilterKey, value?: number) => void;
 		onapply: () => void;
 		onreset: () => void;
@@ -62,6 +75,25 @@
 		{/each}
 	</div>
 
+	<div class="flex gap-0.5 rounded-xl border border-bd bg-s4 p-0.5">
+		{#each TRADER_RANKING_SOURCE_OPTIONS as option}
+			<button
+				type="button"
+				class="flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors {source === option.value ? 'bg-wh/10 text-tx' : 'text-g5 hover:text-g9'}"
+				onclick={() => onsourcechange(option.value)}
+			>
+				{#if option.value === 'FOMO'}
+					<FomoIcon class="h-3 w-3" />
+				{:else if option.value === 'PUMPFUN'}
+					<PumpFunIcon class="h-3 w-3" />
+				{:else if option.value === 'KOL'}
+					<Users class="h-3 w-3" strokeWidth={2.5} />
+				{/if}
+				{option.label}
+			</button>
+		{/each}
+	</div>
+
 	<div class="relative ml-auto">
 		<button
 			type="button"
@@ -77,14 +109,14 @@
 
 		{#if open}
 			<div class="fixed inset-0 z-[90] md:absolute md:inset-auto md:right-0 md:top-full md:mt-1 md:w-[34rem]">
-				<button type="button" class="absolute inset-0 bg-s0/50 md:hidden" aria-label="Close filters" onclick={() => (open = false)}></button>
+				<button type="button" class="cursor-default absolute inset-0 bg-s0/50 md:hidden" aria-label="Close filters" onclick={() => (open = false)}></button>
 				<div class="glass-strong absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-2xl border-t border-bd bg-s2 p-4 md:relative md:inset-auto md:max-h-none md:rounded-2xl md:border md:bg-s5 md:shadow-2xl md:backdrop-blur-xl">
 					<div class="mb-4 flex items-center justify-between">
 						<div>
 							<div class="text-sm font-bold text-tx">Trader filters</div>
 							<div class="text-[11px] text-g5">All values are applied by the ranking API.</div>
 						</div>
-						<button type="button" class="cursor-pointer text-g4 transition-colors hover:text-tx" onclick={() => (open = false)} aria-label="Close">
+						<button type="button" class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx" onclick={() => (open = false)} aria-label="Close">
 							<X class="h-4 w-4" />
 						</button>
 					</div>

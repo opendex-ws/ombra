@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
+	import { getMemescopeFilters, setMemescopeFilters } from '$lib/stores/feSettings.svelte';
 	import { api } from '$lib/api/client';
 	import type { Chain, ScannerItem, TimeFrame, TrenchesPhase, ScannerTokensRequest, components } from '$lib/api/types';
 	import { isCursorRecoveryReason, subscribe, unsubscribe } from '$lib/ws/client';
@@ -21,20 +22,22 @@
 	const chains: Array<'All' | Chain> = ['All', 'SOL'];
 	const timeFrames: TimeFrame[] = ['5M', '1H', '6H', '24H'];
 	const tfSuffix: Record<TimeFrame, string> = { '5M': '5m', '1H': '1h', '6H': '6h', '24H': '24h' };
+	// Launchpads: where a token lives before it graduates. PumpSwap is pump.fun's
+	// AMM, not a launchpad, so it has no place in the pre-graduation columns.
 	const memePlatforms = [
-		'PUMPFUN', 'PUMPSWAP', 'RAYDIUM_LAUNCH', 'METEORA_BONDING_CURVE',
-		'MOONSHOT', 'HEAVEN', 'BELIEVE', 'LETS_BONK', 'BAGS', 'PRINTR',
+		'PUMPFUN', 'RAYDIUM_LAUNCH', 'METEORA_BONDING_CURVE',
+		'MOONSHOT', 'HEAVEN', 'BELIEVE', 'LETS_BONK', 'BAGS', 'PRINTR', 'STONKFUN', 'OTCDESKS', 'PURPS', 'EMBERCURVE',
 	] as const;
-	// PumpSwap is pump.fun's own AMM — it's where graduating tokens actually land,
-	// so it has to be filterable in the Graduated column, not just the meme phases.
 	const dexPlatforms = [
 		'PUMPSWAP', 'RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'METEORA_DYN',
 		'METEORA_DYN_V2', 'METEORA_DLMM',
 	] as const;
+	// A graduated token keeps its launchpad, so Graduated filters on both: the AMM
+	// it trades on now, and the platform it was launched from.
 	const platformsByPhase: Record<TrenchesPhase, readonly string[]> = {
 		new: memePlatforms,
 		graduating: memePlatforms,
-		graduated: dexPlatforms,
+		graduated: [...dexPlatforms, ...memePlatforms],
 	};
 
 	type PhaseFilters = Record<string, string>;
@@ -105,16 +108,20 @@
 	let filterOpenPhase = $state<TrenchesPhase | null>(null);
 	let mobilePhase = $state<TrenchesPhase>('new');
 
-	let filtersNew = $state<PhaseFilters>({});
-	let filtersGraduating = $state<PhaseFilters>({});
-	let filtersGraduated = $state<PhaseFilters>({});
-	let chainNew = $state<'All' | Chain>('All');
-	let chainGraduating = $state<'All' | Chain>('All');
-	let chainGraduated = $state<'All' | Chain>('All');
+	const savedNew = getMemescopeFilters('new');
+	const savedGraduating = getMemescopeFilters('graduating');
+	const savedGraduated = getMemescopeFilters('graduated');
 
-	let platformsNew = $state<Set<string>>(new Set());
-	let platformsGraduating = $state<Set<string>>(new Set());
-	let platformsGraduated = $state<Set<string>>(new Set());
+	let filtersNew = $state<PhaseFilters>({ ...savedNew.filters });
+	let filtersGraduating = $state<PhaseFilters>({ ...savedGraduating.filters });
+	let filtersGraduated = $state<PhaseFilters>({ ...savedGraduated.filters });
+	let chainNew = $state<'All' | Chain>(savedNew.chain as 'All' | Chain);
+	let chainGraduating = $state<'All' | Chain>(savedGraduating.chain as 'All' | Chain);
+	let chainGraduated = $state<'All' | Chain>(savedGraduated.chain as 'All' | Chain);
+
+	let platformsNew = $state<Set<string>>(new Set(savedNew.platforms));
+	let platformsGraduating = $state<Set<string>>(new Set(savedGraduating.platforms));
+	let platformsGraduated = $state<Set<string>>(new Set(savedGraduated.platforms));
 
 	let draftFilters = $state<PhaseFilters>({});
 	let draftPlatforms = $state<Set<string>>(new Set());
@@ -204,14 +211,24 @@
 		setFilters(phase, { ...draftFilters });
 		setPlatforms(phase, new Set(draftPlatforms));
 		setChain(phase, draftChain);
+		persistPhaseFilters(phase);
 		filterOpenPhase = null;
 		fetchAndSubscribePhase(phase);
+	}
+
+	function persistPhaseFilters(phase: TrenchesPhase) {
+		setMemescopeFilters(phase, {
+			filters: { ...getFilters(phase) },
+			platforms: [...getPlatforms(phase)],
+			chain: getChain(phase)
+		});
 	}
 
 	function resetPhaseFilters(phase: TrenchesPhase) {
 		setFilters(phase, {});
 		setPlatforms(phase, new Set());
 		setChain(phase, 'All');
+		persistPhaseFilters(phase);
 		fetchAndSubscribePhase(phase);
 	}
 
@@ -469,11 +486,14 @@
 	});
 
 	$effect(() => {
-		if (!routeActive) {
+		const isActive = routeActive;
+		if (!isActive) {
 			cleanupWs();
 			return;
 		}
-		fetchAndSubscribeAll();
+		// `fetchPhase` reads every column's filters before its first await, so
+		// tracking those reads made one column's change reload all three.
+		untrack(() => fetchAndSubscribeAll());
 	});
 
 	function toggleDraftPlatform(p: string) {

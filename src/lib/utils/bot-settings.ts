@@ -7,6 +7,7 @@ export type BotChainConfig = components['schemas']['BotChainConfig'];
 export type BotChainConfigDiff = components['schemas']['BotChainConfigDiff'];
 export type BotChainConfigRequest = components['schemas']['BotChainConfigRequest'];
 export type BotLimits = components['schemas']['BotLimits'];
+export type BuyWith = components['schemas']['BuyWith'];
 export type BotSourceStrategy = components['schemas']['BotSourceStrategy'];
 export type CallerSource = components['schemas']['CallerSource'];
 export type Chain = components['schemas']['Chain'];
@@ -30,6 +31,8 @@ export type BotConfigForm = {
 	chain: Chain;
 	amount: string;
 	amountType: AmountType;
+	/** Currency the bot funds its buys with. Independent of `amountType`, which only sizes the trade. */
+	buyWith: BuyWith;
 	buyGasMode: GasMode;
 	buyCustomGas: string;
 	sellGasMode: GasMode;
@@ -78,6 +81,7 @@ export function createBotConfigForm(chain: Chain, amountType: AmountType, amount
 		chain,
 		amount,
 		amountType,
+		buyWith: 'NATIVE',
 		buyGasMode: 'AUTO',
 		buyCustomGas: '',
 		sellGasMode: 'AUTO',
@@ -111,6 +115,7 @@ export function hydrateBotConfig(chain: Chain, config: BotChainConfig): BotConfi
 		form.amount = String(config.buy.amount.value);
 		form.amountType = config.buy.amount.type;
 	}
+	form.buyWith = config.buy.buyWith ?? 'NATIVE';
 
 	if (config.buy.strategy.type === 'DIP') {
 		form.buyAt = 'dip';
@@ -241,7 +246,7 @@ export function buildBotConfig(
 
 	if (mode === 'create') {
 		const config: BotChainConfigRequest = {
-			buy: { ...(amount ? { amount } : {}), strategy: buyStrategy },
+			buy: { ...(amount ? { amount } : {}), buyWith: form.buyWith, strategy: buyStrategy },
 			trade,
 			walletAddress
 		};
@@ -252,6 +257,7 @@ export function buildBotConfig(
 	const config: BotChainConfigDiff = {
 		buy: {
 			amount: amount ?? null,
+			buyWith: form.buyWith,
 			strategy: buyStrategy
 		},
 		trade,

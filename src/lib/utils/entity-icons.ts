@@ -176,7 +176,6 @@ type EntityIcon = { slug: EntityIconSlug; url: string };
 
 const knownSlugs = new Set<string>(ENTITY_ICON_SLUGS);
 const VECTOR_ENTITY_ICON_SLUGS = new Set<EntityIconSlug>([
-	'fomo',
 	'direct',
 	'generic-bot',
 	'open-dex',

@@ -13,7 +13,6 @@ describe('entity icon registry', () => {
 		for (const slug of ENTITY_ICON_SLUGS) {
 			const extension =
 				slug === 'open-dex' ||
-				slug === 'fomo' ||
 				slug === 'direct' ||
 				slug === 'padre' ||
 				slug === 'generic-bot' ||

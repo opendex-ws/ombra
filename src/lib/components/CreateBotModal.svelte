@@ -215,7 +215,7 @@
 						<span class="text-xs {botStatus === 'ACTIVE' ? 'text-grn' : 'text-red'}">{botStatus === 'ACTIVE' ? 'Active' : 'Paused'}</span>
 					{/if}
 				</div>
-				<button onclick={close} aria-label="Close" class="cursor-pointer text-g4 transition-colors hover:text-tx">
+				<button onclick={close} aria-label="Close" class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 					<X class="h-4 w-4" />
 				</button>
 			</div>
@@ -327,6 +327,15 @@
 						{#if fieldError('amount')}<p class="mt-1 text-[10px] text-red">{fieldError('amount')}</p>{/if}
 					</div>
 				{/if}
+
+				<div>
+					<span class="mb-1 block text-[10px] font-medium uppercase tracking-wider text-g5">Buy With</span>
+					<div class="flex gap-1">
+						<button onclick={() => (form.buyWith = 'NATIVE')} class="flex-1 cursor-pointer rounded-lg border py-1.5 text-xs font-medium transition-colors {form.buyWith === 'NATIVE' ? 'border-tx text-tx' : 'border-bd text-g6 hover:text-g9'}">Native</button>
+						<button onclick={() => (form.buyWith = 'FIAT')} class="flex-1 cursor-pointer rounded-lg border py-1.5 text-xs font-medium transition-colors {form.buyWith === 'FIAT' ? 'border-tx text-tx' : 'border-bd text-g6 hover:text-g9'}">USD</button>
+					</div>
+					<p class="mt-1 text-[10px] text-g5">Currency that funds the buy. Trade size is unchanged.</p>
+				</div>
 
 				<div>
 					<span class="mb-1 block text-[10px] font-medium uppercase tracking-wider text-g5">Buy At</span>

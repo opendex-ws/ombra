@@ -3,15 +3,20 @@
 	import { onDestroy } from 'svelte';
 	import { onVisibility, FLASH_MS, FLASH_COOLDOWN_MS } from '$lib/utils/visibility';
 	import type { ScannerItem } from '$lib/api/types';
-	import { formatPrice, formatMarketCap, formatPercent, formatNumber, liveAge, fmtVal, fmtPriceHtml, pctColor } from '$lib/utils/format';
+	import { formatPrice, formatMarketCap, formatPercent, formatNumber, formatCompactCount, liveAge, fmtVal, fmtPriceHtml, pctColor } from '$lib/utils/format';
+	import { feeShareholders, feeShareTitle } from '$lib/utils/fee-sharing';
 	import { getRouterInfo, getRouterIconForChain } from '$lib/utils/routers';
 	import { siX, siTelegram, siDiscord, siInstagram } from 'simple-icons';
 	import { getNow } from '$lib/stores/tick.svelte';
 	import Globe from 'lucide-svelte/icons/globe';
 	import Heart from 'lucide-svelte/icons/heart';
 	import Flame from 'lucide-svelte/icons/flame';
+	import Trophy from 'lucide-svelte/icons/trophy';
 	import Coins from 'lucide-svelte/icons/coins';
+	import Users from 'lucide-svelte/icons/users';
 	import DexPaidIcon from './DexPaidIcon.svelte';
+	import MessageSquareQuote from 'lucide-svelte/icons/message-square-quote';
+	import Megaphone from 'lucide-svelte/icons/megaphone';
 	import { buildSparkline } from '$lib/utils/sparkline';
 	import { getIsLoggedIn } from '$lib/stores/auth.svelte';
 	import { getFavourites, addFavourite, removeFavourite } from '$lib/stores/settings.svelte';
@@ -149,7 +154,9 @@
 	});
 	let pumpfun = $derived(token.launchPad?.pumpfun ?? null);
 	let isMayhem = $derived(pumpfun?.isMayhem ?? false);
+	let isHolderReward = $derived(pumpfun?.isHolderReward ?? false);
 	let cashbackPct = $derived(pumpfun?.cashbackPct ?? 0);
+	let feeShares = $derived(feeShareholders(pumpfun));
 	let isFav = $derived(getFavourites().some((f: { token: { chain: string; address: string } }) => f.token.chain === token.chain && f.token.address === token.tokenAddress));
 	let favToggling = $state(false);
 
@@ -225,34 +232,65 @@
 		<div class="min-w-0">
 			<div class="flex items-center gap-1.5">
 				<span class="truncate text-[15px] font-semibold text-tx group-hover:text-wh">{token.tokenSymbol}</span>
-				{#if token.calls > 0}
-					<span class="rounded bg-wh/10 px-1 py-px text-[10px] font-medium text-tx">{token.calls}</span>
-				{/if}
-			{#if token.audit?.dexScreenerPaid}
-				<span title="DexScreener Paid"><DexPaidIcon /></span>
-			{/if}
-			{#if isMayhem}
-				<span class="text-org" title="Mayhem"><Flame class="h-3 w-3" /></span>
-			{/if}
-			{#if cashbackPct > 0}
-				<span class="text-grn" title="Cashback {cashbackPct}%"><Coins class="h-3 w-3" /></span>
-			{/if}
+				{#if token.quoteTokenSymbol}<span class="shrink-0 text-[11px] text-g5">/{token.quoteTokenSymbol}</span>{/if}
 			</div>
 			<div class="mt-0.5 flex items-center gap-1">
+				{#if token.calls > 0}
+					<span
+						class="flex shrink-0 items-center gap-0.5 rounded bg-yel/10 px-1 py-px text-[10px] font-medium text-yel"
+						title="Calls"
+					>
+						<Megaphone class="h-2.5 w-2.5" strokeWidth={2.5} />
+						{formatCompactCount(token.calls)}
+					</span>
+				{/if}
+				{#if (token.theses ?? 0) > 0}
+					<span
+						class="flex shrink-0 items-center gap-0.5 rounded bg-blu/10 px-1 py-px text-[10px] font-medium text-blu-light"
+						title="Theses posted about this token"
+					>
+						<MessageSquareQuote class="h-2.5 w-2.5" strokeWidth={2.5} />
+						{formatCompactCount(token.theses)}
+					</span>
+				{/if}
+				{#if (token.tweets ?? 0) > 0}
+					<span
+						class="flex shrink-0 items-center gap-0.5 rounded bg-wh/10 px-1 py-px text-[10px] font-medium text-tx"
+						title="X posts naming this token"
+					>
+						<svg class="h-2 w-2" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path} /></svg>
+						{formatCompactCount(token.tweets)}
+					</span>
+				{/if}
+				{#if token.audit?.dexScreenerPaid}
+					<span title="DexScreener Paid"><DexPaidIcon /></span>
+				{/if}
+				{#if isMayhem}
+					<span class="text-org" title="Mayhem"><Flame class="h-3 w-3" /></span>
+				{/if}
+				{#if isHolderReward}
+					<span class="text-pnk" title="Holder rewards"><Trophy class="h-3 w-3" /></span>
+				{/if}
+				{#if cashbackPct > 0}
+					<span class="text-grn" title="Cashback {cashbackPct}%"><Coins class="h-3 w-3" /></span>
+				{/if}
+				{#if feeShares.length > 0}
+					<span class="text-blu" title={feeShareTitle(feeShares)}><Users class="h-3 w-3" /></span>
+				{/if}
 				{#if soc.twitter}
-					<button data-social onclick={(e) => openSocial(e, soc.twitter)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Twitter"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path}/></svg></button>
+					<button data-social onclick={(e) => openSocial(e, soc.twitter)} class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4" title="Twitter"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path}/></svg></button>
 				{/if}
 				{#if soc.telegram}
-					<button data-social onclick={(e) => openSocial(e, soc.telegram)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Telegram"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siTelegram.path}/></svg></button>
+					<button data-social onclick={(e) => openSocial(e, soc.telegram)} class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4" title="Telegram"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siTelegram.path}/></svg></button>
 				{/if}
 				{#if soc.instagram}
-					<button data-social onclick={(e) => openSocial(e, soc.instagram)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Instagram"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siInstagram.path}/></svg></button>
+					<button data-social onclick={(e) => openSocial(e, soc.instagram)} class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4" title="Instagram"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siInstagram.path}/></svg></button>
 				{/if}
 				{#if soc.discord}
-					<button data-social onclick={(e) => openSocial(e, soc.discord)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Discord"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siDiscord.path}/></svg></button>
+					<button data-social onclick={(e) => openSocial(e, soc.discord)} class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4" title="Discord"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siDiscord.path}/></svg></button>
 				{/if}
 				{#if soc.website}
-					<button data-social onclick={(e) => openSocial(e, soc.website)} class="cursor-pointer text-g5 transition-colors hover:text-grn" title="Website"><Globe class="h-3 w-3" strokeWidth={2.5} /></button>
+					<button data-social onclick={(e) => openSocial(e, soc.website)} class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4" title="Website"><Globe class="h-3 w-3" strokeWidth={2.5} /></button>
 				{/if}
 			</div>
 		</div>

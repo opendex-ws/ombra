@@ -87,7 +87,7 @@
 								<span class="text-xs font-semibold text-tx">{toast.title}</span>
 								<button
 									onclick={(e) => { e.stopPropagation(); removeToast(toast.id); }}
-									class="shrink-0 cursor-pointer text-g3 transition-colors hover:text-g7"
+									class="-m-1.5 shrink-0 cursor-pointer rounded p-1.5 text-g3 transition-colors hover:text-g7"
 									aria-label="Dismiss"
 								>
 									<X class="h-3 w-3" strokeWidth={2} />

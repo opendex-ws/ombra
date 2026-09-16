@@ -4,7 +4,7 @@
 	import type { ScannerItem, Chain, TimeFrame, ScannerTokensRequest, components } from '$lib/api/types';
 	import { api } from '$lib/api/client';
 	import TokenTable from '$lib/components/TokenTable.svelte';
-	import MobileTokenCard from '$lib/components/MobileTokenCard.svelte';
+	import MemescopeCard from '$lib/components/MemescopeCard.svelte';
 	import { isCursorRecoveryReason, subscribe, unsubscribe } from '$lib/ws/client';
 	import { applyScannerWsEvent, type RowFlashType } from '$lib/utils/scanner-ws';
 	import { createCoalescer } from '$lib/utils/coalesce';
@@ -23,7 +23,7 @@
 	const allPlatforms = [
 		'PUMPFUN', 'PUMPSWAP', 'RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'RAYDIUM_LAUNCH',
 		'METEORA_BONDING_CURVE', 'METEORA_DYN', 'METEORA_DYN_V2', 'METEORA_DLMM',
-		'MOONSHOT', 'HEAVEN', 'BELIEVE', 'LETS_BONK', 'BAGS', 'PRINTR',
+		'MOONSHOT', 'HEAVEN', 'BELIEVE', 'LETS_BONK', 'BAGS', 'PRINTR', 'STONKFUN', 'OTCDESKS', 'PURPS', 'EMBERCURVE',
 	] as const;
 	const scannerViews = [
 		{ value: 'new', label: 'New' },
@@ -196,6 +196,12 @@
 
 		const cc = range('minCallCount', 'maxCallCount');
 		if (cc) tf.callCount = cc;
+
+		const theses = range('minThesisCount', 'maxThesisCount');
+		if (theses) tf.thesisCount = theses;
+
+		const tweets = range('minTweetCount', 'maxTweetCount');
+		if (tweets) tf.tweetCount = tweets;
 
 		const tax: Record<string, unknown> = {};
 		const bt = maxOnly('maxBuyTax'); if (bt) tax.buyTaxPct = bt;
@@ -573,8 +579,8 @@
 				{#if filtersOpen}
 					<!-- Outside-click catcher (desktop). Mobile uses the full-screen panel's ✕. -->
 					<button class="fixed inset-0 z-40 hidden md:block cursor-default" onclick={() => (filtersOpen = false)} aria-label="Close filters"></button>
-					<div class="fixed md:absolute inset-0 md:inset-auto md:left-0 md:top-full z-50 md:mt-1 md:w-80 rounded-none md:rounded-xl border-0 md:border border-bd bg-s5 shadow-2xl">
-						<div class="flex items-center justify-between px-5 py-3 border-b border-bd pt-[env(safe-area-inset-top,12px)] md:pt-3">
+					<div class="fixed inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] top-0 z-50 flex flex-col rounded-none border-0 border-b border-bd bg-s5 shadow-2xl md:absolute md:inset-auto md:bottom-auto md:left-0 md:top-full md:mt-1 md:block md:w-80 md:rounded-xl md:border md:border-bd">
+						<div class="flex shrink-0 items-center justify-between border-b border-bd px-5 py-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] md:pt-3">
 							<div class="flex items-center gap-2.5">
 								<Filter class="h-4 w-4 text-grn" strokeWidth={1.5} />
 								<span class="text-sm font-bold text-tx">Filters</span>
@@ -589,7 +595,7 @@
 								<button onclick={() => (filtersOpen = false)} class="md:hidden cursor-pointer rounded-lg p-1 text-g5 hover:text-tx">✕</button>
 							</div>
 						</div>
-						<div class="max-h-[70vh] md:max-h-[70vh] flex-1 overflow-y-auto">
+						<div class="min-h-0 flex-1 overflow-y-auto md:max-h-[70vh] md:flex-none">
 							{@render accordionSection('platform', 'Platform')}
 							{@render accordionSection('market', 'Market')}
 							{@render accordionSection('activity', 'Activity')}
@@ -699,7 +705,7 @@
 				{:else}
 					<div class="space-y-2 p-1">
 						{#each tokens as token (token.pairAddress)}
-							<MobileTokenCard {token} />
+							<MemescopeCard {token} live={!loading} />
 						{/each}
 					</div>
 					{#if loadingMore}
@@ -793,6 +799,8 @@
 						{ label: '<7d', min: '', max: '168' }
 					])}
 					{@render inlineRange('Callers', 'minCallCount', 'maxCallCount')}
+					{@render inlineRange('Theses', 'minThesisCount', 'maxThesisCount')}
+					{@render inlineRange('Tweets', 'minTweetCount', 'maxTweetCount')}
 					<div class="h-px bg-bd my-1"></div>
 					<div class="grid grid-cols-2 gap-3">
 						{@render slider('Buy Tax', 'maxBuyTax', 100)}

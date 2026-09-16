@@ -37,6 +37,7 @@
 		{ name: 'Catppuccin Macho', slug: 'catppuccin-macho' },
 		{ name: 'Rose Pine', slug: 'rose-pine' },
 		{ name: 'Studio Ghibli', slug: 'studio-ghibli' },
+		{ name: 'Laputa', slug: 'laputa' },
 		{ name: 'Hotdog Stand', slug: 'hotdog-stand' }
 	];
 
@@ -291,7 +292,7 @@
 					<button onclick={() => reset('dark')} class="cursor-pointer rounded-lg border border-bd bg-s4 px-2 py-1 text-[10px] text-g7 transition-colors hover:text-tx">
 						<RotateCcw class="inline h-3 w-3" strokeWidth={2} />
 					</button>
-					<button onclick={cancel} class="cursor-pointer text-g4 transition-colors hover:text-tx">
+					<button onclick={cancel} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 						<X class="h-4 w-4" />
 					</button>
 				</div>
@@ -467,7 +468,7 @@
 									<button onclick={addUrlWallpaper} class="btn-primary shrink-0 px-3 py-1.5 text-xs">Add</button>
 								</div>
 							{:else}
-								<button onclick={() => (showUrlInput = true)} class="mt-1.5 text-[10px] text-g5 underline transition-colors hover:text-g8">or add from URL</button>
+								<button onclick={() => (showUrlInput = true)} class="cursor-pointer mt-1.5 text-[10px] text-g5 underline transition-colors hover:text-g8">or add from URL</button>
 							{/if}
 						</div>
 

@@ -4,6 +4,7 @@
 	import Repeat2 from 'lucide-svelte/icons/repeat-2';
 	import Server from 'lucide-svelte/icons/server';
 	import Waypoints from 'lucide-svelte/icons/waypoints';
+	import FomoIcon from './FomoIcon.svelte';
 
 	let {
 		label,
@@ -46,8 +47,10 @@
 	let iconName = $derived(brand?.slug || entityType?.toLowerCase() || 'service');
 </script>
 
-<span class={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-s7 text-g8 ${brand ? '' : 'p-0.5'} ${className}`} data-funding-icon={iconName} aria-hidden="true">
-	{#if brand}
+<span class={`inline-flex shrink-0 items-center justify-center ${brand?.slug === 'fomo' ? 'text-[#EAEDFF]' : `overflow-hidden rounded-full bg-s7 text-g8 ${brand ? '' : 'p-0.5'}`} ${className}`} data-funding-icon={iconName} aria-hidden="true">
+	{#if brand?.slug === 'fomo'}
+		<FomoIcon class="h-full w-full" />
+	{:else if brand}
 		<img
 			src={brand.url}
 			alt=""

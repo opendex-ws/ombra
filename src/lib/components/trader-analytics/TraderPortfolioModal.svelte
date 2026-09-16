@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, tick, untrack } from 'svelte';
 	import { api } from '$lib/api/client';
-	import type { TokenTimeRange, TraderOverview, TraderTokenPnlItem, TraderTokenPnlResponse, TraderTokenPositionStatus, TraderTokenSwapEntry, TraderTokenSwapsResponse, WalletTimeRange } from '$lib/api/types';
+	import type { TokenTimeRange, TraderOverview, TraderTokenPnlItem, TraderTokenPnlResponse, TraderTokenPositionStatus, TraderTokenSwapEntry, TraderTokenSwapsResponse, WalletLabelSource, WalletTimeRange } from '$lib/api/types';
 	import { portal } from '$lib/actions/portal';
 	import { closeTraderPortfolio, getTraderPortfolioTarget } from '$lib/stores/traderAnalytics.svelte';
 	import { ageFromSeconds, explorerAddressUrl, fmtVal, formatNumber, formatPercent, formatUsd, shortAddress } from '$lib/utils/format';
@@ -21,7 +21,9 @@
 	import type { ErrorResponse } from '$lib/api/types';
 	import PnlMonthsCalendar from '../PnlMonthsCalendar.svelte';
 	import ChainIcon from '../ChainIcon.svelte';
+	import FomoIcon from '../FomoIcon.svelte';
 	import WalletIcon from '../WalletIcon.svelte';
+	import Users from 'lucide-svelte/icons/users';
 	import { subscribe, unsubscribe } from '$lib/ws/client';
 	import WalletFundingPanel from '../WalletFundingPanel.svelte';
 	import WalletTransferTimeline from '../WalletTransferTimeline.svelte';
@@ -82,6 +84,14 @@
 	let activityWsKey: string | null = null;
 
 	let target = $derived(getTraderPortfolioTarget());
+	const identityLabels = $derived.by(() => overview?.labels ?? []);
+	const identityPrimary = $derived(identityLabels[0]);
+	const identityBrand = $derived(
+		(identityLabels.find((label) => label.source === 'FOMO')?.source ??
+			identityLabels.find((label) => label.source === 'PUMPFUN')?.source ??
+			identityLabels.find((label) => label.source === 'KOL')?.source ??
+			null) as WalletLabelSource | null
+	);
 
 	const tabs: { value: PortfolioTab; label: string }[] = [
 		{ value: 'ACTIVE', label: 'Active' },
@@ -382,13 +392,28 @@
 			}}
 		>
 			<div class="flex shrink-0 items-center gap-3 border-b border-bd px-3 py-3 md:px-5">
-				<WalletIcon address={target.walletAddress} photoId={overview?.labels?.[0]?.photoId} size={36} class="h-9 w-9 rounded-xl" />
+				<div class="relative h-9 w-9 shrink-0">
+					<WalletIcon address={target.walletAddress} photoId={identityPrimary?.photoId} size={36} class="h-9 w-9 rounded-xl" />
+					{#if identityBrand}
+						<span class="absolute -bottom-0.5 -left-0.5 flex h-3.5 w-3.5 items-center justify-center overflow-hidden rounded-full bg-s6 ring-1 ring-s6" title={identityBrand === 'FOMO' ? 'FOMO' : identityBrand === 'PUMPFUN' ? 'Pump.fun' : 'KOL'}>
+							{#if identityBrand === 'FOMO'}
+								<FomoIcon class="h-full w-full" />
+							{:else if identityBrand === 'PUMPFUN'}
+								<img src="/entity-icons/pumpfun.webp" alt="" class="h-full w-full object-cover" />
+							{:else}
+								<Users class="h-full w-full" strokeWidth={2.5} />
+							{/if}
+						</span>
+					{/if}
+				</div>
 				<div class="min-w-0 flex-1">
-					<div class="flex items-center gap-2"><h2 class="truncate text-sm font-bold text-tx md:text-base">Trader portfolio</h2><ChainIcon chain={target.chain} class="h-3.5 w-3.5 text-g6" /></div>
+					<div class="flex items-center gap-2"><h2 class="truncate text-sm font-bold text-tx md:text-base">{identityPrimary?.label ?? 'Trader portfolio'}</h2><ChainIcon chain={target.chain} class="h-3.5 w-3.5 text-g6" /></div>
 					<div class="mt-0.5 flex items-center gap-1.5 text-[10px] text-g5">
-						{#if (overview?.labels ?? []).length > 0}
-							<span class="truncate font-medium text-tx">{overview!.labels![0].label}</span>
+						{#if identityPrimary}
 							<span class="shrink-0 rounded bg-s7 px-1.5 py-px font-mono text-[10px] text-g7">{shortAddress(target.walletAddress)}</span>
+							{#each identityLabels.slice(1) as extra}
+								<span class="rounded bg-blu/20 px-1.5 py-px text-[10px] font-medium text-blu">{extra.label}</span>
+							{/each}
 						{:else}
 							<span class="truncate font-mono">{shortAddress(target.walletAddress)}</span>
 						{/if}
@@ -408,7 +433,7 @@
 					</button>
 				{/if}
 				<button type="button" class="cursor-pointer p-1.5 text-g4 transition-colors hover:text-tx" onclick={refreshCurrent} aria-label="Refresh portfolio"><RefreshCw class="h-4 w-4 {overviewLoading ? 'animate-spin' : ''}" /></button>
-				<button type="button" class="cursor-pointer text-g4 transition-colors hover:text-tx" onclick={closeTraderPortfolio} aria-label="Close"><X class="h-4 w-4" /></button>
+				<button type="button" class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx" onclick={closeTraderPortfolio} aria-label="Close"><X class="h-4 w-4" /></button>
 			</div>
 
 			<div class="min-h-0 flex-1 overflow-y-auto p-3 md:p-5">

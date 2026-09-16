@@ -29,6 +29,13 @@ const routerMap: Record<string, RouterInfo> = {
 	LETS_BONK: { name: "Let's Bonk", icon: ri('bonk.svg'), color: '#f7931a' },
 	BAGS: { name: 'Bags', icon: ri('bags.svg'), color: '#88ff44' },
 	PRINTR: { name: 'Printr', icon: ri('printr.svg'), color: '#ff44aa' },
+	STONKFUN: { name: 'Stonk.fun', icon: ri('stonkfun.svg'), color: '#a4c5cf' },
+	OTCDESKS: { name: 'OTC Desks', icon: ri('otcdesks.svg'), color: '#5cb26f' },
+	// Brand mark is near-black, so the asset is recoloured white to read on a
+	// dark chip; the brand blue stays as the accent colour.
+	PURPS: { name: 'Purps', icon: ri('purps.svg'), color: '#3a49b8' },
+	// Raster brand asset (no SVG published), so it is a downscaled WebP.
+	EMBERCURVE: { name: 'Embercurve', icon: ri('embercurve.webp'), color: '#f82146' },
 };
 
 export function getRouterInfo(platform: string): RouterInfo {

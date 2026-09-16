@@ -64,6 +64,23 @@ describe('trade execution metadata', () => {
 		expect(container.querySelector('img')?.getAttribute('decoding')).toBe('sync');
 	});
 
+	test('renders FOMO app attribution with the double-eyes mark', () => {
+		const { container } = render(TradeExecutionMeta, {
+			props: {
+				trade: {
+					executionProgram: {
+						id: 'AgmLJBMDCqWynYnQiPCuj9ewsNNsBJXyzoUhD9LJzN51',
+						name: 'FOMO',
+						kind: 'INTERFACE'
+					}
+				}
+			}
+		});
+		expect(screen.getByText('FOMO')).toBeVisible();
+		expect(container.querySelector('[data-funding-icon="fomo"] svg')).toBeTruthy();
+		expect(container.querySelector('img')).toBeNull();
+	});
+
 	test('renders PumpFun app attribution from the program and co-signer', () => {
 		for (const id of [
 			'6Vo3245eszAb5wuqEMw8mGdbfRUdKbHhDHP5LcaGuTAB',

@@ -10,6 +10,5 @@ export { default as MemescopeCard } from './MemescopeCard.svelte';
 export { default as TradePanel } from './TradePanel.svelte';
 export { default as PositionsPanel } from './PositionsPanel.svelte';
 export { default as ToastContainer } from './ToastContainer.svelte';
-export { default as MobileTokenCard } from './MobileTokenCard.svelte';
 export { default as StarRating } from './StarRating.svelte';
 export { default as StarRatingInput } from './StarRatingInput.svelte';

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import {
 	buildBotConfig,
 	createBotConfigForm,
@@ -311,5 +311,28 @@ describe('bot settings adapter', () => {
 				limitsMaxOpenPositions: 'Max open positions must be at most 1000'
 			}
 		});
+	});
+});
+
+describe('bot buyWith', () => {
+	it('defaults a new bot to native funding', () => {
+		const form = createBotConfigForm('SOL', 'USD');
+		expect(form.buyWith).toBe('NATIVE');
+	});
+
+	it('sends the selection on create', () => {
+		const form = createBotConfigForm('SOL', 'USD');
+		form.buyWith = 'FIAT';
+		const out = buildBotConfig(form, 'wallet', true, 'create');
+		expect(out.ok).toBe(true);
+		if (out.ok) expect((out.config as { buy: { buyWith?: string } }).buy.buyWith).toBe('FIAT');
+	});
+
+	it('is independent of the amount type that sizes the trade', () => {
+		const form = createBotConfigForm('SOL', 'USD');
+		form.buyWith = 'FIAT';
+		expect(form.amountType).toBe('USD');
+		form.amountType = 'NATIVE';
+		expect(form.buyWith).toBe('FIAT');
 	});
 });

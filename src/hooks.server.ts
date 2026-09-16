@@ -1,20 +1,36 @@
 import type { Handle } from '@sveltejs/kit';
+import { env as privateEnv } from '$env/dynamic/private';
 import { ASYNC_CHUNK_FILES } from '$lib/generated/async-chunks';
 import { API_BASE, API_PROXY } from '$lib/api/config';
+
+// Optional API-key mode. Instead of pointing at a per-tenant whitelabel URL, the
+// proxy can talk to the shared API host and authenticate with a key. The key is
+// read from PRIVATE env and injected server-side only, so it is never shipped to
+// the browser — which is why this requires proxy mode and has no direct-mode
+// equivalent. Leave API_KEY unset to keep the whitelabel-URL behaviour.
+const API_KEY = privateEnv?.API_KEY ?? '';
+const DEFAULT_API_KEY_ORIGIN = 'https://api-backend-new.opendex.ws';
+const API_KEY_ORIGIN = (privateEnv?.API_KEY_ORIGIN ?? DEFAULT_API_KEY_ORIGIN).replace(/\/$/, '');
+
+/** Origin the proxy forwards to: the shared host in key mode, else the whitelabel base. */
+function proxyOrigin(): string {
+	return API_KEY ? API_KEY_ORIGIN : API_BASE;
+}
 
 // Same-origin proxy: only active when PUBLIC_API_PROXY is enabled (and
 // PUBLIC_API_BASE is set). Forwards app API requests to the backend so the
 // browser avoids CORS. In direct mode this no-ops and the browser calls the
 // backend directly. See .env.example / src/lib/api/config.ts.
 function getApiProxyUrl(url: URL): URL | null {
-	if (!API_PROXY || !API_BASE) return null;
+	const origin = proxyOrigin();
+	if (!API_PROXY || !origin) return null;
 	const proxyPath =
 		url.pathname === '/v2' ||
 		url.pathname.startsWith('/v2/') ||
 		url.pathname === '/rpc/sol' ||
 		url.pathname.startsWith('/rpc/sol/');
 	if (!proxyPath) return null;
-	const base = new URL(API_BASE);
+	const base = new URL(origin);
 	const target = new URL(url);
 	target.protocol = base.protocol;
 	target.host = base.host;
@@ -27,6 +43,8 @@ function createProxyRequest(request: Request, target: URL): Request {
 	headers.delete('host');
 	headers.delete('origin');
 	headers.delete('referer');
+	// Attached here so the key stays on the server; a browser never sees it.
+	if (API_KEY) headers.set('X-API-Key', API_KEY);
 
 	const init: RequestInit & { duplex?: 'half' } = {
 		method: request.method,
@@ -40,7 +58,9 @@ function createProxyRequest(request: Request, target: URL): Request {
 
 function apiConnectSrc(): string {
 	const parts = ["'self'", 'https:', 'wss:'];
-	if (!API_BASE) return parts.join(' ');
+	// In key mode the browser only ever talks same-origin, so the upstream host
+	// does not belong in connect-src.
+	if (!API_BASE || API_KEY) return parts.join(' ');
 	try {
 		const origin = new URL(API_BASE).origin;
 		parts.push(origin, origin.replace(/^http/i, 'ws'));

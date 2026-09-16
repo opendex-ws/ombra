@@ -10,6 +10,7 @@
 	import Camera from 'lucide-svelte/icons/camera';
 	import { avatarUrl } from '$lib/utils/format';
 	import SourcePicker from './SourcePicker.svelte';
+	import { buildSourceFilter, normalizeGroups, readSourceSelection } from '$lib/utils/list-sources';
 	import ImageCropper from './ImageCropper.svelte';
 
 	type ListSource = WatchlistSourceItem & { type: 'LIST' };
@@ -48,6 +49,7 @@
 	let ulSelectedCallers = $state<string[]>([]);
 	let ulSelectedTgConns = $state<string[]>([]);
 	let ulSelectedWallets = $state<string[]>([]);
+	let ulSelectedTheses = $state<string[]>([]);
 	// Source grouping: source id -> group index (0 = A, 1 = B, …); absent = ungrouped.
 	// A list triggers only when EVERY group is satisfied (≥1 member called) AND the
 	// call-count range is met. Ungrouped sources only add to the call count.
@@ -86,21 +88,13 @@
 		else copy[id] = next;
 		ulSourceGroups = normalizeGroups(copy);
 	}
-	// Re-pack group indices so they're contiguous 0..k after removals.
-	function normalizeGroups(g: Record<string, number>): Record<string, number> {
-		const idx = [...new Set(Object.values(g))].filter((n) => n >= 0).sort((a, b) => a - b);
-		const remap = new Map(idx.map((v, i) => [v, i]));
-		const out: Record<string, number> = {};
-		for (const [id, v] of Object.entries(g)) if (v >= 0 && remap.has(v)) out[id] = remap.get(v)!;
-		return out;
-	}
 	function removeFromGroups(id: string) {
 		if (ulSourceGroups[id] === undefined) return;
 		const copy = { ...ulSourceGroups };
 		delete copy[id];
 		ulSourceGroups = normalizeGroups(copy);
 	}
-	const totalSelectedSources = $derived(ulSelectedCallers.length + ulSelectedTgConns.length + ulSelectedWallets.length);
+	const totalSelectedSources = $derived(ulSelectedCallers.length + ulSelectedTgConns.length + ulSelectedWallets.length + ulSelectedTheses.length);
 	let ulSaving = $state(false);
 	let ulImageData = $state<string | null>(null);
 	let ulImagePreview = $state<string | null>(null);
@@ -111,6 +105,10 @@
 	let ulProxy = $state<boolean | null>(null);
 	let ulCallCountMin = $state('');
 	let ulCallCountMax = $state('');
+	let ulThesisCountMin = $state('');
+	let ulThesisCountMax = $state('');
+	let ulTweetCountMin = $state('');
+	let ulTweetCountMax = $state('');
 	let ulHolderCountMin = $state('');
 	let ulHolderCountMax = $state('');
 	let ulTop10PctMax = $state('');
@@ -148,7 +146,7 @@
 	];
 	let ulTab = $state<UlTab>('market');
 
-	let srcPickerOpen = $state<'callers' | 'tg' | 'wallets' | null>(null);
+	let srcPickerOpen = $state<'callers' | 'tg' | 'wallets' | 'theses' | null>(null);
 	let srcPickerShow = $state(false);
 	let srcPickerSelectedIds = $state<string[]>([]);
 	let sourceNameMap = $state<Record<string, string>>({});
@@ -186,6 +184,7 @@
 		ulSelectedCallers = [];
 		ulSelectedTgConns = [];
 		ulSelectedWallets = [];
+		ulSelectedTheses = [];
 		ulSourceGroups = {};
 		ulPlatforms = [];
 		ulGraduation = '';
@@ -193,6 +192,10 @@
 		ulProxy = null;
 		ulCallCountMin = '';
 		ulCallCountMax = '';
+		ulThesisCountMin = '';
+		ulThesisCountMax = '';
+		ulTweetCountMin = '';
+		ulTweetCountMax = '';
 		ulHolderCountMin = '';
 		ulHolderCountMax = '';
 		ulTop10PctMax = '';
@@ -220,30 +223,15 @@
 	function populateForm(list: ListSource) {
 		ulName = list.name;
 		const f = list.sourceDetails.tokenFilter;
-		// Single source of truth on read: sourceDetails.sources (enriched). On read
-		// tokenFilter.sources is null, so both membership (ids/group index) AND
-		// display names come from here. Flat lists = ungrouped; groups[] = grouped.
-		const enriched = list.sourceDetails.sources;
-		const nameMap: Record<string, string> = {};
-		const callers: string[] = [];
-		const tgConns: string[] = [];
-		const wallets: string[] = [];
-		const groupMap: Record<string, number> = {};
-		if (enriched) {
-			for (const c of enriched.callers ?? []) if (c.id) { callers.push(c.id); if (c.name) nameMap[c.id] = c.name; }
-			for (const t of enriched.tgConnections ?? []) if (t.id) { tgConns.push(t.id); if (t.name) nameMap[t.id] = t.name; }
-			for (const w of enriched.wallets ?? []) if (w.id) { wallets.push(w.id); if (w.name) nameMap[w.id] = w.name; }
-			(enriched.groups ?? []).forEach((g, gi) => {
-				for (const c of g.callers ?? []) if (c.id) { callers.push(c.id); groupMap[c.id] = gi; if (c.name) nameMap[c.id] = c.name; }
-				for (const t of g.tgConnections ?? []) if (t.id) { tgConns.push(t.id); groupMap[t.id] = gi; if (t.name) nameMap[t.id] = t.name; }
-				for (const w of g.wallets ?? []) if (w.id) { wallets.push(w.id); groupMap[w.id] = gi; if (w.name) nameMap[w.id] = w.name; }
-			});
-		}
-		sourceNameMap = nameMap;
-		ulSelectedCallers = [...new Set(callers)];
-		ulSelectedTgConns = [...new Set(tgConns)];
-		ulSelectedWallets = [...new Set(wallets)];
-		ulSourceGroups = normalizeGroups(groupMap);
+		// Single source of truth on read: sourceDetails.sources (enriched). Both
+		// membership (ids/group index) AND display names come from there.
+		const sel = readSourceSelection(list.sourceDetails.sources);
+		sourceNameMap = sel.names;
+		ulSelectedCallers = sel.ids.callers;
+		ulSelectedTgConns = sel.ids.tgConnections;
+		ulSelectedWallets = sel.ids.wallets;
+		ulSelectedTheses = sel.ids.theses;
+		ulSourceGroups = sel.groups;
 		ulChain = (f.scope?.chain?.[0] as Chain) ?? '';
 		ulMcapMin = f.market?.marketCapUsd?.min?.toString() ?? '';
 		ulMcapMax = f.market?.marketCapUsd?.max?.toString() ?? '';
@@ -270,8 +258,12 @@
 		ulGraduation = (f.scope?.graduation as ScannerGraduation) ?? '';
 		ulLpBurned = f.security?.lpBurned ?? null;
 		ulProxy = f.security?.proxy === false ? true : null;
-		ulCallCountMin = (f as Record<string, unknown>).callCount ? String(((f as Record<string, unknown>).callCount as { min?: number })?.min ?? '') : '';
-		ulCallCountMax = (f as Record<string, unknown>).callCount ? String(((f as Record<string, unknown>).callCount as { max?: number })?.max ?? '') : '';
+		ulCallCountMin = f.callCount?.min?.toString() ?? '';
+		ulCallCountMax = f.callCount?.max?.toString() ?? '';
+		ulThesisCountMin = f.thesisCount?.min?.toString() ?? '';
+		ulThesisCountMax = f.thesisCount?.max?.toString() ?? '';
+		ulTweetCountMin = f.tweetCount?.min?.toString() ?? '';
+		ulTweetCountMax = f.tweetCount?.max?.toString() ?? '';
 		ulHolderCountMin = f.holders?.holderCount?.min?.toString() ?? '';
 		ulHolderCountMax = f.holders?.holderCount?.max?.toString() ?? '';
 		ulTop10PctMax = f.holders?.top10Pct?.max?.toString() ?? '';
@@ -342,39 +334,33 @@
 		if (ulWithAnySocial !== null) soc.hasAnySocial = ulWithAnySocial;
 		if (ulDexPaid !== null) soc.dexScreenerPaid = ulDexPaid;
 		if (Object.keys(soc).length > 0) filter.socials = soc;
-		const sources: TokenSourceFilter = {};
-		// Split each selected id into its group (AND-of-groups) or the flat list
-		// (ungrouped — contributes only to call count). Kind is tracked per list.
-		const kinds: [string[], keyof TokenSourceGroup][] = [
-			[ulSelectedCallers, 'callers'],
-			[ulSelectedTgConns, 'tgConnections'],
-			[ulSelectedWallets, 'wallets']
-		];
-		const flat: Record<string, string[]> = { callers: [], tgConnections: [], wallets: [] };
-		const groupBuckets = new Map<number, TokenSourceGroup>();
-		for (const [ids, kind] of kinds) {
-			for (const id of ids) {
-				const gi = ulSourceGroups[id];
-				if (gi === undefined || gi < 0) {
-					flat[kind as string].push(id);
-				} else {
-					let bucket = groupBuckets.get(gi);
-					if (!bucket) { bucket = {}; groupBuckets.set(gi, bucket); }
-					((bucket[kind] ??= []) as string[]).push(id);
-				}
-			}
-		}
-		if (flat.callers.length > 0) sources.callers = flat.callers;
-		if (flat.tgConnections.length > 0) sources.tgConnections = flat.tgConnections;
-		if (flat.wallets.length > 0) sources.wallets = flat.wallets;
-		const groupList = [...groupBuckets.entries()].sort((a, b) => a[0] - b[0]).map(([, g]) => g);
-		if (groupList.length > 0) sources.groups = groupList;
+		const sources = buildSourceFilter(
+			{
+				callers: ulSelectedCallers,
+				tgConnections: ulSelectedTgConns,
+				wallets: ulSelectedWallets,
+				theses: ulSelectedTheses
+			},
+			ulSourceGroups
+		);
 		if (Object.keys(sources).length > 0) filter.sources = sources;
 		if (ulCallCountMin || ulCallCountMax) {
 			const cc: { min?: number; max?: number } = {};
 			if (ulCallCountMin) cc.min = parseInt(ulCallCountMin);
 			if (ulCallCountMax) cc.max = parseInt(ulCallCountMax);
-			(filter as Record<string, unknown>).callCount = cc;
+			filter.callCount = cc;
+		}
+		if (ulThesisCountMin || ulThesisCountMax) {
+			const tc: { min?: number; max?: number } = {};
+			if (ulThesisCountMin) tc.min = parseInt(ulThesisCountMin);
+			if (ulThesisCountMax) tc.max = parseInt(ulThesisCountMax);
+			filter.thesisCount = tc;
+		}
+		if (ulTweetCountMin || ulTweetCountMax) {
+			const tw: { min?: number; max?: number } = {};
+			if (ulTweetCountMin) tw.min = parseInt(ulTweetCountMin);
+			if (ulTweetCountMax) tw.max = parseInt(ulTweetCountMax);
+			filter.tweetCount = tw;
 		}
 		const holders: TokenHolderFilter = {};
 		if (ulHolderCountMin || ulHolderCountMax) {
@@ -417,18 +403,20 @@
 		return filter;
 	}
 
-	function openSourcePicker(type: 'callers' | 'tg' | 'wallets') {
+	function openSourcePicker(type: 'callers' | 'tg' | 'wallets' | 'theses') {
 		srcPickerOpen = type;
 		srcPickerShow = true;
 		if (type === 'callers') srcPickerSelectedIds = [...ulSelectedCallers];
 		else if (type === 'tg') srcPickerSelectedIds = [...ulSelectedTgConns];
-		else srcPickerSelectedIds = [...ulSelectedWallets];
+		else if (type === 'wallets') srcPickerSelectedIds = [...ulSelectedWallets];
+		else srcPickerSelectedIds = [...ulSelectedTheses];
 	}
 
 	function closeSourcePicker() {
 		if (srcPickerOpen === 'callers') ulSelectedCallers = [...srcPickerSelectedIds];
 		else if (srcPickerOpen === 'tg') ulSelectedTgConns = [...srcPickerSelectedIds];
 		else if (srcPickerOpen === 'wallets') ulSelectedWallets = [...srcPickerSelectedIds];
+		else if (srcPickerOpen === 'theses') ulSelectedTheses = [...srcPickerSelectedIds];
 		srcPickerOpen = null;
 		srcPickerShow = false;
 	}
@@ -674,7 +662,8 @@
 						{#each [
 							{ label: 'Callers', items: ulSelectedCallers, open: () => openSourcePicker('callers'), remove: (id: string) => { ulSelectedCallers = ulSelectedCallers.filter(c => c !== id); removeFromGroups(id); } },
 							{ label: 'Telegram', items: ulSelectedTgConns, open: () => openSourcePicker('tg'), remove: (id: string) => { ulSelectedTgConns = ulSelectedTgConns.filter(c => c !== id); removeFromGroups(id); } },
-							{ label: 'Wallets', items: ulSelectedWallets, open: () => openSourcePicker('wallets'), remove: (id: string) => { ulSelectedWallets = ulSelectedWallets.filter(c => c !== id); removeFromGroups(id); } }
+							{ label: 'Wallets', items: ulSelectedWallets, open: () => openSourcePicker('wallets'), remove: (id: string) => { ulSelectedWallets = ulSelectedWallets.filter(c => c !== id); removeFromGroups(id); } },
+							{ label: 'Thesis Authors', items: ulSelectedTheses, open: () => openSourcePicker('theses'), remove: (id: string) => { ulSelectedTheses = ulSelectedTheses.filter(c => c !== id); removeFromGroups(id); } }
 						] as src}
 							<div class="rounded-lg border border-bd bg-s4">
 								<div class="flex items-center justify-between px-2.5 py-1.5">
@@ -704,8 +693,8 @@
 													{/if}
 													<span class="truncate">{getSourceLabel(id)}</span>
 												</button>
-												<button onclick={() => src.remove(id)} class="shrink-0 cursor-pointer text-g5 transition-colors hover:text-red">
-													<X class="h-2.5 w-2.5" />
+												<button onclick={() => src.remove(id)} class="-m-1 shrink-0 cursor-pointer rounded p-1 text-g5 transition-colors hover:text-red md:m-0 md:p-0" aria-label="Remove source">
+													<X class="h-3 w-3 md:h-2.5 md:w-2.5" />
 												</button>
 											</span>
 										{/each}
@@ -715,6 +704,8 @@
 						{/each}
 					</div>
 					{@render rangeInput('Call Count', ulCallCountMin, ulCallCountMax, (a: string, b: string) => { ulCallCountMin = a; ulCallCountMax = b; })}
+					{@render rangeInput('Thesis Count', ulThesisCountMin, ulThesisCountMax, (a: string, b: string) => { ulThesisCountMin = a; ulThesisCountMax = b; })}
+					{@render rangeInput('Tweet Count', ulTweetCountMin, ulTweetCountMax, (a: string, b: string) => { ulTweetCountMin = a; ulTweetCountMax = b; })}
 				</div>
 				{/if}
 
@@ -740,7 +731,7 @@
 			mode="multi"
 			tabs={[srcPickerOpen]}
 			bind:selectedIds={srcPickerSelectedIds}
-			title={srcPickerOpen === 'callers' ? 'Select Callers' : srcPickerOpen === 'tg' ? 'Select Telegram' : 'Select Wallets'}
+			title={srcPickerOpen === 'callers' ? 'Select Callers' : srcPickerOpen === 'tg' ? 'Select Telegram' : srcPickerOpen === 'wallets' ? 'Select Wallets' : 'Select Thesis Authors'}
 			ontoggle={rememberSourceName}
 			onclose={closeSourcePicker}
 		/>

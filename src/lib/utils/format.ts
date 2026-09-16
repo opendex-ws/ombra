@@ -81,17 +81,22 @@ export function formatNumber(value: string | number | undefined | null): string 
   return num.toLocaleString('en-US');
 }
 
+/** `1.00` -> `1`, `4.20K` -> `4.2K`. Padding zeros are noise on whole values. */
+function trimZeros(text: string): string {
+  return text.includes('.') ? text.replace(/\.?0+$/, '') : text;
+}
+
 export function formatCompactNumber(value: string | number | undefined | null): string {
   if (value === undefined || value === null || value === '') return '0';
   const num = typeof value === 'string' ? parseFloat(value) : value;
   if (isNaN(num)) return '0';
   const abs = Math.abs(num);
   const sign = num < 0 ? '-' : '';
-  if (abs >= 1_000_000_000) return `${sign}${(abs / 1_000_000_000).toFixed(2)}B`;
-  if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(2)}K`;
-  if (abs >= 1) return `${sign}${abs.toFixed(2)}`;
-  return `${sign}${abs.toFixed(4)}`;
+  if (abs >= 1_000_000_000) return `${sign}${trimZeros((abs / 1_000_000_000).toFixed(2))}B`;
+  if (abs >= 1_000_000) return `${sign}${trimZeros((abs / 1_000_000).toFixed(2))}M`;
+  if (abs >= 1_000) return `${sign}${trimZeros((abs / 1_000).toFixed(2))}K`;
+  if (abs >= 1) return `${sign}${trimZeros(abs.toFixed(2))}`;
+  return `${sign}${trimZeros(abs.toFixed(4))}`;
 }
 
 /** Whole-number compact count (followers, members). 4200 → 4K, not 4.20K. */
@@ -337,6 +342,7 @@ export function typeBadge(type: string): string {
     case 'TG': return 'bg-blu/20 text-blu';
     case 'LIST': return 'bg-yel/20 text-yel';
     case 'WALLET': return 'bg-grn/20 text-grn';
+    case 'THESIS': return 'bg-blu/20 text-blu-light';
     default: return 'bg-g7/20 text-g7';
   }
 }
@@ -347,6 +353,7 @@ export function sourceBadge(type: string): string {
     case 'TG': return 'bg-blu/20 text-blu';
     case 'LIST': return 'bg-yel/20 text-yel';
     case 'WALLET': return 'bg-grn/20 text-grn';
+    case 'THESIS': return 'bg-blu/20 text-blu-light';
     default: return 'bg-g7/20 text-g7';
   }
 }

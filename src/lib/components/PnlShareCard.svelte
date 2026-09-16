@@ -586,7 +586,7 @@
 		<div class="relative mx-4 w-full max-w-2xl rounded-2xl border border-bd bg-s5 shadow-2xl backdrop-blur-xl" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
 			<div class="flex items-center justify-between border-b border-bd px-5 py-3">
 				<h2 class="text-sm font-semibold text-tx">Share PnL</h2>
-				<button onclick={close} class="cursor-pointer text-g4 transition-colors hover:text-tx"><X class="h-4 w-4" /></button>
+				<button onclick={close} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx"><X class="h-4 w-4" /></button>
 			</div>
 			<div class="p-4">
 				<div class="mb-3 flex items-center justify-center gap-1.5 flex-wrap">

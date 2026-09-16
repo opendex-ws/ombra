@@ -166,3 +166,78 @@ export function candleHigh(candles: readonly CandlePoint[]): { value: number; ti
 	}
 	return { value, time };
 }
+
+/** Widest bar the viewport reset will leave in place before falling back. */
+export const MAX_RESET_BAR_SPACING = 30;
+/** Bar width used when fitting the data would stretch it absurdly wide. */
+export const DEFAULT_BAR_SPACING = 10;
+
+/**
+ * Whether fitting `count` candles across `width` px would produce absurdly wide
+ * bars. Bar spacing survives a data swap, so a fit over one or two candles leaves
+ * the next timeframe zoomed to a couple of bars until it is clamped.
+ */
+export function shouldClampBarSpacing(count: number, width: number): boolean {
+	return count > 0 && width > 0 && width / count > MAX_RESET_BAR_SPACING;
+}
+
+export interface MarkerRange {
+	from: number;
+	to: number;
+}
+
+export interface MarkerRangeOptions {
+	/** A run of empty time longer than this splits the request in two. */
+	gapSeconds: number;
+	/** Server-enforced ceiling on one request's span. Longer spans are CHUNKED,
+	 *  never clamped: the backend silently trims an over-long range, so clamping
+	 *  would report history as covered that was never actually returned. */
+	maxSpanSeconds: number;
+	/** Most recent N chunks are requested; older ones wait for a pan. */
+	maxRanges: number;
+}
+
+/**
+ * Requests for chart markers must follow the candles, not the visible time span.
+ * A token with one candle today and one 90 days ago spans 90 days on screen, but
+ * markers can only sit on candles, so the empty middle is never worth fetching.
+ */
+export function markerFetchRanges(
+	candleTimes: readonly number[],
+	from: number,
+	to: number,
+	options: MarkerRangeOptions
+): MarkerRange[] {
+	if (to <= from) return [];
+	const { gapSeconds, maxSpanSeconds, maxRanges } = options;
+	const span = Math.max(1, maxSpanSeconds);
+	const segments: MarkerRange[] = [];
+	let start: number | null = null;
+	let prev = 0;
+
+	for (const time of candleTimes) {
+		if (time < from || time > to) continue;
+		if (start === null) {
+			start = time;
+		} else if (time - prev > gapSeconds) {
+			segments.push({ from: start, to: prev });
+			start = time;
+		}
+		prev = time;
+	}
+	if (start !== null) segments.push({ from: start, to: prev });
+
+	// Newest first, chunked to the server limit, so nothing is silently trimmed.
+	const chunks: MarkerRange[] = [];
+	for (let i = segments.length - 1; i >= 0 && chunks.length < maxRanges; i--) {
+		const segment = segments[i];
+		let end = segment.to;
+		while (end >= segment.from && chunks.length < maxRanges) {
+			const chunkFrom = Math.max(segment.from, end - span);
+			chunks.push({ from: chunkFrom, to: end });
+			if (chunkFrom === segment.from) break;
+			end = chunkFrom;
+		}
+	}
+	return chunks.sort((a, b) => a.from - b.from);
+}

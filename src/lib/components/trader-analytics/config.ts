@@ -1,4 +1,13 @@
-import type { TokenTimeRange, WalletTimeRange } from '$lib/api/types';
+import type { TokenTimeRange, WalletLabelSource, WalletTimeRange } from '$lib/api/types';
+
+export type TraderRankingSource = WalletLabelSource | '';
+
+export const TRADER_RANKING_SOURCE_OPTIONS: { value: TraderRankingSource; label: string }[] = [
+	{ value: '', label: 'All' },
+	{ value: 'FOMO', label: 'FOMO' },
+	{ value: 'PUMPFUN', label: 'Pump.fun' },
+	{ value: 'KOL', label: 'KOL' }
+];
 
 export const WALLET_TIME_RANGE_OPTIONS: { value: WalletTimeRange; label: string }[] = [
 	{ value: 'ONE_DAY', label: '1D' },

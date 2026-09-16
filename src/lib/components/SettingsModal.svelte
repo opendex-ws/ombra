@@ -7,6 +7,8 @@
 		getExpandPositions, toggleExpandPositions,
 		getBubbleWatchlist, toggleBubbleWatchlist,
 		getMultiTab, toggleMultiTab,
+		getMoneyFlow, toggleMoneyFlow,
+	getBuyWith, setBuyWith,
 		isCallToastSourceEnabled, toggleCallToastSource
 	} from '$lib/stores/feSettings.svelte';
 	import { getIsLoggedIn } from '$lib/stores/auth.svelte';
@@ -16,6 +18,7 @@
 	import Smartphone from 'lucide-svelte/icons/smartphone';
 	import Rows3 from 'lucide-svelte/icons/rows-3';
 	import CircleDot from 'lucide-svelte/icons/circle-dot';
+	import Waypoints from 'lucide-svelte/icons/waypoints';
 	import Columns3 from 'lucide-svelte/icons/columns-3';
 	import Bell from 'lucide-svelte/icons/bell';
 	import LogOut from 'lucide-svelte/icons/log-out';
@@ -103,7 +106,7 @@
 	<div class="animate-fade-in flex max-h-[84vh] w-full max-w-md flex-col rounded-2xl border border-bd bg-s5 shadow-2xl backdrop-blur-xl">
 		<div class="flex shrink-0 items-center justify-between border-b border-bd px-5 py-3.5">
 			<span class="text-sm font-bold text-tx">Settings</span>
-			<button onclick={close} class="cursor-pointer text-g4 transition-colors hover:text-tx" aria-label="Close">
+			<button onclick={close} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx" aria-label="Close">
 				<X class="h-4 w-4" />
 			</button>
 		</div>
@@ -135,10 +138,28 @@
 					<span class="rounded bg-s7 px-1.5 py-0.5 text-[10px] text-g6">{getExpandPositions() ? 'On' : 'Off'}</span>
 				</button>
 
+				<button
+					onclick={() => setBuyWith(getBuyWith() === 'FIAT' ? 'NATIVE' : 'FIAT')}
+					class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium text-tx transition-all hover:bg-s7"
+				>
+					<Wallet size={16} strokeWidth={1.5} class="text-g5" />
+					<div class="flex-1 text-left">
+						<div>Buy With</div>
+						<div class="text-[10px] text-g5">Currency that funds manual buys. Trade size is unchanged.</div>
+					</div>
+					<span class="rounded bg-s7 px-1.5 py-0.5 text-[10px] text-g6">{getBuyWith() === 'FIAT' ? 'USD' : 'Native'}</span>
+				</button>
+
 				<button onclick={toggleBubbleWatchlist} class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium text-tx transition-all hover:bg-s7">
 					<CircleDot size={16} strokeWidth={1.5} class="text-g5" />
 					<div class="flex-1 text-left"><div class="flex items-center gap-1.5">Bubble Watchlist <span class="rounded bg-blu/20 px-1 py-px text-[8px] font-bold uppercase text-blu-light">Beta</span></div><div class="text-[10px] text-g5">Group calls into token bubbles</div></div>
 					<span class="rounded bg-s7 px-1.5 py-0.5 text-[10px] text-g6">{getBubbleWatchlist() ? 'On' : 'Off'}</span>
+				</button>
+
+				<button onclick={toggleMoneyFlow} class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium text-tx transition-all hover:bg-s7">
+					<Waypoints size={16} strokeWidth={1.5} class="text-g5" />
+					<div class="flex-1 text-left"><div class="flex items-center gap-1.5">Money Flow <span class="rounded bg-blu/20 px-1 py-px text-[8px] font-bold uppercase text-blu-light">Beta</span></div><div class="text-[10px] text-g5">Graph swap volume in and out of tokens</div></div>
+					<span class="rounded bg-s7 px-1.5 py-0.5 text-[10px] text-g6">{getMoneyFlow() ? 'On' : 'Off'}</span>
 				</button>
 
 				<button onclick={toggleMultiTab} class="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-medium text-tx transition-all hover:bg-s7">

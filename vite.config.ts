@@ -57,12 +57,28 @@ const env = loadEnv(process.env.NODE_ENV ?? 'development', process.cwd(), 'PUBLI
 // See .env.example.
 const API_BASE = (env.PUBLIC_API_BASE ?? '').replace(/\/$/, '');
 const API_PROXY = /^(1|true|yes)$/i.test(env.PUBLIC_API_PROXY ?? '');
-const WS_BASE = API_BASE.replace(/^http/, 'ws');
+// Optional API-key mode, mirroring src/hooks.server.ts. Read from the private
+// env (no PUBLIC_ prefix) so the key is never inlined into client bundles: the
+// dev proxy attaches it per-request, exactly like the production worker.
+const privateEnv = loadEnv(process.env.NODE_ENV ?? 'development', process.cwd(), '');
+const API_KEY = privateEnv.API_KEY ?? '';
+const API_KEY_ORIGIN = (privateEnv.API_KEY_ORIGIN ?? 'https://api-backend-new.opendex.ws').replace(/\/$/, '');
+// Key mode targets the shared API host; otherwise keep the whitelabel base.
+const PROXY_TARGET = API_KEY ? API_KEY_ORIGIN : API_BASE;
+const WS_BASE = PROXY_TARGET.replace(/^http/, 'ws');
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const stripIdentityHeaders = (proxy: any) => {
-	proxy.on('proxyReq', (proxyReq: any) => { proxyReq.removeHeader('origin'); proxyReq.removeHeader('referer'); });
-	proxy.on('proxyReqWs', (proxyReq: any) => { proxyReq.removeHeader('origin'); proxyReq.removeHeader('referer'); });
+	proxy.on('proxyReq', (proxyReq: any) => {
+		proxyReq.removeHeader('origin');
+		proxyReq.removeHeader('referer');
+		if (API_KEY) proxyReq.setHeader('X-API-Key', API_KEY);
+	});
+	proxy.on('proxyReqWs', (proxyReq: any) => {
+		proxyReq.removeHeader('origin');
+		proxyReq.removeHeader('referer');
+		if (API_KEY) proxyReq.setHeader('X-API-Key', API_KEY);
+	});
 };
 
 export default defineConfig({
@@ -94,7 +110,7 @@ export default defineConfig({
 	// Dev-server proxy: forwards same-origin API requests to your backend so
 	// the browser avoids CORS. Targets come from PUBLIC_API_BASE (.env.example).
 	server: {
-		proxy: API_PROXY && API_BASE
+		proxy: API_PROXY && PROXY_TARGET
 			? {
 					// WebSocket first so it isn't shadowed by the generic /v2 rule.
 					'/v2/ws': {
@@ -104,12 +120,12 @@ export default defineConfig({
 						configure: stripIdentityHeaders
 					},
 					'/v2': {
-						target: API_BASE,
+						target: PROXY_TARGET,
 						changeOrigin: true,
 						configure: stripIdentityHeaders
 					},
 					'/rpc/sol': {
-						target: API_BASE,
+						target: PROXY_TARGET,
 						changeOrigin: true,
 						configure: stripIdentityHeaders
 					}

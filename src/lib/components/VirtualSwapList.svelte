@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import type { Chain, TokenSwap } from '$lib/api/types';
 	import { isUsd } from '$lib/stores/currency.svelte';
 	import { getIsDesktop } from '$lib/stores/viewport.svelte';
 	import LoaderCircle from 'lucide-svelte/icons/loader-circle';
+	import Pause from 'lucide-svelte/icons/pause';
 	import TokenSwapRow from './TokenSwapRow.svelte';
 
 	let {
@@ -14,7 +16,8 @@
 		loadingMore = false,
 		onLoadMore,
 		onOpenTrader,
-		onFilterMaker
+		onFilterMaker,
+		onhoverpause
 	}: {
 		liveTrades: TokenSwap[];
 		historicalTrades: TokenSwap[];
@@ -25,7 +28,37 @@
 		onLoadMore: () => void;
 		onOpenTrader: (walletAddress: string) => void;
 		onFilterMaker: (walletAddress: string) => void;
+		onhoverpause?: (paused: boolean) => void;
 	} = $props();
+
+	let hoverPaused = $state(false);
+	let pointerInside = false;
+	const LIVE_EDGE_PX = 8;
+
+	function fineHover() {
+		return typeof window !== 'undefined'
+			&& window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+	}
+
+	function canHoverPause(event: PointerEvent) {
+		return event.pointerType === 'mouse' && fineHover();
+	}
+
+	function setHoverPaused(paused: boolean) {
+		if (hoverPaused === paused) return;
+		hoverPaused = paused;
+		onhoverpause?.(paused);
+	}
+
+	function syncHoverPause() {
+		setHoverPaused(pointerInside && fineHover() && scrollTop > LIVE_EDGE_PX);
+	}
+
+	onDestroy(() => {
+		pointerInside = false;
+		hoverPaused = false;
+		onhoverpause?.(false);
+	});
 
 	let scrollContainer: HTMLDivElement | null = $state(null);
 	let scrollTop = $state(0);
@@ -53,6 +86,7 @@
 	function onScroll() {
 		if (!scrollContainer) return;
 		scrollTop = scrollContainer.scrollTop;
+		syncHoverPause();
 		if (scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < LOAD_MORE_THRESHOLD) onLoadMore();
 	}
 
@@ -66,7 +100,19 @@
 	});
 </script>
 
-<div bind:this={scrollContainer} class="relative h-full min-h-0 overflow-auto overscroll-none" onscroll={onScroll}>
+<div
+	role="presentation"
+	class="relative h-full min-h-0"
+	onpointerenter={(event) => { if (canHoverPause(event)) { pointerInside = true; syncHoverPause(); } }}
+	onpointerleave={() => { pointerInside = false; setHoverPaused(false); }}
+>
+	{#if hoverPaused}
+		<div class="pointer-events-none absolute right-2 z-30 flex items-center gap-1 rounded-md border border-yel/40 bg-s0/90 px-1.5 py-px text-[10px] font-semibold text-yel shadow-md {desktop ? 'top-8' : 'top-1'}">
+			<Pause class="h-3 w-3" fill="currentColor" />
+			Paused
+		</div>
+	{/if}
+	<div bind:this={scrollContainer} class="h-full min-h-0 overflow-auto overscroll-none" onscroll={onScroll}>
 	{#if desktop}
 		<div class="sticky top-0 z-10 grid h-[27px] grid-cols-[minmax(70px,1fr)_minmax(70px,1fr)_minmax(70px,1fr)_minmax(60px,1fr)_minmax(90px,1.2fr)_minmax(60px,0.9fr)_minmax(60px,0.9fr)_minmax(50px,0.8fr)] items-center gap-2 border-b border-bd bg-s0 px-1 text-xs font-medium uppercase tracking-wider text-g7">
 			<span class="text-left">Type</span>
@@ -91,5 +137,6 @@
 				<span class="text-xs text-g6">Loading more...</span>
 			</div>
 		{/if}
+	</div>
 	</div>
 </div>

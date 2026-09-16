@@ -428,6 +428,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/marketplace/listings/{listingId}/saved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set marketplace bookmark state
+         * @description Saves or unsaves a visible marketplace listing for the authenticated user. The saved field is required. Send saved=`false` to remove the bookmark. This endpoint remains available after subscription for later bookmark changes. Unknown body fields are rejected.
+         */
+        put: operations["saved"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/marketplace/listings/{listingId}/subscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Subscribe to a marketplace swarm
+         * @description Creates a Solana subscription bot from the listing source and bookmarks the listing in the same transaction. The request reuses bot creation chain configuration and accepts omitted, `null`, or supplied limits; source and saved are rejected as unknown fields. A failed subscription leaves no new bookmark. Existing duplicate-subscription behavior is preserved.
+         */
+        post: operations["subscribe"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/marketplace/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Browse marketplace swarms
+         * @description Returns one cursor page of marketplace swarms. PUBLIC allows anonymous access and accepts optional bearer authentication for viewer state. ACTIVE, SAVED, OWNED, PUBLISHED_OWNED, and PRIVATE_OWNED require bearer authentication. Pages contain at most 20 items. Pass the returned cursor unchanged with the same filters; a changed catalog can invalidate it. SQL first selects eligible list IDs, then price-tracker filters and paginates at most 10000 candidates. Percentage filters use public units from 0 through 100. `minWinRatePct` must not exceed `maxWinRatePct`.
+         */
+        get: operations["browse"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/marketplace/lists/{listId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a marketplace swarm
+         * @description Returns a published swarm to any viewer. Optional bearer authentication adds owner, bookmark, and subscription state. Owners can also read their active private list. The list `photoId` is readable through the existing /v2/avatar/{photoId} endpoint.
+         */
+        get: operations["detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/marketplace/lists/{listId}/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read a marketplace swarm feed
+         * @description Returns one cursor page of calls for a visible marketplace swarm. Authentication is optional. Only the source owner receives caller identities and private trigger context; anonymous viewers and subscribers receive the redacted projection. Pass cursors unchanged with the same feed filters.
+         */
+        get: operations["get_feed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/marketplace/lists/{listId}/publication": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Publish or update a swarm
+         * @description Publishes an active list owned by the authenticated user, or updates its optional marketplace description. The marketplace title always comes from the current list name; clients cannot supply a separate title. Unknown body fields are rejected.
+         */
+        put: operations["publish"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/pages/bots": {
         parameters: {
             query?: never;
@@ -606,6 +726,66 @@ export interface paths {
          * @description Initial watchlist feeds, source catalogs, and rankings for the `all`, `callers`, `tg`, `lists`, and `wallets` families. Authenticated responses also carry Telegram login status and managed chats; `tgChats` is not the same as the Telegram source catalog in `sources.tg`. The body is required but `{}` is valid, and omitted descriptors use their defaults. Unauthenticated callers get public caller data only.
          */
         post: operations["pages_watchlist"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/profiles/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search profiles by handle
+         * @description Returns matching handles with their avatar and verification state. No wallet.
+         */
+        get: operations["profiles_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/profiles/{source}/{handle}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a trader profile by handle
+         * @description Resolves a platform handle to its analytics without exposing the wallet.
+         */
+        get: operations["profiles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/profiles/{source}/{handle}/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a profile's receipts
+         * @description Each thesis the handle posted, checked against their own swaps on that token.
+         */
+        get: operations["profiles_receipts"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1018,7 +1198,7 @@ export interface paths {
         put?: never;
         /**
          * New trenches scanner tokens
-         * @description Lists newly created bonding-curve tokens. Send scanner filters and an optional pagination cursor in the request body. This route always orders results by age descending and ignores `tokenFilter.scope.graduation`. If `tokenFilter.scope.platforms` is omitted or `null`, it defaults to `PUMPFUN`, `MOONSHOT`, `RAYDIUM_LAUNCH`, `METEORA_BONDING_CURVE`, `FOURMEME_V2`, `LETS_BONK`, `BELIEVE`, and `BAGS`; an explicitly empty list is preserved.
+         * @description Lists newly created bonding-curve tokens. Send scanner filters and an optional pagination cursor in the request body. This route always orders results by age descending and ignores `tokenFilter.scope.graduation`. If `tokenFilter.scope.platforms` is omitted or `null`, it defaults to `PUMPFUN`, `MOONSHOT`, `RAYDIUM_LAUNCH`, `METEORA_BONDING_CURVE`, `LETS_BONK`, `BELIEVE`, and `BAGS`; an explicitly empty list is preserved.
          */
         post: operations["scanner_trenches_new"];
         delete?: never;
@@ -1175,8 +1355,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get chart markers (KOL/dev/user swaps + calls + migration) for a token
-         * @description Returns the points worth marking on a token's price chart, meaning swaps by tracked wallets and by the caller, calls made on the token, and the moment it migrated off its bonding curve. Bound the window with `from` and `to` to match the visible chart range.
+         * Get chart markers
+         * @description Returns the points worth marking on a token's price chart, meaning swaps by tracked wallets and by the caller, calls on the token, and its migration off the bonding curve. Bound the window with `from` and `to` to match the visible chart range.
          */
         get: operations["token_chart_markers"];
         put?: never;
@@ -1507,6 +1687,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/trade/{chain}/{token}/pending-buy/{swap_id}/trigger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["trade_update_pending_buy_trigger"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/trade/{chain}/{token}/sell": {
         parameters: {
             query?: never;
@@ -1616,7 +1812,7 @@ export interface paths {
         };
         /**
          * Get trader ranking
-         * @description Public leaderboard of traders for a chain and time range, ordered by the selected period’s PnL in USD, highest first (wallet address breaks ties). Optional filters narrow it by PnL, win rate, trade counts, and how recently the trader last swapped.
+         * @description Public leaderboard of traders for a chain and time range, ordered by the selected period’s PnL in USD, highest first (wallet address breaks ties). Optional filters narrow it by PnL, win rate, trade counts, how recently the trader last swapped, and labeled-wallet platforms (`FOMO`, `PUMPFUN`, `KOL`).
          */
         get: operations["traders_ranking"];
         put?: never;
@@ -1795,9 +1991,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Author directory search, most-subscribed first. Public; with auth the
-         *     `subscribed` flag reflects the caller.
-         * @description Search the public directory of tracked Twitter authors by an optional case-insensitive substring of their handle or display name. Results are ordered by subscriber count descending, follower count descending, handle ascending, and ID ascending. Authenticated responses set `subscribed` for the caller; anonymous responses set it to `false`.
+         * Get tracked X authors
+         * @description Returns the directory of tracked X authors, most subscribed first. Use `query` to search by handle or display name.
          */
         get: operations["twitter_authors"];
         put?: never;
@@ -1816,8 +2011,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Global X tracker event feed, newest first. Public.
-         * @description Returns public tracked X events in newest-first order. Optional filters narrow results by author, action, author tag, follower count, token contract, or search text. Use the opaque `nextCursor` as `cursor` to request the next page. The same filters are supported by the related public `twitter:feed` WebSocket stream.
+         * Get X events
+         * @description Returns tracked X events, newest first. Covers posts and profile changes, including handle, display-name, avatar, bio, and banner changes, plus follows and unfollows. Optional filters narrow by author, action, tag, follower count, token contract, or search text.
          */
         get: operations["twitter_events"];
         put?: never;
@@ -1836,8 +2031,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Personal X event feed: events from authors the caller subscribes to.
-         * @description Returns up to 20 newest-first X events from authors the authenticated caller subscribes to. Pass `nextCursor` unchanged as `cursor` to retrieve the next page; an omitted `nextCursor` means there are no more results.
+         * Get your X feed
+         * @description Returns X events from the authors you subscribe to, newest first. Covers the same post and profile-change events as `/v2/twitter/events`, with the same filters.
          */
         get: operations["twitter_feed"];
         put?: never;
@@ -1856,14 +2051,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * The caller's subscribed authors, handle-ordered.
-         * @description Requires bearer authentication. Returns one page of the authenticated caller’s subscribed X/Twitter authors, ordered by handle. Use `query` to filter by a case-insensitive substring of the handle or display name, and use returned cursors to navigate pages.
+         * Get your X subscriptions
+         * @description Returns the X authors you subscribe to, ordered by handle. Use `query` to search by handle or display name.
          */
         get: operations["twitter_subscriptions"];
         put?: never;
         /**
-         * Subscribe to an author. Idempotent.
-         * @description Subscribe the authenticated user to the tracked author identified by `authorId`. Repeating the request for the same author is idempotent and returns HTTP 200; an unknown author returns HTTP 404.
+         * Subscribe to an X author
+         * @description Adds an author to your subscriptions. Idempotent. An unknown author returns 404.
          */
         post: operations["twitter_subscribe"];
         delete?: never;
@@ -1883,7 +2078,7 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Remove a subscription.
+         * Unsubscribe from an X author
          * @description Requires bearer authentication and removes the authenticated user's subscription to the specified Twitter/X author.
          */
         delete: operations["twitter_unsubscribe"];
@@ -2244,6 +2439,131 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/wallets/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get labeled wallet swaps
+         * @description Returns recent swaps by labeled wallets, newest first. Use it to populate a
+         *     list before following `wallets:feed` for live swaps.
+         */
+        get: operations["wallets_feed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/wallets/labeled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get labeled wallets
+         * @description Returns every wallet that carries a label, with whether you curated it.
+         */
+        get: operations["wallets_labeled"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/wallets/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get wallet labels
+         * @description Returns the distinct wallet labels and how many wallets carry each one.
+         */
+        get: operations["wallets_labels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/wallets/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get curated wallets
+         * @description Returns the wallets you curated for the `wallets:personal` topic.
+         */
+        get: operations["wallets_subscriptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/wallets/subscriptions/{chain}/{wallet}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Curate a wallet
+         * @description Adds a wallet to your curated set. Idempotent.
+         */
+        post: operations["wallets_subscribe"];
+        /**
+         * Stop curating a wallet
+         * @description Removes a wallet from your curated set. Idempotent.
+         */
+        delete: operations["wallets_unsubscribe"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/wallets/thesis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get theses
+         * @description Returns posts wallets made about a token, newest first.
+         */
+        get: operations["wallets_thesis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/watchlist/feed/all": {
         parameters: {
             query?: never;
@@ -2358,6 +2678,26 @@ export interface paths {
          * @description Creates a saved token watchlist list owned by the authenticated user. Send `name` and `tokenFilter` in JSON; `imageData` is optional Base64-encoded JPEG, PNG, WebP, or GIF data, limited to 5 MB decoded and 256×256 pixels. Returns the created `LIST` source item and requires a bearer token.
          */
         post: operations["create_list"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/watchlist/manage/lists/{listId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Return the same complete source item as list creation and update. The shared
+         *     read checks ownership before it loads the private filter and source details.
+         */
+        get: operations["get_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2959,6 +3299,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/watchlist/sources/theses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Thesis author source catalog
+         * @description Labeled Pump.fun and Fomo accounts that can be added to a list as members. An author appears here whether or not they have posted yet; the source id is their wallet address. Static: it changes only when the wallet-label import runs, so it has no WebSocket topic.
+         */
+        get: operations["get_thesis_sources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/watchlist/sources/wallets": {
         parameters: {
             query?: never;
@@ -3422,6 +3782,11 @@ export interface components {
                 /** @description Positive purchase amount in US dollars. It must be a finite number greater than zero; input precision is not limited to 4 fractional digits, while returned numeric values use a 4-decimal display scale. */
                 value: components["schemas"]["PositiveDecimalNumber"];
             };
+            /**
+             * @description What the bot funds its buys with. Optional and defaults to `NATIVE`.
+             * @enum {string}
+             */
+            buyWith?: "NATIVE" | "FIAT";
             /** @description When to buy: `MARKET` right away, `DIP` after a fall of `dipPct`, or `LIMIT` at `priceUsd`. Defaults to `MARKET`. */
             strategy: {
                 /**
@@ -3467,6 +3832,7 @@ export interface components {
                 /** @description Strictly positive number for a buy amount in US dollars, with a public scale of up to 4 decimal places. */
                 value: components["schemas"]["PositiveDecimalNumber"];
             });
+            buyWith?: ("NATIVE" | "FIAT") | null;
             /** @description Replaces the buy strategy. On a brand-new chain it defaults to `MARKET`. */
             strategy?: ({
                 /**
@@ -3512,6 +3878,11 @@ export interface components {
                 /** @description Positive amount in US dollars for a fixed bot buy. The value supports 4 decimal places and must be greater than zero. */
                 value: components["schemas"]["PositiveDecimalNumber"];
             };
+            /**
+             * @description What the bot funds its buys with. Optional and defaults to `NATIVE`.
+             * @enum {string}
+             */
+            buyWith?: "NATIVE" | "FIAT";
             /** @description When to buy: `MARKET` right away, `DIP` after a fall of `dipPct`, or `LIMIT` at `priceUsd`. Defaults to `MARKET`. */
             strategy?: {
                 /**
@@ -3619,6 +3990,16 @@ export interface components {
             trade: components["schemas"]["TradeSettings"];
             /** @description Trading slot the bot executes from. It must be a slot the authenticated user is authorized for. */
             walletAddress: components["schemas"]["Address"];
+        };
+        /**
+         * @description Execution configuration shared by source-based bot creation and marketplace
+         *     subscription. The caller supplies or resolves the source separately.
+         */
+        BotCreationConfig: {
+            chainConfigs: {
+                [key: string]: components["schemas"]["BotChainConfigRequest"];
+            };
+            limits: components["schemas"]["BotLimits"] | null;
         };
         /**
          * @description Per-bot execution limits. Every field is optional; an absent or `null`
@@ -3800,7 +4181,7 @@ export interface components {
             /** @description Maximum balance changes per page. Defaults to 20 and is capped at 100. */
             limit?: number | null;
             /** @description Return only balance changes from bots following this kind of source. Omit it for every kind. */
-            sourceType?: ("CALLER" | "TG" | "LIST" | "WALLET") | null;
+            sourceType?: ("CALLER" | "TG" | "LIST" | "WALLET" | "THESIS") | null;
             /** @description Start of the window. Omit it for a live subscription; setting it selects a fixed window and requires `endCursor` too. */
             startCursor?: string | null;
         };
@@ -3863,7 +4244,7 @@ export interface components {
             /** @description Maximum log entries per page. Defaults to 20 and is capped at 100. */
             limit?: number | null;
             /** @description Return only logs from bots following this kind of source. Omit it for every kind. */
-            sourceType?: ("CALLER" | "TG" | "LIST" | "WALLET") | null;
+            sourceType?: ("CALLER" | "TG" | "LIST" | "WALLET" | "THESIS") | null;
             /** @description Start of the window. Omit it for a live subscription; setting it selects a fixed window and requires `endCursor` too. */
             startCursor?: string | null;
             /** @description Return only logs with this outcome. Omit it for both. */
@@ -4018,6 +4399,14 @@ export interface components {
                 /** @description Amount to spend in US dollars. It must be greater than zero. */
                 value: components["schemas"]["PositiveDecimalNumber"];
             };
+            /**
+             * @description What the user pays with. Independent of `amount`, which only says how
+             *     big the trade is: `amount = USD` still means "size this at $25", and it
+             *     can be funded with either currency.
+             *     Optional and defaults to `NATIVE`, so existing clients are unaffected.
+             * @enum {string}
+             */
+            buyWith?: "NATIVE" | "FIAT";
             /** @description When to buy: `MARKET` right away, `DIP` after a fall of `dipPct`, or `LIMIT` at `priceUsd`. Defaults to `MARKET`. */
             strategy: {
                 /**
@@ -4047,6 +4436,7 @@ export interface components {
         BuyCorePartial: {
             /** @description Overrides the preset's buy amount. Omit it to keep the preset's own amount. */
             amount?: null | components["schemas"]["BuyAmount"];
+            buyWith?: null | components["schemas"]["BuyWith"];
             /** @description Overrides the preset's buy strategy. Omit it to keep the preset's own strategy. */
             strategy?: null | components["schemas"]["BuyStrategy"];
         };
@@ -4151,10 +4541,18 @@ export interface components {
             trade: components["schemas"]["ActiveTrade"];
         };
         /**
+         * @description The currency the user funds a trade with.
+         *
+         *     Defaults to `Native` so every existing client keeps paying with the chain
+         *     peg. `Fiat` is only supported on chains with a known USD stablecoin.
+         * @enum {string}
+         */
+        BuyWith: "NATIVE" | "FIAT";
+        /**
          * @description Identifies the source family of a token call. Accepted values are CALLER, TG, LIST, and WALLET.
          * @enum {string}
          */
-        CallerSource: "CALLER" | "TG" | "LIST" | "WALLET";
+        CallerSource: "CALLER" | "TG" | "LIST" | "WALLET" | "THESIS";
         /** @description Identifies a caller source by its ID and display name, with an optional photo ID. `photoId` is `null` when no photo is available. */
         CallerSourceIdentity: components["schemas"]["WatchlistSourceBase"];
         /** @description Cancels a trade by id: aborts every currently pending or submitted swap on the trade, then removes the trade from the engine. */
@@ -4258,13 +4656,7 @@ export interface components {
         ChainMeta: "SOL";
         /** @description Signed percentage change relative to a baseline: 50 means a 50% increase, -25 means a 25% decrease, and 0 means no change. */
         ChangePercent: number;
-        /**
-         * @description A single chart marker, discriminated by `kind`. KOL/DEV flatten a
-         *     [`ChartMarkerSwap`]; USER_SWAP flattens a [`ChartMarkerUserSwap`] (the
-         *     `/active`+`/completed` trade-swap shape); CALL flattens the same
-         *     [`WatchlistCallItem`] the `/calls` feed returns; MIGRATION flattens a
-         *     [`TokenMigrationMarker`].
-         */
+        /** @description A single chart marker, discriminated by `kind`. */
         ChartMarker: ({
             /** @enum {string} */
             kind: "KOL";
@@ -4279,14 +4671,15 @@ export interface components {
             kind: "CALL";
         } & components["schemas"]["WatchlistCallItem"]) | ({
             /** @enum {string} */
+            kind: "THESIS";
+        } & components["schemas"]["ChartMarkerThesis"]) | ({
+            /** @enum {string} */
+            kind: "TWEET";
+        } & components["schemas"]["ChartMarkerTweet"]) | ({
+            /** @enum {string} */
             kind: "MIGRATION";
         } & components["schemas"]["TokenMigrationMarker"]);
-        /**
-         * @description A swap rendered as a chart marker (KOL / DEV / USER_SWAP). Carries the full
-         *     swap record (side, timestamp, and value/price/market-cap/amounts with native
-         *     + USD `*Str` variants, plus tx hash and fees), so it positions and tooltips
-         *     identically to a `/swaps` row.
-         */
+        /** @description A labeled or dev wallet's swap, rendered as a chart marker. */
         ChartMarkerSwap: components["schemas"]["TokenSwapRecord"] & {
             /** @description Identifier of the swap this marker came from. */
             id: string;
@@ -4296,11 +4689,77 @@ export interface components {
             walletAddress: components["schemas"]["Address"];
         };
         /**
-         * @description The authed viewer's own executed swap, rendered as a chart marker. Shares
-         *     the nested `value` / `fees` shape of the `/active` + `/completed` trade
-         *     swaps (`amount`/`price`/`marketCap` as `{ usd, native }`, a single combined
-         *     `fees { usd, native }`), rather than the KOL/DEV `ChartMarkerSwap` shape.
+         * @description A thesis posted about the token, rendered as a chart marker.
+         *     The author is a wallet, so identity comes from `"WalletLabel"` through the
+         *     same cache the KOL markers use: `labels` carries the avatar, the display
+         *     label, the handle and the platform.
          */
+        ChartMarkerThesis: {
+            /** @description Age in seconds at serialization time. */
+            ageSeconds: number;
+            /**
+             * @description The author's wallet. Absent for a Fomo author with no wallet bind, who
+             *     therefore has no labels either.
+             * @example So11111111111111111111111111111111111111112
+             */
+            authorWallet?: string;
+            /** @description The publisher's id for the post. */
+            id: string;
+            /**
+             * @description Labels on the author's wallet (empty when unlabeled), same shape and
+             *     source as `KOL`.
+             */
+            labels?: components["schemas"]["WalletLabelInfo"][];
+            /** Format: int64 */
+            likes: number;
+            /**
+             * @description Market cap in USD when the thesis was posted. Absent on older Fomo rows
+             *     that were stored before the column existed.
+             */
+            marketCapUsd?: number;
+            /**
+             * @description Which feed the thesis came from.
+             * @enum {string}
+             */
+            source: "PUMPFUN" | "FOMO";
+            /** @description What the author wrote. */
+            text: string;
+            /** @description Unix epoch milliseconds. */
+            timestamp: number;
+            /** @description ISO 8601 timestamp string. */
+            timestampStr: string;
+        };
+        /**
+         * @description A tweet naming the token, rendered as a chart marker.
+         *     Unlike a thesis the author is an X account with no wallet, so identity comes
+         *     from `"ScraperAuthor"` rather than `"WalletLabel"`.
+         */
+        ChartMarkerTweet: {
+            /** @description Age in seconds at serialization time. */
+            ageSeconds: number;
+            /**
+             * Format: int64
+             * @description Follower count at the time the scraper last saw the account.
+             */
+            followers?: number;
+            /** @description The author's X handle, without the `@`. */
+            handle: string;
+            /** @description The scraper's id for the tweet. */
+            id: string;
+            /** @description Display name, when the account sets one apart from the handle. */
+            name?: string;
+            /** @description Avatar to show alongside the tweet. */
+            photoId?: string;
+            /** @description The tweet text. */
+            text: string;
+            /** @description Unix epoch milliseconds. */
+            timestamp: number;
+            /** @description ISO 8601 timestamp string. */
+            timestampStr: string;
+            /** @description Permalink to the tweet. */
+            url: string;
+        };
+        /** @description The viewer's own swap, rendered as a chart marker. */
         ChartMarkerUserSwap: {
             /** @description Age in seconds at serialization time. */
             ageSeconds: number;
@@ -4311,7 +4770,13 @@ export interface components {
                 /** @description Total fee paid on the swap, in USD. */
                 usd: components["schemas"]["DecimalNumber"];
             };
-            /** @description Identifier of the swap this marker came from. */
+            /**
+             * @description The `UserSwap` id this marker came from.
+             *     Not derived from a transaction hash. The engine submits several
+             *     differently-priced attempts and confirms on a pre-confirmation hash that
+             *     finalize then replaces, so an id built from it changed under the client
+             *     and the same swap drew twice after a reload.
+             */
             id: string;
             /**
              * @description Address of the pair the swap happened on.
@@ -4469,11 +4934,15 @@ export interface components {
                  * @enum {string}
                  */
                 type: "WALLET";
+            } | {
+                id: string;
+                /** @enum {string} */
+                type: "THESIS";
             };
         };
         /** @description Request to create a saved scanner list with its display name, token-filter criteria, and optional image. */
         CreateListSourceRequest: {
-            /** @description Base64 image for the list, optionally with a data-URI prefix. JPEG, PNG, WebP, or GIF, at most 5 MB and 256x256 pixels. `null` removes the current image. */
+            /** @description Base64 image for the list, optionally with a data-URI prefix. JPEG, PNG, WebP, or GIF, at most 5 MB and 256x256 pixels. On create, omission or `null` means no image. On update, omission preserves the current image, `null` removes it, and new data replaces it. */
             imageData?: string | null;
             /** @description Name of the saved scanner list. */
             name: string;
@@ -4945,6 +5414,143 @@ export interface components {
             /** @description Settings for this buy. Omit it for `AUTO` gas on both sides, 12% slippage on both sides, no anti-MEV, and no targets. */
             settings?: components["schemas"]["TradeSettings"];
         };
+        /** @description A labeled wallet available to curate. */
+        LabeledWallet: {
+            /** @enum {string} */
+            chain: "SOL";
+            /** @description Every label on this wallet. */
+            labels: components["schemas"]["WalletLabelInfo"][];
+            /** @description Whether you curated this wallet. `false` when unauthenticated. */
+            subscribed: boolean;
+            walletAddress: components["schemas"]["Address"];
+        };
+        /** @description Response of `GET /v2/wallets/feed`. */
+        LabeledWalletFeedResponse: {
+            /** @description Matching swaps, newest first. */
+            swaps: components["schemas"]["LabeledWalletSwap"][];
+        };
+        /**
+         * @description Subscribe params for the `wallets:feed` and `wallets:personal` topics.
+         *
+         *     Every field is optional and narrows the stream.
+         */
+        LabeledWalletFilterParams: {
+            /** @description Chains to include. Omit for every chain. */
+            chains?: string[] | null;
+            /** @description Labels to include, case-insensitive. Omit for every label. */
+            labels?: string[] | null;
+            /**
+             * Format: int64
+             * @description Inclusive ceiling on swap size in USD. Must not be below `minUsd`.
+             */
+            maxUsd?: number | null;
+            /**
+             * Format: int64
+             * @description Inclusive floor on swap size in USD. Defaults to 10.
+             */
+            minUsd?: number | null;
+            /** @description `BUY` or `SELL`. Omit for both. */
+            side?: string | null;
+            /** @description Platforms to include. Omit for every platform. */
+            sources?: string[] | null;
+            /** @description Restrict to these wallet addresses. */
+            wallets?: string[] | null;
+        };
+        /** @description Response of the subscribe and unsubscribe endpoints. */
+        LabeledWalletSubscriptionResponse: {
+            /** @enum {string} */
+            chain: "SOL";
+            /** @description State after the call. Both endpoints are idempotent. */
+            subscribed: boolean;
+            walletAddress: components["schemas"]["Address"];
+        };
+        /** @description Response of `GET /v2/wallets/subscriptions`. */
+        LabeledWalletSubscriptionsResponse: components["schemas"]["CursorPagination"] & {
+            totalCount: number | null;
+            wallets: components["schemas"]["LabeledWallet"][];
+        };
+        /**
+         * @description One swap made by a labeled wallet.
+         *     The WebSocket delivers these in batches: one frame per subscription per
+         *     swaps tick, carrying every swap that matched in that tick, **oldest first**.
+         *     A tick is 200ms, so a frame arrives at most five times a second and a batch
+         *     has no fixed size. `GET /v2/wallets/feed` returns the same items **newest
+         *     first**.
+         */
+        LabeledWalletSwap: {
+            /** @description Age in seconds at serialization time. */
+            ageSeconds: number;
+            /**
+             * @description What the swap was worth. `minUsd` and `maxUsd` filter on this.
+             *
+             *     Native/quote-token value.
+             */
+            amountNative: number;
+            /**
+             * @description What the swap was worth. `minUsd` and `maxUsd` filter on this.
+             *
+             *     Exact string representation of the native/quote-token value.
+             */
+            amountNativeStr: string;
+            /**
+             * @description What the swap was worth. `minUsd` and `maxUsd` filter on this.
+             *
+             *     USD value.
+             */
+            amountUsd: number;
+            /**
+             * @description What the swap was worth. `minUsd` and `maxUsd` filter on this.
+             *
+             *     Exact string representation of the USD value.
+             */
+            amountUsdStr: string;
+            /**
+             * @description Chain the swap happened on.
+             * @enum {string}
+             */
+            chain: "SOL";
+            /** @description Identifier of the swap: `{txHash}:{logPlaceInBlock}`. */
+            id: string;
+            /** @description Labels carried by that wallet. Never empty. */
+            labels: components["schemas"]["WalletLabelInfo"][];
+            /**
+             * @description Whether the wallet bought or sold that token.
+             * @enum {string}
+             */
+            side: "BUY" | "SELL";
+            /** @description Whether you curated this wallet. Absent when the server cannot know. */
+            subscribed?: boolean;
+            /** @description Unix epoch milliseconds. */
+            timestamp: number;
+            /** @description ISO 8601 timestamp string. */
+            timestampStr: string;
+            /** @description The token that was bought or sold. */
+            token: components["schemas"]["LabeledWalletSwapToken"];
+            /** @description Transaction that carried the swap. */
+            txHash: string;
+            /** @description The wallet that made the swap. */
+            walletAddress: components["schemas"]["Address"];
+        };
+        /** @description The token that was traded. */
+        LabeledWalletSwapToken: {
+            /**
+             * @description address, in Solana base58 format.
+             * @example So11111111111111111111111111111111111111112
+             */
+            address: string;
+            name: string | null;
+            /**
+             * @description Pair the swap executed against.
+             * @example So11111111111111111111111111111111111111112
+             */
+            pairAddress: string;
+            symbol: string | null;
+        };
+        /** @description Response of `GET /v2/wallets/labeled`. */
+        LabeledWalletsResponse: components["schemas"]["CursorPagination"] & {
+            totalCount: number | null;
+            wallets: components["schemas"]["LabeledWallet"][];
+        };
         /** @description Context for the event that triggered a `LIST` watchlist call. */
         ListCallContext: {
             /** @description What made the list fire: a `TOKEN_CALL` from one of its sources, or a `PAIR_UPDATE`. */
@@ -4976,6 +5582,219 @@ export interface components {
             assets: components["schemas"]["WalletAsset"][];
             /** @description Combined value of the wallet's assets, in USD. */
             totalValueUsd: number;
+        };
+        /** @enum {string} */
+        MarketplaceActivity: "LOW" | "MEDIUM" | "HIGH";
+        /**
+         * @description Duplicate marketplace subscription error. `botId` is nullable and contains an ID only when the existing bot is visible in the authenticated user's organization.
+         * @example {
+         *       "botId": "33333333-3333-4333-8333-333333333333",
+         *       "error": "BOT_ALREADY_EXISTS",
+         *       "message": "A bot already exists for this list"
+         *     }
+         */
+        MarketplaceConflict: components["schemas"]["ErrorResponse"] & {
+            botId: string | null;
+            error?: components["schemas"]["MarketplaceConflictCode"];
+        };
+        /** @enum {string} */
+        MarketplaceConflictCode: "BOT_ALREADY_EXISTS";
+        /**
+         * @description The catalog changed after this cursor was issued.
+         * @example {
+         *       "error": "CURSOR_INVALIDATED",
+         *       "message": "Marketplace page changed; restart pagination"
+         *     }
+         */
+        MarketplaceCursorError: components["schemas"]["ErrorResponse"] & {
+            error?: components["schemas"]["MarketplaceCursorErrorCode"];
+        };
+        /** @enum {string} */
+        MarketplaceCursorErrorCode: "CURSOR_INVALIDATED";
+        MarketplaceFeedItem: {
+            callDetails: components["schemas"]["WatchlistCallDetails"];
+            /** @description Only the source owner receives trigger identities and private source context. */
+            caller?: components["schemas"]["WatchlistCallSource"];
+            id: string;
+            /** Format: uuid */
+            listId: string;
+            redacted: boolean;
+            title: string;
+        };
+        MarketplaceFeedResponse: components["schemas"]["CursorPagination"] & {
+            items: components["schemas"]["MarketplaceFeedItem"][];
+        };
+        MarketplaceList: {
+            /** @description Unix epoch milliseconds. */
+            createdAtTimestamp: number;
+            /** @description ISO 8601 timestamp string. */
+            createdAtTimestampStr: string;
+            description: string | null;
+            /** Format: uuid */
+            listId: string;
+            listingId: string | null;
+            photoId: string | null;
+            published: boolean;
+            /** @description Unix epoch milliseconds. */
+            publishedAtTimestamp?: number;
+            /** @description ISO 8601 timestamp string. */
+            publishedAtTimestampStr?: string;
+            publisher: components["schemas"]["MarketplacePublisher"];
+            stats: components["schemas"]["MarketplaceStats"];
+            title: string;
+            viewer: components["schemas"]["MarketplaceViewer"];
+        };
+        MarketplaceListsResponse: components["schemas"]["CursorPagination"] & {
+            items: components["schemas"]["MarketplaceList"][];
+        };
+        /** @enum {string} */
+        MarketplaceMetricState: "PENDING" | "READY" | "STALE" | "UNAVAILABLE";
+        MarketplacePublicationRequest: {
+            /**
+             * @description Optional marketplace description. The publication always uses the
+             *     current list name as its title.
+             */
+            description?: string | null;
+        };
+        MarketplacePublisher: {
+            /** Format: uuid */
+            id: string;
+            name: string | null;
+            photoId: string | null;
+        };
+        MarketplaceQuery: {
+            activity?: null | components["schemas"]["MarketplaceActivity"];
+            /** @description Case-insensitive publisher-name search. At most 255 characters. */
+            creator?: string | null;
+            /**
+             * @description Opaque cursor returned by the preceding page. Cursors are scoped to the
+             *     complete filter set and can be invalidated when the catalog changes.
+             */
+            cursor?: string | null;
+            /**
+             * Format: double
+             * @description Maximum stop-out rate as a public percentage, from 0 through 100.
+             */
+            maxStopOutRatePct?: number | null;
+            /**
+             * Format: double
+             * @description Maximum win rate as a public percentage, from 0 through 100.
+             */
+            maxWinRatePct?: number | null;
+            /**
+             * Format: int32
+             * @description Minimum ranking performance score, from 0 through 30.
+             */
+            minPerformance?: number | null;
+            /**
+             * Format: int32
+             * @description Minimum number of distinct users with an active subscription bot.
+             */
+            minUsers?: number | null;
+            /**
+             * Format: double
+             * @description Minimum win rate as a public percentage, from 0 through 100.
+             */
+            minWinRatePct?: number | null;
+            /** @description Exact publisher UUID or username, for public profile grids. */
+            publisher?: string | null;
+            view?: components["schemas"]["MarketplaceView"];
+        };
+        MarketplaceSavedRequest: {
+            /** @description Required desired bookmark state. False removes the bookmark. */
+            saved: boolean;
+        };
+        MarketplaceStats: {
+            /** @description Unix epoch milliseconds. */
+            calculatedAtTimestamp?: number;
+            /** @description ISO 8601 timestamp string. */
+            calculatedAtTimestampStr?: string;
+            /** @description rounded plain number token for this decimal field. */
+            creatorWageredUsd?: number;
+            /** @description Exact unrounded plain decimal string for this decimal field. */
+            creatorWageredUsdStr?: string;
+            metrics: components["schemas"]["WatchlistRankingMetrics"] | null;
+            state: components["schemas"]["MarketplaceMetricState"];
+            stopOut: components["schemas"]["MarketplaceStopOut"];
+            /** @description rounded plain number token for this decimal field. */
+            totalVolumeUsd?: number;
+            /** @description Exact unrounded plain decimal string for this decimal field. */
+            totalVolumeUsdStr?: string;
+            /**
+             * Format: int64
+             * @description Distinct users with an active subscription bot.
+             */
+            users: number;
+            volumeChart: components["schemas"]["MarketplaceVolumePoint"][] | null;
+        };
+        MarketplaceStopOut: {
+            /** @description Unix epoch milliseconds. */
+            calculatedAtTimestamp?: number;
+            /** @description ISO 8601 timestamp string. */
+            calculatedAtTimestampStr?: string;
+            /** @description Unix epoch milliseconds. */
+            cohortStartTimestamp?: number;
+            /** @description ISO 8601 timestamp string. */
+            cohortStartTimestampStr?: string;
+            coverage: components["schemas"]["MarketplaceStopOutCoverage"];
+            modelVersion: string | null;
+            /** @description Unix epoch milliseconds. */
+            observationWatermarkTimestamp?: number;
+            /** @description ISO 8601 timestamp string. */
+            observationWatermarkTimestampStr?: string;
+            /** Format: int64 */
+            pendingCalls: number;
+            /** Format: int64 */
+            resolvedCalls: number;
+            state: components["schemas"]["MarketplaceMetricState"];
+            /** @description rounded public-unit number token for this relative field. */
+            stopOutRatePct?: number;
+            /** Format: int64 */
+            stopOuts: number;
+            /** Format: int64 */
+            targetHits: number;
+            /** Format: int64 */
+            unavailableCalls: number;
+        };
+        /**
+         * @description Whether ordered price history covers the stop-out cohort. This is distinct
+         *     from result freshness. Unknown tracker coverage is treated as incomplete.
+         * @enum {string}
+         */
+        MarketplaceStopOutCoverage: "PENDING" | "INCOMPLETE" | "COMPLETE";
+        /** @description Bot execution configuration for a marketplace subscription. The listing supplies the source. A successful subscription bookmarks the listing automatically. */
+        MarketplaceSubscribeRequest: {
+            chainConfigs: components["schemas"]["BotCreationConfig"]["chainConfigs"];
+            limits?: components["schemas"]["BotCreationConfig"]["limits"];
+        };
+        MarketplaceSubscribeResponse: {
+            /** Format: uuid */
+            botId: string;
+            /** Format: uuid */
+            listingId: string;
+            viewer: components["schemas"]["MarketplaceViewer"];
+        };
+        /** @enum {string} */
+        MarketplaceView: "PUBLIC" | "ACTIVE" | "SAVED" | "OWNED" | "PUBLISHED_OWNED" | "PRIVATE_OWNED";
+        MarketplaceViewer: {
+            botActive: boolean | null;
+            botId: string | null;
+            /** @description Unix epoch milliseconds. */
+            botStartedAtTimestamp?: number;
+            /** @description ISO 8601 timestamp string. */
+            botStartedAtTimestampStr?: string;
+            isOwner: boolean;
+            saved: boolean;
+        };
+        MarketplaceVolumePoint: {
+            /** @description Unix epoch milliseconds. */
+            timestamp: number;
+            /** @description ISO 8601 timestamp string. */
+            timestampStr: string;
+            /** @description rounded plain number token for this decimal field. */
+            volumeUsd: number;
+            /** @description Exact unrounded plain decimal string for this decimal field. */
+            volumeUsdStr: string;
         };
         /** @description Options for retrieving the graduated, graduating, and new memepool sections. */
         MemepoolPageRequest: {
@@ -5272,13 +6091,13 @@ export interface components {
              * @description Where the pair trades. A token launched on a bonding-curve launchpad reports that launchpad rather than the router underneath it: `LETS_BONK` runs on `RAYDIUM_LAUNCH`, and `BELIEVE`, `BAGS`, and `PRINTR` run on `METEORA_BONDING_CURVE`.
              * @enum {string}
              */
-            platformType: "UNISWAP_V2" | "UNISWAP_V3" | "RAYDIUM" | "RAYDIUM_CP" | "AERODROME_V2" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "FOURMEME_V2" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR";
+            platformType: "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
         };
         /**
          * @description Identifies the trading platform or protocol.
          * @enum {string}
          */
-        PlatformType: "UNISWAP_V2" | "UNISWAP_V3" | "RAYDIUM" | "RAYDIUM_CP" | "AERODROME_V2" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "FOURMEME_V2" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR";
+        PlatformType: "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
         /** @description A decimal value strictly greater than 0. The enclosing field defines its unit and display scale. */
         PositiveDecimalNumber: number;
         /** @description Request body for buying the route's token with a saved trade preset. The selected preset supplies omitted buy values and settings; `amount` and `strategy` can override its values. */
@@ -5303,6 +6122,38 @@ export interface components {
         };
         /** @description Empty detail payload for a PRICE_UPDATED user-trades WebSocket update. Use data.trades and the update metadata to identify changed trade snapshots and when the update was emitted. */
         PriceUpdatedDetail: Record<string, never>;
+        /**
+         * @description How sure the API is that the analytics belong to the handle.
+         * @enum {string}
+         */
+        ProfileConfidence: "SWAP_VERIFIED" | "PLATFORM_WALLET" | "LABEL_ONLY";
+        /**
+         * @description Who the profile is about. Shared by the full profile, search rows and the
+         *     receipts list.
+         */
+        ProfileIdentity: {
+            /**
+             * @description Chain the analytics were read from.
+             * @enum {string}
+             */
+            chain: "SOL";
+            /**
+             * @description How sure the API is that the analytics belong to the handle.
+             * @enum {string}
+             */
+            confidence: "SWAP_VERIFIED" | "PLATFORM_WALLET" | "LABEL_ONLY";
+            displayName: string | null;
+            /** @description The handle as stored on the wallet label. */
+            handle: string;
+            photoId: string | null;
+            /**
+             * @description Platform the handle belongs to.
+             * @enum {string}
+             */
+            source: "FOMO" | "PUMPFUN" | "KOL";
+            /** @description `true` when `confidence` is not `LABEL_ONLY`. */
+            verified: boolean;
+        };
         /** @description Request body containing base64-encoded image data for the authenticated user's profile picture. */
         ProfilePictureRequest: {
             /** @description Base64-encoded JPEG, PNG, WebP, or GIF, optionally with a `data:image/...;base64,` prefix. At most 5 MB and 256x256 pixels. */
@@ -5312,6 +6163,134 @@ export interface components {
         ProfilePictureResponse: {
             /** @description Identifier of the uploaded picture. Fetch it from `/v2/avatar/{photoId}`. */
             photoId: string;
+        };
+        /** @description Query params for `GET /v2/profiles/{source}/{handle}`. */
+        ProfileQuery: {
+            chain?: null | components["schemas"]["Chain"];
+            timeRange?: null | components["schemas"]["WalletTimeRange"];
+        };
+        /** @description One thesis checked against the author's own swaps on that token. */
+        ProfileReceipt: {
+            /** @description The author bought this token at least once (in the 30 day window). */
+            bought: boolean;
+            /** @description The author's first buy came before the post. */
+            boughtBeforePost: boolean;
+            /**
+             * @description Share of supply held by bundler wallets. Absent when unknown.
+             *
+             *     rounded public-unit number token for this relative field.
+             */
+            bundlerPercent?: number;
+            /**
+             * @description Sign of a token position's realized PnL.
+             * @enum {string}
+             */
+            outcome: "WIN" | "LOSS" | "OPEN";
+            /**
+             * @description Realized PnL over cost on this token, rounded to whole percent.
+             *
+             *     rounded public-unit number token for this relative field.
+             */
+            pnlPercent?: number;
+            /**
+             * @description Market cap the token had when the thesis was posted. Absent on rows
+             *     stored before the platform recorded it.
+             *
+             *     rounded plain number token for this decimal field.
+             */
+            postedAtMarketCapUsd?: number;
+            /**
+             * @description Market cap the token had when the thesis was posted. Absent on rows
+             *     stored before the platform recorded it.
+             *
+             *     Exact unrounded plain decimal string for this decimal field.
+             */
+            postedAtMarketCapUsdStr?: string;
+            /** @description Day the thesis was posted, `YYYY-MM-DD` in UTC. Day granularity only. */
+            postedOn: string;
+            /**
+             * @description When the author first sold after posting. `NEVER` when still holding or
+             *     never bought.
+             * @enum {string}
+             */
+            soldAfterPost: "BEFORE_POST" | "UNDER_1H" | "UNDER_24H" | "UNDER_7D" | "LATER" | "NEVER";
+            /**
+             * @description address, in Solana base58 format.
+             * @example So11111111111111111111111111111111111111112
+             */
+            tokenAddress: string;
+            tokenSymbol: string;
+            /**
+             * @description What the receipt says about this thesis. `STAGED_HOLD` is a never-sold bag
+             *     on a bundled coin (`bundlerPercent >= 40`, buy volume at least $100).
+             *     Missing bundler data is never staged.
+             * @enum {string}
+             */
+            verdict: "NEVER_BOUGHT" | "CLEAN_HOLD" | "DUMPED" | "STAGED_HOLD";
+        };
+        /**
+         * @description Receipts summary. Trust score is `0..=100`:
+         *     `40 * winRate + 30 * honestHoldRate + 20 * min(thesesCount, 10) / 10 +
+         *     10 * verified`. `honestHoldRate` is over bought theses that were not sold
+         *     within 24h and are not `STAGED_HOLD`. Staged holds stay in `boughtCount`
+         *     but give zero hold points. Zero theses gives zero.
+         */
+        ProfileReceipts: {
+            /**
+             * @description Best realized PnL percent among bought theses.
+             *
+             *     rounded public-unit number token for this relative field.
+             */
+            bestCallPercent?: number;
+            /**
+             * Format: int64
+             * @description Theses whose token the author bought.
+             */
+            boughtCount: number;
+            /**
+             * @description Share of bought theses still held 24h after the post, excluding staged
+             *     holds.
+             *
+             *     rounded public-unit number token for this relative field.
+             */
+            heldAfterPostPercent: number;
+            /**
+             * @description Share of bought theses sold within 24h of the post.
+             *
+             *     rounded public-unit number token for this relative field.
+             */
+            soldWithin24hPercent: number;
+            /**
+             * Format: int64
+             * @description Bought theses stamped `STAGED_HOLD`.
+             */
+            stagedHoldCount: number;
+            /**
+             * Format: int64
+             * @description Theses in the window (last 30 days).
+             */
+            thesesCount: number;
+            /**
+             * Format: int32
+             * @description Composite `0..=100`, see the struct description for the weights.
+             */
+            trustScore: number;
+            /**
+             * @description Worst realized PnL percent among bought theses.
+             *
+             *     rounded public-unit number token for this relative field.
+             */
+            worstCallPercent?: number;
+        };
+        /** @description Query params for `GET /v2/profiles/{source}/{handle}/receipts`. */
+        ProfileReceiptsQuery: {
+            chain?: null | components["schemas"]["Chain"];
+        };
+        /** @description Response of `GET /v2/profiles/{source}/{handle}/receipts`. */
+        ProfileReceiptsResponse: components["schemas"]["ProfileIdentity"] & {
+            /** @description Newest post first. */
+            items: components["schemas"]["ProfileReceipt"][];
+            summary: components["schemas"]["ProfileReceipts"];
         };
         /** @description Public profile summary with identity, follow relationships, trading totals, performance statistics, and recent profit history. */
         ProfileResponse: {
@@ -5381,6 +6360,42 @@ export interface components {
              * @description Number of the user's closed trades that made a profit.
              */
             wins: number;
+        };
+        /** @description Query params for `GET /v2/profiles/search`. */
+        ProfileSearchQuery: {
+            chain?: null | components["schemas"]["Chain"];
+            /** @description Opaque page selector from a previous response's `nextCursor`. */
+            cursor?: string | null;
+            /** @description Case-insensitive substring of the handle. */
+            q: string;
+            /** @description Platforms to include. Accepts `sources[]=FOMO`, repeated `sources=FOMO`, and CSV `sources=FOMO,KOL`. */
+            sources?: string[];
+        };
+        /** @description Response of `GET /v2/profiles/search`. */
+        ProfileSearchResponse: components["schemas"]["CursorPagination"] & {
+            items: components["schemas"]["ProfileIdentity"][];
+            totalCount: number | null;
+        };
+        /** @description One of the profile's best or worst token positions. No swap detail. */
+        ProfileTopToken: {
+            /**
+             * @description Sign of a token position's realized PnL.
+             * @enum {string}
+             */
+            outcome: "WIN" | "LOSS" | "OPEN";
+            /**
+             * @description Realized PnL over cost, rounded to whole percent. Absent when there was
+             *     no buy volume to divide by.
+             *
+             *     rounded public-unit number token for this relative field.
+             */
+            pnlPercent?: number;
+            symbol: string;
+            /**
+             * @description address, in Solana base58 format.
+             * @example So11111111111111111111111111111111111111112
+             */
+            tokenAddress: string;
         };
         /** @description A daily observation of the user's cumulative realized profit over the last 30 days, aggregated across the user's trading slots and expressed in USD. */
         ProfitChartPoint: {
@@ -5503,6 +6518,23 @@ export interface components {
             /** @description The represented instant as an ISO 8601 timestamp string. */
             timestampStr: string;
         };
+        /**
+         * @description When the profile acted on a token relative to posting about it.
+         * @enum {string}
+         */
+        ReceiptTiming: "BEFORE_POST" | "UNDER_1H" | "UNDER_24H" | "UNDER_7D" | "LATER" | "NEVER";
+        /**
+         * @description What the receipt says about this thesis. `STAGED_HOLD` is a never-sold bag
+         *     on a bundled coin (`bundlerPercent >= 40`, buy volume at least $100).
+         *     Missing bundler data is never staged.
+         * @enum {string}
+         */
+        ReceiptVerdict: "NEVER_BOUGHT" | "CLEAN_HOLD" | "DUMPED" | "STAGED_HOLD";
+        /**
+         * @description Coarse recency of the last swap. Never an exact timestamp.
+         * @enum {string}
+         */
+        RecencyBucket: "UNDER_1H" | "UNDER_24H" | "UNDER_7D" | "OLDER";
         /** @description Current referral fee-rate snapshot for one chain, including system, affiliate, and cashback rates as percentages and the available cashback amount in that chain’s peg-token units. */
         ReferralChainFeeRate: components["schemas"]["FeeRateResponse"] & {
             /**
@@ -5711,6 +6743,7 @@ export interface components {
         ScannerGraduation: "all" | "onlyGraduated" | "ignoreGraduated";
         /** @description A token snapshot together with the data points used to display its sparkline. */
         ScannerItem: components["schemas"]["TokenSnapshotBase"] & {
+            devAddress: components["schemas"]["Address"] | null;
             /** @description Up to 20 price samples in USD over the last 24 hours, oldest first. Outlier swaps are left out. */
             sparkline: {
                 /** @description Price of the token in USD at this point. */
@@ -5883,8 +6916,25 @@ export interface components {
             startCursor?: string | null;
             /** @description Buy, sell, and transfer tax ranges. A token with no tax data never matches a supplied bound. */
             tax?: null | components["schemas"]["TokenTaxFilter"];
+            /** @description Theses posted about the token in the last 30 days. See `GET /v2/wallets/thesis`. */
+            thesisCount?: null | {
+                /** Format: int64 */
+                max?: number;
+                /** Format: int64 */
+                min?: number;
+            };
             /** @description Window the time-dependent metrics and ranking cover. Defaults to the view's window, or `24H`. */
             timeFrame?: null | components["schemas"]["TimeFrame"];
+            /**
+             * @description Tweets that named the token. Counted over the 7 days before the scanner
+             *     started plus every one since, so it is not an all-time total.
+             */
+            tweetCount?: null | {
+                /** Format: int64 */
+                max?: number;
+                /** Format: int64 */
+                min?: number;
+            };
             /** @description Ranking preset for the subscription. Defaults to `trending`. Set `rankBy`, `orderBy`, or `timeFrame` to override part of it. */
             view?: null | components["schemas"]["ScannerView"];
         };
@@ -5925,6 +6975,23 @@ export interface components {
             startCursor?: string | null;
             /** @description Buy, sell, and transfer tax ranges. A token with no tax data never matches a supplied bound. */
             tax?: null | components["schemas"]["TokenTaxFilter"];
+            /** @description Theses posted about the token in the last 30 days. See `GET /v2/wallets/thesis`. */
+            thesisCount?: null | {
+                /** Format: int64 */
+                max?: number;
+                /** Format: int64 */
+                min?: number;
+            };
+            /**
+             * @description Tweets that named the token. Counted over the 7 days before the scanner
+             *     started plus every one since, so it is not an all-time total.
+             */
+            tweetCount?: null | {
+                /** Format: int64 */
+                max?: number;
+                /** Format: int64 */
+                min?: number;
+            };
         };
         /**
          * @description Selects a scanner result preset: `new`, `trending`, `topVolume`, or `topGainers`. In scanner token requests, an omitted or `null` view defaults to `trending` over 24 hours.
@@ -6348,6 +7415,18 @@ export interface components {
             name: string;
             /** @description Identifier of the chat photo, if there is one. Fetch it from `GET /v2/avatar/{photoId}`. */
             photoId?: string | null;
+        };
+        /**
+         * @description Enriched thesis-author source entry. The `id` is the author's wallet
+         *     address, the same id `/v2/watchlist/sources/theses` returns and the same
+         *     string the list stores as its member.
+         */
+        SourceThesisEntry: {
+            chain: components["schemas"]["Chain"];
+            id: string;
+            name: string;
+            photoId?: string | null;
+            walletAddress: components["schemas"]["WalletAddress"];
         };
         /** @description Copy-trade wallet source entry identified by its display name, wallet address, unique identifier, and chain. */
         SourceWalletEntry: {
@@ -6843,6 +7922,115 @@ export interface components {
             /** @description Forum topics in the chat. Not paginated. */
             topics: components["schemas"]["TgTopicEntry"][];
         };
+        /** @description The post that fired the list. */
+        ThesisCallContext: {
+            thesisId: string;
+            /** @description `PUMPFUN` or `FOMO`. */
+            thesisSource: string;
+        };
+        /**
+         * @description Subscribe params for the `wallets:thesis` and `wallets:thesis:personal`
+         *     topics.
+         *
+         *     Every field is optional and narrows the stream.
+         */
+        ThesisFilterParams: {
+            /** @description Chains to include. Omit for every chain. */
+            chains?: string[] | null;
+            /** @description Labels to include, case-insensitive. Omit for every label. */
+            labels?: string[] | null;
+            /**
+             * Format: double
+             * @description Inclusive floor on market cap in USD at post time.
+             */
+            minMarketcapUsd?: number | null;
+            /** @description Sources to include (`FOMO`, `PUMPFUN`). Omit for every source. */
+            sources?: string[] | null;
+            /** @description Only theses about this token. Omit for every token. */
+            tokenAddress?: string | null;
+        };
+        /** @description A post a wallet made about a token. */
+        ThesisItem: {
+            /**
+             * @description Chain the token trades on.
+             * @enum {string}
+             */
+            chain: "SOL";
+            /** @description Age in seconds at serialization time. */
+            createdAtAgeSeconds: number;
+            /** @description Unix epoch milliseconds. */
+            createdAtTimestamp: number;
+            /** @description ISO 8601 timestamp string. */
+            createdAtTimestampStr: string;
+            /** @description Identifier of the thesis. */
+            id: string;
+            /**
+             * @description Labels on the posting wallet, each carrying its own `photoId`. Empty
+             *     when the wallet is unlabeled.
+             */
+            labels: components["schemas"]["WalletLabelInfo"][];
+            /**
+             * Format: int64
+             * @description Likes the post has collected.
+             */
+            likes: number;
+            marketcapUsd: string | null;
+            /**
+             * @description Where it came from.
+             * @enum {string}
+             */
+            source: "PUMPFUN" | "FOMO";
+            /**
+             * @description Whether you curated the posting wallet.
+             *     Absent when the server cannot know: an unauthenticated REST request, or
+             *     the shared `wallets:thesis` stream, whose frames are broadcast to every
+             *     subscriber and so cannot carry per-user state. Always `true` on
+             *     `wallets:thesis:personal`, where every post is curated by definition.
+             */
+            subscribed?: boolean;
+            /** @description Body of the post. */
+            text: string;
+            /** @description The token the post is about. */
+            token: components["schemas"]["ThesisToken"];
+            username: string | null;
+            walletAddress: components["schemas"]["Address"] | null;
+        };
+        /** @description Response of `GET /v2/wallets/thesis`. */
+        ThesisResponse: components["schemas"]["CursorPagination"] & {
+            theses: components["schemas"]["ThesisItem"][];
+            totalCount: number | null;
+        };
+        /**
+         * @description Where a thesis came from.
+         * @enum {string}
+         */
+        ThesisSource: "PUMPFUN" | "FOMO";
+        /**
+         * @description A thesis author: a labeled wallet that posts on Pump.fun or Fomo.
+         *     The id is the wallet address, the same identity the labeled-wallet directory
+         *     and the chart markers use, so a wallet found in `/v2/wallets/feed` can be
+         *     added to a list directly.
+         */
+        ThesisSourceIdentity: components["schemas"]["WatchlistSourceBase"] & {
+            /** @enum {string} */
+            chain: "SOL";
+            /**
+             * @description The platform the author posts on.
+             * @enum {string}
+             */
+            source: "PUMPFUN" | "FOMO";
+            walletAddress: components["schemas"]["Address"];
+        };
+        /** @description The token a thesis is about. */
+        ThesisToken: {
+            /**
+             * @description address, in Solana base58 format.
+             * @example So11111111111111111111111111111111111111112
+             */
+            address: string;
+            name: string | null;
+            symbol: string | null;
+        };
         /**
          * @description Token-activity time window: 5M (5 minutes), 1H (1 hour), 6H (6 hours), or 24H (24 hours).
          * @enum {string}
@@ -7043,9 +8231,36 @@ export interface components {
              */
             to?: number | null;
         };
+        /** @description Optional filters for a chart-markers subscription. Omit a filter to disable it. */
+        TokenChartMarkersFilterParams: {
+            /** @description Show only markers from wallets you track. Requires an authenticated connection. */
+            curated?: boolean | null;
+            /** @description Whether to include outlier swaps. Defaults to `false`. */
+            includeOutlier?: boolean | null;
+            /** @description Inclusive upper bound for a marker’s USD amount. Omit it for no upper bound. */
+            maxUsd?: string | null;
+            /** @description Inclusive lower bound for a marker’s USD amount. Defaults to 10. */
+            minUsd?: string | null;
+            /** @description Return only buys or only sells. Omit it for both. */
+            side?: null | components["schemas"]["SwapType"];
+            /** @description Restricts markers to swaps from this wallet. Matching is case-insensitive. */
+            walletAddress?: null | components["schemas"]["Address"];
+        };
         TokenChartMarkersResponse: {
+            /**
+             * Format: int64
+             * @description Start of the window actually read, Unix epoch seconds.
+             */
+            from: number;
             /** @description Markers to draw on the chart, oldest first. */
             markers: components["schemas"]["ChartMarker"][];
+            /**
+             * Format: int64
+             * @description End of the window actually read, as Unix epoch seconds.
+             */
+            to: number;
+            /** @description Whether the requested window was clamped to the maximum. */
+            truncated: boolean;
         };
         /** @description A cursor-paginated list of completed trade records for the requested token and chain. */
         TokenCompletedTradesResponse: components["schemas"]["CursorPagination"] & {
@@ -7116,6 +8331,23 @@ export interface components {
             sources?: null | components["schemas"]["TokenSourceFilter"];
             /** @description Buy, sell, and transfer tax ranges. A token with no tax data never matches a supplied bound. */
             tax?: null | components["schemas"]["TokenTaxFilter"];
+            /** @description Theses posted about the token in the last 30 days. See `GET /v2/wallets/thesis`. */
+            thesisCount?: null | {
+                /** Format: int64 */
+                max?: number;
+                /** Format: int64 */
+                min?: number;
+            };
+            /**
+             * @description Tweets that named the token. Counted over the 7 days before the scanner
+             *     started plus every one since, so it is not an all-time total.
+             */
+            tweetCount?: null | {
+                /** Format: int64 */
+                max?: number;
+                /** Format: int64 */
+                min?: number;
+            };
         };
         /** @description Optional filters that restrict scanner results by chain, trading platform, and graduation status. */
         TokenFilterScope: {
@@ -7439,7 +8671,7 @@ export interface components {
              * @description Platform the token migrated from.
              * @enum {string}
              */
-            migratedFromPlatformType: "UNISWAP_V2" | "UNISWAP_V3" | "RAYDIUM" | "RAYDIUM_CP" | "AERODROME_V2" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "FOURMEME_V2" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR";
+            migratedFromPlatformType: "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
             /** @description How far the token has moved along its bonding curve. */
             progressPct: number;
             /**
@@ -7625,16 +8857,75 @@ export interface components {
             /** @description Ticker symbol of the quoted token, which is the pair’s base token. Used for display and token identification. */
             tokenSymbol: string;
         };
-        /** @description Pump.fun token metadata with Mayhem and agent classification flags and a cashback percentage. */
+        /** @description Pump.fun token metadata with Mayhem, agent, and holder-reward classification flags and a cashback percentage. */
         TokenMarketPumpfun: {
             /** @description Cashback rate the token earns. */
             cashbackPct: number;
+            /** @description Creator-fee destinations when the token has a Pump.fun fee-sharing config. */
+            feeSharing?: components["schemas"]["TokenMarketPumpfunFeeSharing"];
             /** @description Whether the token is a Pump.fun Agent token. */
             isAgent: boolean;
             /** @description True when the token graduated from the pump.fun bonding curve to PumpSwap and was not a mayhem-mode launch. A token still on the curve is never boosted, even at 100% progress: boost describes the destination pool. Mayhem state carries across migration, so `isMayhem` and `isBoost` are never both `true`. */
             isBoost: boolean;
+            /** @description Whether the token is a Pump.fun holder-rewards token. */
+            isHolderReward: boolean;
             /** @description Whether the token is a Pump.fun Mayhem token. */
             isMayhem: boolean;
+        };
+        /** @description One charity destination in a donation share. */
+        TokenMarketPumpfunFeeShareCharity: {
+            /** @description Charity wallet address. */
+            address?: string;
+            /** @description Charity display name. */
+            name?: string;
+        };
+        /** @description Donation config for a charity fee-share destination. */
+        TokenMarketPumpfunFeeShareDonation: {
+            /** @description Charity destinations in this donation share. */
+            charities?: components["schemas"]["TokenMarketPumpfunFeeShareCharity"][];
+            /** @description Donation config id. */
+            configId?: string;
+        };
+        /** @description Social identity for a social fee-share destination. */
+        TokenMarketPumpfunFeeShareSocial: {
+            /** @description Social platform name. */
+            platform?: string;
+            /** @description Profile image URL. */
+            profileImageUrl?: string;
+            /** @description Platform user id. */
+            userId?: string;
+            /** @description Platform username. */
+            username?: string;
+        };
+        /** @description One creator-fee destination and its share. */
+        TokenMarketPumpfunFeeShareholder: {
+            /** @description Destination wallet for this share. */
+            address: string;
+            donation?: components["schemas"]["TokenMarketPumpfunFeeShareDonation"];
+            /** @description Destination kind when known. One of wallet, social, or donation. */
+            kind?: string;
+            /**
+             * Format: int32
+             * @description Share of creator fees in basis points. 10000 is 100%.
+             */
+            shareBps: number;
+            social?: components["schemas"]["TokenMarketPumpfunFeeShareSocial"];
+        };
+        /** @description Pump.fun creator-fee sharing config scraped from the sharing-config PDA. */
+        TokenMarketPumpfunFeeSharing: {
+            /** @description Sharing-config PDA address. */
+            address: string;
+            /** @description Admin pubkey that can update the sharing config. */
+            admin?: string;
+            /** @description Whether the admin key has been revoked. */
+            adminRevoked?: boolean;
+            /** @description Token mint the sharing config belongs to. */
+            mint?: string;
+            /**
+             * @description Every destination the creator fees are split across. Always serialized,
+             *     empty when the config has no shareholders.
+             */
+            shareholders: components["schemas"]["TokenMarketPumpfunFeeShareholder"][];
         };
         /** @description Current and baseline token valuation and liquidity, fully diluted value, total supply, and base- and quote-token reserves. USD and quote-token amounts are provided as numeric values with exact decimal string companions. */
         TokenMarketQuote: components["schemas"]["TokenMarketValuation"] & {
@@ -7809,7 +9100,7 @@ export interface components {
              * @description Type of the destination trading venue for the token migration.
              * @enum {string}
              */
-            migratedToPlatformType: "UNISWAP_V2" | "UNISWAP_V3" | "RAYDIUM" | "RAYDIUM_CP" | "AERODROME_V2" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "FOURMEME_V2" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR";
+            migratedToPlatformType: "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
             /**
              * @description Address of the trading pair from which the token migrated.
              * @example So11111111111111111111111111111111111111112
@@ -7821,10 +9112,7 @@ export interface components {
              */
             tokenAddress: string;
         };
-        /**
-         * @description Migration marker: the moment the token graduated from its bonding-curve pair
-         *     to its AMM pair (a vertical line on the chart).
-         */
+        /** @description The moment the token graduated from its bonding curve to its AMM pair. */
         TokenMigrationMarker: {
             /**
              * @description address, in Solana base58 format.
@@ -7874,6 +9162,11 @@ export interface components {
             /** @description Token snapshots returned by the lookup. */
             tokens: components["schemas"]["TokenSnapshot"][];
         };
+        /**
+         * @description Sign of a token position's realized PnL.
+         * @enum {string}
+         */
+        TokenOutcome: "WIN" | "LOSS" | "OPEN";
         /** @description Identifies a trading pair by its chain, pair address, base token, and quote token. */
         TokenPairIdentity: {
             /** @description Token used as the base currency for the pair, including its address, chain, decimals, name, and symbol. */
@@ -8034,6 +9327,11 @@ export interface components {
             /** @description Trading activity totals, plus the 5-minute, 1-hour, 6-hour, and 24-hour windows. */
             stats: components["schemas"]["TokenMarketStats"];
             /**
+             * Format: int64
+             * @description Theses posted about this token.
+             */
+            theses: number;
+            /**
              * @description Address of the base token, which is neither the pair address nor the quote token.
              * @example So11111111111111111111111111111111111111112
              */
@@ -8047,6 +9345,12 @@ export interface components {
             tokenName: string;
             /** @description Ticker symbol of the base token in the trading pair. */
             tokenSymbol: string;
+            /**
+             * Format: int64
+             * @description Tweets that named this token: those in the 7 days before the scanner
+             *     started, plus every one since. Not an all-time total.
+             */
+            tweets: number;
         };
         /** @description Social links and profile data for a token. */
         TokenSocialData: {
@@ -8090,6 +9394,15 @@ export interface components {
             tgConnections?: string[] | null;
             /** @description Telegram sender IDs to match. Only calls recorded for the requesting user count. */
             tgSenders?: number[] | null;
+            /**
+             * @description Thesis authors to match, by wallet address. An author hits when they
+             *     post about the token on Pump.fun or Fomo.
+             *
+             *     Authors decide who must post; how many posts the token needs is
+             *     `thesisCount`. An author never counts towards `callCount`: a thesis is
+             *     not a call.
+             */
+            theses?: string[] | null;
             /** @description UUIDs of copy-trade wallets to match. */
             wallets?: string[] | null;
         };
@@ -8105,6 +9418,8 @@ export interface components {
             groups?: components["schemas"]["TokenSourceGroupRead"][] | null;
             /** @description Telegram connection entries resolved from the IDs in the list's token filter, in the order configured. IDs with no identity are dropped. */
             tgConnections?: components["schemas"]["SourceTgConnectionEntry"][] | null;
+            /** @description Thesis authors named by the list, by wallet address. */
+            theses?: components["schemas"]["SourceThesisEntry"][] | null;
             /** @description Wallet entries resolved from the IDs in the list's token filter, in the order configured. IDs with no identity are dropped. */
             wallets?: components["schemas"]["SourceWalletEntry"][] | null;
         };
@@ -8119,6 +9434,8 @@ export interface components {
             tgConnections?: string[] | null;
             /** @description Telegram senders to match. */
             tgSenders?: number[] | null;
+            /** @description Thesis authors to match, by wallet address. */
+            theses?: string[] | null;
             /** @description Copy-trade wallets to match. */
             wallets?: string[] | null;
         };
@@ -8132,6 +9449,8 @@ export interface components {
             callers?: components["schemas"]["SourceCallerEntry"][] | null;
             /** @description Telegram connections that called the token. */
             tgConnections?: components["schemas"]["SourceTgConnectionEntry"][] | null;
+            /** @description Thesis authors that posted about the token. */
+            theses?: components["schemas"]["SourceThesisEntry"][] | null;
             /** @description Copy-trade wallets that traded the token. */
             wallets?: components["schemas"]["SourceWalletEntry"][] | null;
         };
@@ -8165,7 +9484,7 @@ export interface components {
              * @description Platform the swap happened on.
              * @enum {string}
              */
-            platformType: "UNISWAP_V2" | "UNISWAP_V3" | "RAYDIUM" | "RAYDIUM_CP" | "AERODROME_V2" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "FOURMEME_V2" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR";
+            platformType: "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
             /**
              * Format: int32
              * @description Position of the transaction within its block, when observed by the indexer.
@@ -8298,9 +9617,9 @@ export interface components {
         TokenSwapsFilterParams: {
             /** @description Whether to include outlier swaps. Omit this property, or set it to `false`, to exclude outliers; set it to `true` to include them. Explicit `null` is rejected. */
             includeOutlier?: boolean | null;
-            /** @description Inclusive upper bound for a swap’s USD amount. Supply a number or decimal string; omit this property to impose no upper bound. Values above the bound are excluded. Explicit `null` or an invalid decimal is rejected. */
+            /** @description Inclusive upper bound for a swap’s USD amount. Supply a number or decimal string; omit it or set it to `null` for no upper bound. Values above the bound are excluded. An invalid decimal is rejected. */
             maxUsd?: string | null;
-            /** @description Inclusive lower bound for a swap’s USD amount. Supply a number or decimal string; omit this property to impose no lower bound. Values below the bound are excluded. Explicit `null` or an invalid decimal is rejected. */
+            /** @description Inclusive lower bound for a swap’s USD amount. Supply a number or decimal string; omit it or set it to `null` for no lower bound. Values below the bound are excluded. An invalid decimal is rejected. */
             minUsd?: string | null;
             /** @description Return only buys or only sells. Omit it for both. */
             side?: null | components["schemas"]["SwapType"];
@@ -8384,7 +9703,7 @@ export interface components {
              * @description Nonnegative count of token-buy transactions attributed to this trader.
              */
             buys: number;
-            /** @description Compact retained-ledger funding evidence; OpenAPI nullable: `true` preserves old payloads. */
+            /** @description Compact retained-ledger funding evidence. Not sent on the WebSocket. */
             fundingSource: components["schemas"]["FundingSourcePreview"] | null;
             /** @description How long the trader has held the token. */
             holderSinceAgeSeconds: number;
@@ -8394,7 +9713,7 @@ export interface components {
             holderSinceTimestampStr: string;
             /** @description Human labels attached to this wallet (empty when unlabeled). */
             labels?: components["schemas"]["WalletLabelInfo"][];
-            /** @description Daily cumulative PnL over the last 90 days, for this token and for the trader overall. Omitted when unavailable. */
+            /** @description Daily cumulative PnL over the last 90 days, for this token and for the trader overall. Not sent on the WebSocket. */
             pnlSparkline?: components["schemas"]["TokenTopTraderPnlSparkline"];
             /** @description The trader’s profit or loss for this token over the reported top-trader range, in USD. */
             pnlUsd: number;
@@ -9233,12 +10552,43 @@ export interface components {
             /** @description Win rate in percentage points over decided token positions in the selected window. The unit is a token, not a swap: a token position is a win when its net PnL is positive, a loss when negative, and break-even tokens are excluded from the denominator entirely (`winRatePct = wins / (wins + losses)`). */
             winRatePct: number;
         };
+        /**
+         * @description Response of `GET /v2/profiles/{source}/{handle}`.
+         *     Named for the trader, not just "profile": `user::ProfileResponse` is the
+         *     social account (username, followers, level) behind `/v2/user/*`. The two are
+         *     different concepts and must not share a generated schema name, or whichever
+         *     registers last silently retypes the other's endpoints.
+         */
+        TraderProfileResponse: components["schemas"]["ProfileIdentity"] & {
+            headlineReceipt: components["schemas"]["ProfileReceipt"] | null;
+            /**
+             * @description How recently the wallet last swapped.
+             * @enum {string}
+             */
+            lastSwapBucket: "UNDER_1H" | "UNDER_24H" | "UNDER_7D" | "OLDER";
+            /** @description Realized PnL through `timeRange`, for the profile chart. */
+            pnlSparkline: components["schemas"]["TraderPnlSparkline"];
+            /** @description Newest post first. Empty when `receipts` is absent. */
+            receiptItems?: components["schemas"]["ProfileReceipt"][];
+            receipts: components["schemas"]["ProfileReceipts"] | null;
+            /** @description Stats over `timeRange`. */
+            stats: components["schemas"]["TraderPnlStats"];
+            /**
+             * @description Window `stats` is measured over.
+             * @enum {string}
+             */
+            timeRange: "ONE_DAY" | "SEVEN_DAY" | "THIRTY_DAY" | "NINETY_DAY";
+            /** @description Up to ten positions ordered by realized PnL, best first. */
+            topTokens: components["schemas"]["ProfileTopToken"][];
+            /** @description 30 day baseline, independent of `timeRange`. */
+            totalStats: components["schemas"]["TraderPnlStats"];
+        };
         /** @description A ranked trader overview with statistics for the selected time range and an aggregate of the trader’s baseline trading activity. */
         TraderRankItem: components["schemas"]["TraderOverview"] & {
             /** @description The trader's 90-day statistics, whatever `timeRange` is set to. `stats` holds the same figures for the selected range. */
             totalStats: components["schemas"]["TraderPnlStats"];
         };
-        /** @description Parameters for trader rankings. `chain` and `timeRange` select the ranking; optional filters constrain PnL, win rate, buy and sell counts, and latest-swap age. `endCursor` selects the page to retrieve. */
+        /** @description Parameters for trader rankings. `chain` and `timeRange` select the ranking; optional filters constrain PnL, win rate, buy and sell counts, latest-swap age, and labeled-wallet platforms. `endCursor` selects the page to retrieve. */
         TraderRankingLivecursorParams: {
             /**
              * Format: int64
@@ -9284,6 +10634,8 @@ export interface components {
              * @description Lowest sell count to include. Omit it for no lower bound.
              */
             sellCountMin?: number | null;
+            /** @description Platforms to include (`FOMO`, `PUMPFUN`, `KOL`), comma separated. Omit it or leave it empty for the global ranking. Labeled-wallet identity is returned on every ranking row, not only when this filter is set. */
+            sources?: string | null;
             /** @description Window the ranking is based on. */
             timeRange: components["schemas"]["WalletTimeRange"];
             /**
@@ -9623,6 +10975,23 @@ export interface components {
             /** @description On-chain transaction hash, once the swap was submitted. Auto-buy failures never have one. */
             transactionHash?: string | null;
         };
+        /** @description One party on a confirmed deposit or withdraw. */
+        TransferAddressDetails: {
+            /** @description On-chain address of this transfer party. */
+            address: string;
+            /**
+             * @description Whether this party is a platform-managed slot wallet or an external address.
+             * @enum {string}
+             */
+            entityType: "slot" | "external";
+            /** @description Owner wallet of a platform-managed slot. Omitted when `entityType` is `external`. */
+            ownerAddress?: string;
+        };
+        /**
+         * @description Whether a transfer party is a platform-managed wallet or an external address.
+         * @enum {string}
+         */
+        TransferEntityType: "slot" | "external";
         /**
          * @description Stage of a token in the Trenches lifecycle: `new`, `graduating`, or `graduated`.
          * @enum {string}
@@ -9967,6 +11336,29 @@ export interface components {
              * @enum {string}
              */
             status: "ACTIVE" | "PAUSED";
+        };
+        UpdatePendingBuyTriggerDetail: {
+            request: components["schemas"]["UpdatePendingBuyTriggerRequest"];
+        };
+        UpdatePendingBuyTriggerRequest: {
+            strategy: {
+                dipPct: components["schemas"]["ChangePercent"];
+                /** @enum {string} */
+                type: "DIP";
+            } | {
+                priceUsd: components["schemas"]["PositiveDecimalNumber"];
+                /** @enum {string} */
+                type: "LIMIT";
+            };
+        };
+        UpdatePendingBuyTriggerTradeResponse: {
+            execution: {
+                /** @enum {string} */
+                action: "UPDATE_PENDING_BUY_TRIGGER";
+                detail: components["schemas"]["UpdatePendingBuyTriggerDetail"];
+                swapIds: components["schemas"]["SwapId"][];
+            };
+            trade: components["schemas"]["ActiveTrade"];
         };
         /** @description Details of a trade-settings update, including the submitted request and any settings changes applied to the trade. */
         UpdateSettingsDetail: {
@@ -10319,6 +11711,13 @@ export interface components {
         WalletAddress: components["schemas"]["Address"];
         /** @description A wallet asset holding that identifies the asset and reports its balance, USD price, and total USD value. Numeric fields provide number display values, while corresponding `*Str` fields provide exact decimal representations. */
         WalletAsset: {
+            /**
+             * @description This asset is the chain's USD stablecoin, so it funds a `FIAT` buy.
+             *     The mirror of `isNative`: a client can find the spendable USD balance
+             *     without knowing the stablecoin's address. False on every chain that does
+             *     not support USD funding.
+             */
+            isFiat: boolean;
             /** @description Whether the asset is the chain's native currency rather than a token. */
             isNative: boolean;
             /** @description Price of one unit of the asset, in USD. */
@@ -10376,12 +11775,33 @@ export interface components {
          *     a wallet can carry multiple labels from different sources.
          */
         WalletLabelInfo: {
-            /** @description The label itself, such as an exchange or a known trader name. */
+            /** @description Platform username, when the source stores one apart from the display label. */
+            handle: string | null;
+            /**
+             * @description The label itself, such as an exchange or a known trader name.
+             *     For FOMO this is the display name; for Pump.fun it is the public handle.
+             */
             label: string;
             /** @description Avatar to show alongside the label. */
             photoId: string | null;
             /** @description Who supplied the label. */
-            source: string | null;
+            source: ("FOMO" | "PUMPFUN" | "KOL") | null;
+        };
+        /** @description One distinct label, with how many wallets carry it. */
+        WalletLabelSummary: {
+            label: string;
+            photoId: string | null;
+            source: ("FOMO" | "PUMPFUN" | "KOL") | null;
+            /**
+             * Format: int64
+             * @description How many wallets carry this label on the requested chain.
+             */
+            walletCount: number;
+        };
+        /** @description Response of `GET /v2/wallets/labels`. */
+        WalletLabelsResponse: components["schemas"]["CursorPagination"] & {
+            labels: components["schemas"]["WalletLabelSummary"][];
+            totalCount: number | null;
         };
         /** @description Options for selecting which wallet data sources are included in a wallet page response. Unknown properties are rejected. */
         WalletPageRequest: {
@@ -10619,6 +12039,7 @@ export interface components {
             chain: "SOL";
             /** @description Market cap now, divided by market cap when the call was made. `2` means it doubled. */
             currentMultiplier: number;
+            devAddress: components["schemas"]["Address"] | null;
             /** @description Market capitalization when the call was made. */
             marketCapAtCallNative: number;
             /** @description Exact decimal string for `marketCapAtCallNative`. */
@@ -10683,7 +12104,7 @@ export interface components {
              * @description What made the call: a built-in caller, a Telegram chat, a user list, or a copy-trade wallet.
              * @enum {string}
              */
-            sourceType: "CALLER" | "TG" | "LIST" | "WALLET";
+            sourceType: "CALLER" | "TG" | "LIST" | "WALLET" | "THESIS";
         };
         /** @description Identifies what generated a watchlist call. Inspect `type` to determine whether the source is `CALLER`, `TG`, `LIST`, or `WALLET`. */
         WatchlistCallSource: {
@@ -10779,7 +12200,7 @@ export interface components {
              * @description Source family that produced the token call: `CALLER`, `TG`, `LIST`, or `WALLET`.
              * @enum {string}
              */
-            sourceType: "CALLER" | "TG" | "LIST" | "WALLET";
+            sourceType: "CALLER" | "TG" | "LIST" | "WALLET" | "THESIS";
         };
         /** @description Watchlist feed pages grouped by source family. Each populated property contains a paginated feed; a property is `null` when its subrequest is unavailable. */
         WatchlistFeedPageFamily: {
@@ -10941,7 +12362,10 @@ export interface components {
             timestampStr: string;
             /** @description Details of the token involved in the wallet swap event. */
             token: components["schemas"]["TokenSwapTokenDetail"];
-        });
+        }) | ({
+            /** @enum {string} */
+            type: "THESIS";
+        } & components["schemas"]["ThesisSourceIdentity"] & components["schemas"]["ThesisCallContext"]);
         /** @description Parameters for subscribing to a live watchlist feed with optional filters and cursor boundaries. */
         WatchlistLivecursorParams: {
             /** @description Caller IDs to include. Accepted only on topics that have caller IDs. */
@@ -11153,6 +12577,30 @@ export interface components {
              */
             winRatePctMin?: number | null;
         };
+        /**
+         * @description Aggregate caller performance for the selected reporting window.
+         *     Shared by ranking and marketplace without source or automation metadata.
+         */
+        WatchlistRankingMetrics: {
+            /** @description rounded public-unit number token for this relative field. */
+            averageMultiplier: number;
+            /** @description rounded public-unit number token for this relative field. */
+            highestMultiplier: number;
+            /** Format: int64 */
+            losses: number;
+            /**
+             * Format: int32
+             * @description Overall performance score derived from win rate, average return, and
+             *     highest return.
+             */
+            performanceScore: number;
+            /** Format: int64 */
+            totalCalls: number;
+            /** @description rounded public-unit number token for this relative field. */
+            winRatePct: number;
+            /** Format: int64 */
+            wins: number;
+        };
         /** @description Groups watchlist ranking pages by source scope: all visible sources, callers, Telegram sources, saved lists, and wallets. A property is `null` when that ranking is unavailable, including when authentication is required or its sub-request fails. */
         WatchlistRankingPageFamily: {
             /** @description Rankings across every family the caller can see. Unauthenticated callers see public callers only. `null` when unavailable. */
@@ -11184,7 +12632,7 @@ export interface components {
             /** @description Page to fetch. Omit it for the first page, then send the returned next cursor. */
             cursor?: string | null;
             /** @description Sort direction for the selected ranking field: `asc` for lowest to highest or `desc` for highest to lowest. Defaults to `desc` when omitted. */
-            orderBy?: components["schemas"]["OrderBy"];
+            orderBy?: null | components["schemas"]["OrderBy"];
             /**
              * Format: int32
              * @description Highest performance score to include. Omit it for no upper bound.
@@ -11196,7 +12644,7 @@ export interface components {
              */
             performanceScoreMin?: number | null;
             /** @description Ranking field: `performanceScore`, `winRatePct`, `totalCalls`, `averageMultiplier`, or `highestMultiplier`. */
-            rankBy?: components["schemas"]["RankingRankBy"];
+            rankBy?: null | components["schemas"]["RankingRankBy"];
             /** @description Time window used to calculate rankings. Omitted values default to `30d`. */
             timeframe?: components["schemas"]["WatchlistRankingTimeframe"];
             /**
@@ -11276,7 +12724,10 @@ export interface components {
              * @enum {string}
              */
             type: "WALLET";
-        } & components["schemas"]["WalletSourceIdentity"]);
+        } & components["schemas"]["WalletSourceIdentity"]) | ({
+            /** @enum {string} */
+            type: "THESIS";
+        } & components["schemas"]["ThesisSourceIdentity"]);
         /** @description A watchlist source returned by source or list endpoints. The `type` value identifies the source variant: `CALLER`, `TG`, `LIST`, or `WALLET`; some variants include source-specific identity or `sourceDetails`. */
         WatchlistSourceItem: {
             automation: components["schemas"]["TradeAutomation"];
@@ -11333,6 +12784,11 @@ export interface components {
              */
             type: "WALLET";
         } & components["schemas"]["WalletSourceIdentity"] & {
+            automation: components["schemas"]["TradeAutomation"];
+        }) | ({
+            /** @enum {string} */
+            type: "THESIS";
+        } & components["schemas"]["ThesisSourceIdentity"] & {
             automation: components["schemas"]["TradeAutomation"];
         });
         /** @description Optional filters and cursor boundaries for a watchlist source live subscription. */
@@ -11615,7 +13071,7 @@ export interface components {
          * WsBroadcastEvent
          * @description A live WebSocket message received after subscribing to a v2 topic. Use `event` to identify the payload type and `topic` to identify the subscription that produced the message.
          */
-        WsBroadcastEvent: components["schemas"]["WsBroadcastPegPricesEvent"] | components["schemas"]["WsBroadcastFeeEstimateEvent"] | components["schemas"]["WsBroadcastTwitterEventEvent"] | components["schemas"]["WsBroadcastTokenCandleEvent"] | components["schemas"]["WsBroadcastTokenPriceEvent"] | components["schemas"]["WsBroadcastTokenStatsEvent"] | components["schemas"]["WsBroadcastTokenSwapsEvent"] | components["schemas"]["WsBroadcastTokenHolderCountEvent"] | components["schemas"]["WsBroadcastTokenHolderBalancesEvent"] | components["schemas"]["WsBroadcastTokenHoldersChangeEvent"] | components["schemas"]["WsBroadcastTokenHoldersEvent"] | components["schemas"]["WsBroadcastTokenTopTradersEvent"] | components["schemas"]["WsBroadcastTokenMigrationEvent"] | components["schemas"]["WsBroadcastChartMarkersEvent"] | components["schemas"]["WsBroadcastTokenDevTokensEvent"] | components["schemas"]["WsBroadcastTokenSafetyEvent"] | components["schemas"]["WsBroadcastTraderRankingEvent"] | components["schemas"]["WsBroadcastTraderOverviewEvent"] | components["schemas"]["WsBroadcastTraderSwapsEvent"] | components["schemas"]["WsBroadcastTraderTokenPnlEvent"] | components["schemas"]["WsBroadcastTraderTokenSwapsEvent"] | components["schemas"]["WsBroadcastTraderTokenPnlDetailEvent"] | components["schemas"]["WsBroadcastBotsLogsEvent"] | components["schemas"]["WsBroadcastBotsBalanceChangesEvent"] | components["schemas"]["WsBroadcastBotsEvent"] | components["schemas"]["WsBroadcastBotsStatsEvent"] | components["schemas"]["WsBroadcastBotsTradesEvent"] | components["schemas"]["WsBroadcastTradePresetsEvent"] | components["schemas"]["WsBroadcastUserSettingsEvent"] | components["schemas"]["WsBroadcastUserProfileEvent"] | components["schemas"]["WsBroadcastUserFavouritesEvent"] | components["schemas"]["WsBroadcastReferralCodeEvent"] | components["schemas"]["WsBroadcastReferralCommissionsSummaryEvent"] | components["schemas"]["WsBroadcastRewardsClaimedConfirmedEvent"] | components["schemas"]["WsBroadcastUserTgStatusEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatsEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatSendersEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatTopicsEvent"] | components["schemas"]["WsBroadcastTradeBuyCreatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuyCreatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellCreatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellCreatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuySubmittedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuySubmittedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellSubmittedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellSubmittedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapFinalizedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapFinalizedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradePriceUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetMetUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetMetUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSettingsUpdatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSettingsUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetAddedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetAddedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetUpdatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetRemovedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetRemovedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeAbortConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeAbortConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeCancelConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeCancelConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapQuickConfirmUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeUpdateErrorUserTradeUpdateErrorEvent"] | components["schemas"]["WsBroadcastUserBalanceEvent"] | components["schemas"]["WsBroadcastUserTradesEvent"] | components["schemas"]["WsBroadcastUserTgQrLoginEvent"] | components["schemas"]["WsBroadcastUserTgActionEvent"] | components["schemas"]["WsBroadcastWatchlistCallEvent"] | components["schemas"]["WsBroadcastWatchlistUpdateEvent"] | components["schemas"]["WsBroadcastWatchlistFeedEvent"] | components["schemas"]["WsBroadcastWatchlistSourcesEvent"] | components["schemas"]["WsBroadcastWatchlistRankingEvent"] | components["schemas"]["WsBroadcastTokenFeedCallEvent"] | components["schemas"]["WsBroadcastTokenFeedUpdateEvent"] | components["schemas"]["WsBroadcastTokenFeedEvent"] | components["schemas"]["WsBroadcastScannerTokensEvent"] | components["schemas"]["WsBroadcastScannerUpdateEvent"];
+        WsBroadcastEvent: components["schemas"]["WsBroadcastPegPricesEvent"] | components["schemas"]["WsBroadcastFeeEstimateEvent"] | components["schemas"]["WsBroadcastTwitterEventEvent"] | components["schemas"]["WsBroadcastLabeledWalletSwapEvent"] | components["schemas"]["WsBroadcastThesisEvent"] | components["schemas"]["WsBroadcastTokenCandleEvent"] | components["schemas"]["WsBroadcastTokenPriceEvent"] | components["schemas"]["WsBroadcastTokenStatsEvent"] | components["schemas"]["WsBroadcastTokenSwapsEvent"] | components["schemas"]["WsBroadcastTokenHolderCountEvent"] | components["schemas"]["WsBroadcastTokenHolderBalancesEvent"] | components["schemas"]["WsBroadcastTokenHoldersChangeEvent"] | components["schemas"]["WsBroadcastTokenHoldersEvent"] | components["schemas"]["WsBroadcastTokenTopTradersEvent"] | components["schemas"]["WsBroadcastTokenMigrationEvent"] | components["schemas"]["WsBroadcastChartMarkersEvent"] | components["schemas"]["WsBroadcastTokenDevTokensEvent"] | components["schemas"]["WsBroadcastTokenSafetyEvent"] | components["schemas"]["WsBroadcastTraderRankingEvent"] | components["schemas"]["WsBroadcastTraderOverviewEvent"] | components["schemas"]["WsBroadcastTraderSwapsEvent"] | components["schemas"]["WsBroadcastTraderTokenPnlEvent"] | components["schemas"]["WsBroadcastTraderTokenSwapsEvent"] | components["schemas"]["WsBroadcastTraderTokenPnlDetailEvent"] | components["schemas"]["WsBroadcastBotsLogsEvent"] | components["schemas"]["WsBroadcastBotsBalanceChangesEvent"] | components["schemas"]["WsBroadcastBotsEvent"] | components["schemas"]["WsBroadcastBotsStatsEvent"] | components["schemas"]["WsBroadcastBotsTradesEvent"] | components["schemas"]["WsBroadcastTradePresetsEvent"] | components["schemas"]["WsBroadcastUserSettingsEvent"] | components["schemas"]["WsBroadcastUserProfileEvent"] | components["schemas"]["WsBroadcastUserFavouritesEvent"] | components["schemas"]["WsBroadcastReferralCodeEvent"] | components["schemas"]["WsBroadcastReferralCommissionsSummaryEvent"] | components["schemas"]["WsBroadcastRewardsClaimedConfirmedEvent"] | components["schemas"]["WsBroadcastUserTgStatusEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatsEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatSendersEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatTopicsEvent"] | components["schemas"]["WsBroadcastTradeBuyCreatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuyCreatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellCreatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellCreatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuySubmittedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuySubmittedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellSubmittedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellSubmittedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapFinalizedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapFinalizedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradePriceUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetMetUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetMetUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSettingsUpdatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSettingsUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetAddedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetAddedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetUpdatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetRemovedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetRemovedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeAbortConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeAbortConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeCancelConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeCancelConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapQuickConfirmUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeUpdateErrorUserTradeUpdateErrorEvent"] | components["schemas"]["WsBroadcastUserBalanceEvent"] | components["schemas"]["WsBroadcastUserDepositEvent"] | components["schemas"]["WsBroadcastUserWithdrawEvent"] | components["schemas"]["WsBroadcastUserTradesEvent"] | components["schemas"]["WsBroadcastUserTgQrLoginEvent"] | components["schemas"]["WsBroadcastUserTgActionEvent"] | components["schemas"]["WsBroadcastWatchlistCallEvent"] | components["schemas"]["WsBroadcastWatchlistUpdateEvent"] | components["schemas"]["WsBroadcastWatchlistFeedEvent"] | components["schemas"]["WsBroadcastWatchlistSourcesEvent"] | components["schemas"]["WsBroadcastWatchlistRankingEvent"] | components["schemas"]["WsBroadcastTokenFeedCallEvent"] | components["schemas"]["WsBroadcastTokenFeedUpdateEvent"] | components["schemas"]["WsBroadcastTokenFeedEvent"] | components["schemas"]["WsBroadcastScannerTokensEvent"] | components["schemas"]["WsBroadcastScannerUpdateEvent"];
         /**
          * WsBroadcastFeeEstimateEvent
          * @description WebSocket message carrying `FEE_ESTIMATE` event data.
@@ -11631,6 +13087,20 @@ export interface components {
             /** @description Which chain the estimate applies to. */
             meta: components["schemas"]["ChainMeta"];
             /** @description Per-chain fee-estimate topic emitted as `fee-estimate:{chain}`. */
+            topic: string;
+        };
+        /**
+         * WsBroadcastLabeledWalletSwapEvent
+         * @description WebSocket message carrying `LABELED_WALLET_SWAP` event data.
+         */
+        WsBroadcastLabeledWalletSwapEvent: {
+            data: components["schemas"]["LabeledWalletSwap"][];
+            /**
+             * @description Event type. Always `LABELED_WALLET_SWAP`.
+             * @enum {string}
+             */
+            event: "LABELED_WALLET_SWAP";
+            /** @description Labeled-wallet swap topic: `wallets:feed` or `wallets:personal`, with the canonical filter suffix echoed when subscribed with params. */
             topic: string;
         };
         /**
@@ -11732,6 +13202,20 @@ export interface components {
             /** @description Metadata for the scanner subscription. Includes the required `endCursor` and may include `view` and `windowId`; use `windowId` to distinguish concurrent subscriptions on the same topic. */
             meta: components["schemas"]["ScannerWsMeta"];
             /** @description Subscribed scanner topic: `scanner:tokens`, `scanner:trenches`, or `scanner:lookup`. Frames use the bare subscribed topic; use `meta.windowId` to distinguish concurrent subscriptions to the same topic. */
+            topic: string;
+        };
+        /**
+         * WsBroadcastThesisEvent
+         * @description WebSocket message carrying `THESIS` event data.
+         */
+        WsBroadcastThesisEvent: {
+            data: components["schemas"]["ThesisItem"];
+            /**
+             * @description Event type. Always `THESIS`.
+             * @enum {string}
+             */
+            event: "THESIS";
+            /** @description Thesis topic: `wallets:thesis` or `wallets:thesis:personal`, with the canonical filter suffix echoed when subscribed with params. */
             topic: string;
         };
         /**
@@ -13149,6 +14633,21 @@ export interface components {
             topic: string;
         };
         /**
+         * WsBroadcastUserDepositEvent
+         * @description Asynchronous WebSocket frame carrying a confirmed deposit on the user's private `user:{userId}` topic.
+         */
+        WsBroadcastUserDepositEvent: {
+            /** @description Confirmed deposit transfer data, including addresses, token amount, USD value, and chain names. This object does not include a nested `event` field. */
+            data: components["schemas"]["WsUserTransfer"];
+            /**
+             * @description Identifies this frame as a `USER_DEPOSIT` confirmed-deposit event.
+             * @enum {string}
+             */
+            event: "USER_DEPOSIT";
+            /** @description Private WebSocket topic for the authenticated user, formatted as `user:{userId}`, where `userId` is the user's UUID. Clients may use this topic only for the corresponding authorized user. */
+            topic: string;
+        };
+        /**
          * WsBroadcastUserFavouritesEvent
          * @description Authenticated WebSocket frame containing the current page of the user's favourite tokens.
          */
@@ -13268,6 +14767,21 @@ export interface components {
             /** @description Metadata for the live trade subscription window, including its window identifier and subscribed end cursor. */
             meta: components["schemas"]["LivecursorWindowMeta"];
             /** @description Authenticated WebSocket trade-list topic. Only `trades:active` and `trades:completed` are accepted, representing active and completed trades, respectively. Both support livecursor window parameters, and the emitted topic is the base topic for the authenticated user's trade-list window. */
+            topic: string;
+        };
+        /**
+         * WsBroadcastUserWithdrawEvent
+         * @description Asynchronous WebSocket frame carrying a confirmed withdraw on the user's private `user:{userId}` topic.
+         */
+        WsBroadcastUserWithdrawEvent: {
+            /** @description Confirmed withdraw transfer data, including addresses, token amount, USD value, and chain names. This object does not include a nested `event` field. */
+            data: components["schemas"]["WsUserTransfer"];
+            /**
+             * @description Identifies this frame as a `USER_WITHDRAW` confirmed-withdraw event.
+             * @enum {string}
+             */
+            event: "USER_WITHDRAW";
+            /** @description Private WebSocket topic for the authenticated user, formatted as `user:{userId}`, where `userId` is the user's UUID. Clients may use this topic only for the corresponding authorized user. */
             topic: string;
         };
         /**
@@ -13440,7 +14954,7 @@ export interface components {
          * @description Identifies the feature and payload represented by a server-sent WebSocket frame. This case-sensitive uppercase value is one of the defined event names, such as `TOKEN_PRICE`, `WATCHLIST_UPDATE`, `USER_BALANCE`, or `TWITTER_EVENT`.
          * @enum {string}
          */
-        WsEventType: "PEG_PRICES" | "FEE_ESTIMATE" | "TOKEN_CANDLE" | "TOKEN_DEV_TOKENS" | "TOKEN_SAFETY" | "TOKEN_PRICE" | "TOKEN_STATS" | "TOKEN_SWAPS" | "TOKEN_HOLDER_COUNT" | "TOKEN_HOLDER_BALANCES" | "TOKEN_HOLDERS_CHANGE" | "TOKEN_HOLDERS" | "TOKEN_TOP_TRADERS" | "TOKEN_MIGRATION" | "CHART_MARKERS" | "TRADER_RANKING" | "TRADER_OVERVIEW" | "TRADER_SWAPS" | "TRADER_TOKEN_PNL" | "TRADER_TOKEN_SWAPS" | "TRADER_TOKEN_PNL_DETAIL" | "USER_TRADE_UPDATE" | "USER_TRADE_UPDATE_ERROR" | "WATCHLIST_CALL" | "WATCHLIST_UPDATE" | "WATCHLIST_FEED" | "WATCHLIST_SOURCES" | "WATCHLIST_RANKING" | "TOKEN_FEED_CALL" | "TOKEN_FEED_UPDATE" | "TOKEN_FEED" | "USER_BALANCE" | "USER_TRADES_UPDATE" | "USER_TRADES" | "USER_TG_QR_LOGIN" | "USER_TG_ACTION" | "BOTS" | "BOTS_LOGS" | "BOTS_STATS" | "BOTS_BALANCE_CHANGES" | "BOTS_TRADES" | "TRADE_PRESETS" | "USER_SETTINGS" | "USER_PROFILE" | "USER_FAVOURITES" | "REFERRAL_CODE" | "REFERRAL_COMMISSIONS_SUMMARY" | "REWARDS_CLAIMED_CONFIRMED" | "USER_TG_STATUS" | "WATCHLIST_TG_CHATS" | "WATCHLIST_TG_CHAT_SENDERS" | "WATCHLIST_TG_CHAT_TOPICS" | "SCANNER_TOKENS" | "SCANNER_UPDATE" | "TWITTER_EVENT";
+        WsEventType: "PEG_PRICES" | "FEE_ESTIMATE" | "TOKEN_CANDLE" | "TOKEN_DEV_TOKENS" | "TOKEN_SAFETY" | "TOKEN_PRICE" | "TOKEN_STATS" | "TOKEN_SWAPS" | "TOKEN_HOLDER_COUNT" | "TOKEN_HOLDER_BALANCES" | "TOKEN_HOLDERS_CHANGE" | "TOKEN_HOLDERS" | "TOKEN_TOP_TRADERS" | "TOKEN_MIGRATION" | "CHART_MARKERS" | "TRADER_RANKING" | "TRADER_OVERVIEW" | "TRADER_SWAPS" | "TRADER_TOKEN_PNL" | "TRADER_TOKEN_SWAPS" | "TRADER_TOKEN_PNL_DETAIL" | "USER_TRADE_UPDATE" | "USER_TRADE_UPDATE_ERROR" | "WATCHLIST_CALL" | "WATCHLIST_UPDATE" | "WATCHLIST_FEED" | "WATCHLIST_SOURCES" | "WATCHLIST_RANKING" | "TOKEN_FEED_CALL" | "TOKEN_FEED_UPDATE" | "TOKEN_FEED" | "USER_BALANCE" | "USER_DEPOSIT" | "USER_WITHDRAW" | "USER_TRADES_UPDATE" | "USER_TRADES" | "USER_TG_QR_LOGIN" | "USER_TG_ACTION" | "BOTS" | "BOTS_LOGS" | "BOTS_STATS" | "BOTS_BALANCE_CHANGES" | "BOTS_TRADES" | "TRADE_PRESETS" | "USER_SETTINGS" | "USER_PROFILE" | "USER_FAVOURITES" | "REFERRAL_CODE" | "REFERRAL_COMMISSIONS_SUMMARY" | "REWARDS_CLAIMED_CONFIRMED" | "USER_TG_STATUS" | "WATCHLIST_TG_CHATS" | "WATCHLIST_TG_CHAT_SENDERS" | "WATCHLIST_TG_CHAT_TOPICS" | "SCANNER_TOKENS" | "SCANNER_UPDATE" | "TWITTER_EVENT" | "LABELED_WALLET_SWAP" | "THESIS";
         /**
          * type=ping
          * @description Client-to-server keep-alive message. The server replies with a `pong` after all data queued before this ping has been written.
@@ -13714,7 +15228,7 @@ export interface components {
          * WsSubscribeCommand
          * @description Client-to-server WebSocket command that creates a subscription to a supported topic, with optional topic-specific parameters.
          */
-        WsSubscribeCommand: components["schemas"]["WsSubscribePageTerminalCommand"] | components["schemas"]["WsSubscribePageScannerCommand"] | components["schemas"]["WsSubscribePageSearchCommand"] | components["schemas"]["WsSubscribePageMemepoolCommand"] | components["schemas"]["WsSubscribePageWatchlistCommand"] | components["schemas"]["WsSubscribePageTradingCommand"] | components["schemas"]["WsSubscribePageBotsCommand"] | components["schemas"]["WsSubscribePageUserCommand"] | components["schemas"]["WsSubscribePageWalletCommand"] | components["schemas"]["WsSubscribeTradesActiveCommand"] | components["schemas"]["WsSubscribeTradesCompletedCommand"] | components["schemas"]["WsSubscribeTradePresetsCommand"] | components["schemas"]["WsSubscribeUserSettingsCommand"] | components["schemas"]["WsSubscribeUserWalletsCommand"] | components["schemas"]["WsSubscribeUserProfileCommand"] | components["schemas"]["WsSubscribeReferralCodeCommand"] | components["schemas"]["WsSubscribeReferralCommissionsSummaryCommand"] | components["schemas"]["WsSubscribeWatchlistTgLoginStatusCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatsCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatSendersCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatTopicsCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesAllCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesCallersCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesTgCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesListsCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingAllCommand"] | components["schemas"]["WsSubscribeWatchlistRankingCallersCommand"] | components["schemas"]["WsSubscribeWatchlistRankingTgCommand"] | components["schemas"]["WsSubscribeWatchlistRankingListsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingWalletsCommand"] | components["schemas"]["WsSubscribeUserFavouritesCommand"] | components["schemas"]["WsSubscribeBotsListCommand"] | components["schemas"]["WsSubscribeBotsStatsCommand"] | components["schemas"]["WsSubscribeBotsTradesActiveCommand"] | components["schemas"]["WsSubscribeBotsTradesCompletedCommand"] | components["schemas"]["WsSubscribeBotTradesActiveCommand"] | components["schemas"]["WsSubscribeBotTradesCompletedCommand"] | components["schemas"]["WsSubscribeBotsLogsCommand"] | components["schemas"]["WsSubscribeBotLogsCommand"] | components["schemas"]["WsSubscribeBotsBalanceChangesCommand"] | components["schemas"]["WsSubscribeBotBalanceChangesCommand"] | components["schemas"]["WsSubscribeTraderRankingCommand"] | components["schemas"]["WsSubscribeTraderOverviewCommand"] | components["schemas"]["WsSubscribeTraderSwapsCommand"] | components["schemas"]["WsSubscribeTraderTokenPnlCommand"] | components["schemas"]["WsSubscribeTraderTokenSwapsCommand"] | components["schemas"]["WsSubscribeTraderTokenPnlDetailCommand"] | components["schemas"]["WsSubscribeTwitterFeedCommand"] | components["schemas"]["WsSubscribeTwitterPersonalCommand"] | components["schemas"]["WsSubscribePegPricesCommand"] | components["schemas"]["WsSubscribeFeeEstimateCommand"] | components["schemas"]["WsSubscribeTokenDevTokensCommand"] | components["schemas"]["WsSubscribeTokenSafetyCommand"] | components["schemas"]["WsSubscribeScannerTokensCommand"] | components["schemas"]["WsSubscribeScannerTrenchesCommand"] | components["schemas"]["WsSubscribeScannerLookupCommand"] | components["schemas"]["WsSubscribeTokenCandleDefaultCommand"] | components["schemas"]["WsSubscribeTokenCandleCommand"] | components["schemas"]["WsSubscribeTokenPriceCommand"] | components["schemas"]["WsSubscribeTokenStatsCommand"] | components["schemas"]["WsSubscribeTokenSwapsCommand"] | components["schemas"]["WsSubscribeTokenHoldersCommand"] | components["schemas"]["WsSubscribeTokenTopTradersCommand"] | components["schemas"]["WsSubscribeTokenMigrationCommand"] | components["schemas"]["WsSubscribeTokenChartMarkersCommand"] | components["schemas"]["WsSubscribeTokenFeedCommand"] | components["schemas"]["WsSubscribeTokenAllCommand"] | components["schemas"]["WsSubscribeWatchlistAllCommand"] | components["schemas"]["WsSubscribeWatchlistCallersCommand"] | components["schemas"]["WsSubscribeWatchlistCallersIdCommand"] | components["schemas"]["WsSubscribeWatchlistListsCommand"] | components["schemas"]["WsSubscribeWatchlistListsIdCommand"] | components["schemas"]["WsSubscribeWatchlistWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistWalletsIdCommand"] | components["schemas"]["WsSubscribeWatchlistTgCommand"] | components["schemas"]["WsSubscribeWatchlistTgFilterCommand"];
+        WsSubscribeCommand: components["schemas"]["WsSubscribePageTerminalCommand"] | components["schemas"]["WsSubscribePageScannerCommand"] | components["schemas"]["WsSubscribePageSearchCommand"] | components["schemas"]["WsSubscribePageMemepoolCommand"] | components["schemas"]["WsSubscribePageWatchlistCommand"] | components["schemas"]["WsSubscribePageTradingCommand"] | components["schemas"]["WsSubscribePageBotsCommand"] | components["schemas"]["WsSubscribePageUserCommand"] | components["schemas"]["WsSubscribePageWalletCommand"] | components["schemas"]["WsSubscribeTradesActiveCommand"] | components["schemas"]["WsSubscribeTradesCompletedCommand"] | components["schemas"]["WsSubscribeTradePresetsCommand"] | components["schemas"]["WsSubscribeUserSettingsCommand"] | components["schemas"]["WsSubscribeUserWalletsCommand"] | components["schemas"]["WsSubscribeUserProfileCommand"] | components["schemas"]["WsSubscribeReferralCodeCommand"] | components["schemas"]["WsSubscribeReferralCommissionsSummaryCommand"] | components["schemas"]["WsSubscribeWatchlistTgLoginStatusCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatsCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatSendersCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatTopicsCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesAllCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesCallersCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesTgCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesListsCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingAllCommand"] | components["schemas"]["WsSubscribeWatchlistRankingCallersCommand"] | components["schemas"]["WsSubscribeWatchlistRankingTgCommand"] | components["schemas"]["WsSubscribeWatchlistRankingListsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingWalletsCommand"] | components["schemas"]["WsSubscribeUserFavouritesCommand"] | components["schemas"]["WsSubscribeBotsListCommand"] | components["schemas"]["WsSubscribeBotsStatsCommand"] | components["schemas"]["WsSubscribeBotsTradesActiveCommand"] | components["schemas"]["WsSubscribeBotsTradesCompletedCommand"] | components["schemas"]["WsSubscribeBotTradesActiveCommand"] | components["schemas"]["WsSubscribeBotTradesCompletedCommand"] | components["schemas"]["WsSubscribeBotsLogsCommand"] | components["schemas"]["WsSubscribeBotLogsCommand"] | components["schemas"]["WsSubscribeBotsBalanceChangesCommand"] | components["schemas"]["WsSubscribeBotBalanceChangesCommand"] | components["schemas"]["WsSubscribeTraderRankingCommand"] | components["schemas"]["WsSubscribeTraderOverviewCommand"] | components["schemas"]["WsSubscribeTraderSwapsCommand"] | components["schemas"]["WsSubscribeTraderTokenPnlCommand"] | components["schemas"]["WsSubscribeTraderTokenSwapsCommand"] | components["schemas"]["WsSubscribeTraderTokenPnlDetailCommand"] | components["schemas"]["WsSubscribeTwitterFeedCommand"] | components["schemas"]["WsSubscribeTwitterPersonalCommand"] | components["schemas"]["WsSubscribeWalletsFeedCommand"] | components["schemas"]["WsSubscribeWalletsPersonalCommand"] | components["schemas"]["WsSubscribeWalletsThesisCommand"] | components["schemas"]["WsSubscribeWalletsThesisPersonalCommand"] | components["schemas"]["WsSubscribePegPricesCommand"] | components["schemas"]["WsSubscribeFeeEstimateCommand"] | components["schemas"]["WsSubscribeTokenDevTokensCommand"] | components["schemas"]["WsSubscribeTokenSafetyCommand"] | components["schemas"]["WsSubscribeScannerTokensCommand"] | components["schemas"]["WsSubscribeScannerTrenchesCommand"] | components["schemas"]["WsSubscribeScannerLookupCommand"] | components["schemas"]["WsSubscribeTokenCandleDefaultCommand"] | components["schemas"]["WsSubscribeTokenCandleCommand"] | components["schemas"]["WsSubscribeTokenPriceCommand"] | components["schemas"]["WsSubscribeTokenStatsCommand"] | components["schemas"]["WsSubscribeTokenSwapsCommand"] | components["schemas"]["WsSubscribeTokenHoldersCommand"] | components["schemas"]["WsSubscribeTokenTopTradersCommand"] | components["schemas"]["WsSubscribeTokenMigrationCommand"] | components["schemas"]["WsSubscribeTokenChartMarkersCommand"] | components["schemas"]["WsSubscribeTokenFeedCommand"] | components["schemas"]["WsSubscribeTokenAllCommand"] | components["schemas"]["WsSubscribeWatchlistAllCommand"] | components["schemas"]["WsSubscribeWatchlistCallersCommand"] | components["schemas"]["WsSubscribeWatchlistCallersIdCommand"] | components["schemas"]["WsSubscribeWatchlistListsCommand"] | components["schemas"]["WsSubscribeWatchlistListsIdCommand"] | components["schemas"]["WsSubscribeWatchlistWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistWalletsIdCommand"] | components["schemas"]["WsSubscribeWatchlistTgCommand"] | components["schemas"]["WsSubscribeWatchlistTgFilterCommand"];
         /**
          * WsSubscribeFeeEstimateCommand
          * @description Subscribe command for `fee-estimate:{chain}`.
@@ -14086,6 +15600,7 @@ export interface components {
          * @description Subscribe command for `token:{chain}:{address}:chart_markers`.
          */
         WsSubscribeTokenChartMarkersCommand: {
+            params?: components["schemas"]["TokenChartMarkersFilterParams"] | null;
             /** @description Optional identifier echoed back in the acknowledgement so a client can match it to this command. */
             requestId?: string;
             /**
@@ -14545,7 +16060,7 @@ export interface components {
         };
         /**
          * WsSubscribeUserWalletsCommand
-         * @description Authenticated WebSocket command that subscribes the connection to wallet balance updates for the authenticated user. Set `type` to `subscribe` and `topic` to `user:wallets`; the server emits `USER_BALANCE` events.
+         * @description Authenticated WebSocket command that subscribes the connection to wallet balance updates for the authenticated user. Set `type` to `subscribe` and `topic` to `user:wallets`; the server emits `USER_BALANCE`, `USER_DEPOSIT`, and `USER_WITHDRAW` events.
          */
         WsSubscribeUserWalletsCommand: {
             /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
@@ -14559,6 +16074,54 @@ export interface components {
              * @description Command action.
              * @enum {string}
              */
+            type: "subscribe";
+        };
+        /**
+         * WsSubscribeWalletsFeedCommand
+         * @description Subscribe command for `wallets:feed`.
+         */
+        WsSubscribeWalletsFeedCommand: {
+            params?: components["schemas"]["LabeledWalletFilterParams"] | null;
+            requestId?: string;
+            /** @enum {string} */
+            topic: "wallets:feed";
+            /** @enum {string} */
+            type: "subscribe";
+        };
+        /**
+         * WsSubscribeWalletsPersonalCommand
+         * @description Subscribe command for `wallets:personal`.
+         */
+        WsSubscribeWalletsPersonalCommand: {
+            params?: components["schemas"]["LabeledWalletFilterParams"] | null;
+            requestId?: string;
+            /** @enum {string} */
+            topic: "wallets:personal";
+            /** @enum {string} */
+            type: "subscribe";
+        };
+        /**
+         * WsSubscribeWalletsThesisCommand
+         * @description Subscribe command for `wallets:thesis`.
+         */
+        WsSubscribeWalletsThesisCommand: {
+            params?: components["schemas"]["ThesisFilterParams"] | null;
+            requestId?: string;
+            /** @enum {string} */
+            topic: "wallets:thesis";
+            /** @enum {string} */
+            type: "subscribe";
+        };
+        /**
+         * WsSubscribeWalletsThesisPersonalCommand
+         * @description Subscribe command for `wallets:thesis:personal`.
+         */
+        WsSubscribeWalletsThesisPersonalCommand: {
+            params?: components["schemas"]["ThesisFilterParams"] | null;
+            requestId?: string;
+            /** @enum {string} */
+            topic: "wallets:thesis:personal";
+            /** @enum {string} */
             type: "subscribe";
         };
         /**
@@ -16217,6 +17780,25 @@ export interface components {
             /** @description Full wallet projection after this update. */
             wallets: components["schemas"]["UserWalletsResponse"];
         };
+        /** @description Confirmed deposit or withdraw payload on `user:{userId}` without a nested event name. */
+        WsUserTransfer: {
+            /** Format: int64 */
+            blockNumber: number;
+            chainId: string;
+            /** Format: int64 */
+            createdAt: number;
+            from: components["schemas"]["TransferAddressDetails"];
+            idempotencyKey: string;
+            /** Format: int64 */
+            logIndex: number;
+            /** Format: int64 */
+            processedAt: number;
+            to: components["schemas"]["TransferAddressDetails"];
+            tokenAddress: string;
+            tokenRawAmount: string;
+            txHash: string;
+            usdValue: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -17250,6 +18832,414 @@ export interface operations {
             };
         };
     };
+    saved: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Marketplace listing ID */
+                listingId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "saved": true
+                 *     }
+                 */
+                "application/json": components["schemas"]["MarketplaceSavedRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated viewer state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceViewer"];
+                };
+            };
+            /** @description JSON syntax is invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The visible active listing was not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A required field is missing, a field has the wrong type, or an unknown body field was supplied. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The transaction or an internal database operation failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    subscribe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Marketplace listing ID */
+                listingId: string;
+            };
+            cookie?: never;
+        };
+        /** @description The same `chainConfigs` and limits used to create a bot, without source. limits can be omitted or `null`. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarketplaceSubscribeRequest"];
+            };
+        };
+        responses: {
+            /** @description Subscription bot and viewer state. viewer.saved is `true`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceSubscribeResponse"];
+                };
+            };
+            /** @description The bot configuration fails semantic validation, or JSON syntax is invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The published active listing was not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A bot already exists for this user and list. `botId` is returned only when visible in the current organization. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceConflict"];
+                };
+            };
+            /** @description A required field is missing, a field has the wrong type, or an unknown body field was supplied. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The transaction or an internal database operation failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A required service was unavailable. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    browse: {
+        parameters: {
+            query?: {
+                /** @description Catalog view. Defaults to PUBLIC. */
+                view?: components["schemas"]["MarketplaceQuery"]["view"];
+                /** @description Opaque cursor from the preceding page. */
+                cursor?: components["schemas"]["MarketplaceQuery"]["cursor"];
+                /** @description Case-insensitive creator search, at most 255 bytes. */
+                creator?: components["schemas"]["MarketplaceQuery"]["creator"];
+                /** @description Exact publisher UUID or username. */
+                publisher?: components["schemas"]["MarketplaceQuery"]["publisher"];
+                /** @description Minimum ranking performance score from 0 through 30. */
+                minPerformance?: components["schemas"]["MarketplaceQuery"]["minPerformance"];
+                /** @description Minimum win rate percentage from 0 through 100. */
+                minWinRatePct?: components["schemas"]["MarketplaceQuery"]["minWinRatePct"];
+                /** @description Maximum win rate percentage from 0 through 100. */
+                maxWinRatePct?: components["schemas"]["MarketplaceQuery"]["maxWinRatePct"];
+                activity?: components["schemas"]["MarketplaceQuery"]["activity"];
+                /** @description Minimum distinct users with active subscription bots. */
+                minUsers?: components["schemas"]["MarketplaceQuery"]["minUsers"];
+                /** @description Maximum stop-out percentage from 0 through 100. */
+                maxStopOutRatePct?: components["schemas"]["MarketplaceQuery"]["maxStopOutRatePct"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A cursor page of marketplace swarms. Metrics remain explicitly pending or unavailable when tracker data cannot establish them. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceListsResponse"];
+                };
+            };
+            /** @description A filter is outside its allowed range, win-rate bounds conflict, creator search is too long, or the cursor does not match the filters. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The catalog changed after the cursor was issued. Restart from the first page. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceCursorError"];
+                };
+            };
+            /** @description The price-tracker request failed or timed out, or more than 10000 SQL-eligible swarms require narrower catalog filters. No partial metric page is returned. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    detail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Canonical UserList ID */
+                listId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marketplace swarm detail with viewer-specific state when authenticated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceList"];
+                };
+            };
+            /** @description The list is unavailable, inactive, private to another user, or does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The price-tracker request failed or timed out. Swarm metrics could not be read. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_feed: {
+        parameters: {
+            query: {
+                filters: components["schemas"]["WatchlistFiltersCore"];
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Original swarm list ID */
+                listId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Swarm feed with source metadata restricted to its owner. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceFeedResponse"];
+                };
+            };
+            /** @description The cursor or feed filters are invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The visible active swarm was not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The price tracker could not provide the feed. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Canonical UserList ID */
+                listId: string;
+            };
+            cookie?: never;
+        };
+        /** @description Optional marketplace description. Omit it or set it to `null` to clear it. */
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "description": "Solana calls with my selected rules"
+                 *     }
+                 */
+                "application/json": components["schemas"]["MarketplacePublicationRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated publication metadata. Metric enrichment can still be pending until the next detail refresh. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketplaceList"];
+                };
+            };
+            /** @description The description exceeds 10000 bytes, or JSON syntax is invalid. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The active owned list was not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A required field is missing, a field has the wrong type, or an unknown body field was supplied. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The transaction or an internal database operation failed. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     pages_bots: {
         parameters: {
             query?: never;
@@ -17556,6 +19546,111 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WatchlistPageResponse"];
+                };
+            };
+        };
+    };
+    profiles_search: {
+        parameters: {
+            query: {
+                /** @description Case-insensitive substring of the handle. */
+                q: string;
+                /** @description Platforms to include. Accepts `sources[]=FOMO`, repeated `sources=FOMO`, and CSV `sources=FOMO,KOL`. */
+                sources?: string[];
+                /** @description Chain to search. Defaults to `SOL`. */
+                chain?: components["schemas"]["Chain"];
+                /** @description Opaque page selector from a previous response's `nextCursor`. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of matching handles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileSearchResponse"];
+                };
+            };
+        };
+    };
+    profiles_get: {
+        parameters: {
+            query?: {
+                /** @description Window for `stats`. Defaults to `SEVEN_DAY`. */
+                timeRange?: components["schemas"]["WalletTimeRange"];
+                /** @description Chain to read. Defaults to `SOL`. */
+                chain?: components["schemas"]["Chain"];
+            };
+            header?: never;
+            path: {
+                /** @description Platform the handle belongs to: `FOMO`, `PUMPFUN` or `KOL`. Case-insensitive. */
+                source: string;
+                /** @description Handle as shown on the platform. Case-insensitive exact match. */
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Profile analytics */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraderProfileResponse"];
+                };
+            };
+            /** @description Unknown handle, or no PnL data in the selected time range */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    profiles_receipts: {
+        parameters: {
+            query?: {
+                /** @description Chain to read. Defaults to `SOL`. */
+                chain?: components["schemas"]["Chain"];
+            };
+            header?: never;
+            path: {
+                /** @description `FOMO` or `PUMPFUN`. `KOL` has no thesis feed and returns an empty list. */
+                source: string;
+                /** @description Handle as shown on the platform. Case-insensitive exact match. */
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Receipts, newest post first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileReceiptsResponse"];
+                };
+            };
+            /** @description Unknown handle */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -18159,7 +20254,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send a `ScannerTokensRequest` JSON body. Use `tokenFilter` to narrow results and `cursor` for cursor pagination. This route forces graduated-only results ordered by age descending; supplied `rankBy`, `orderBy`, or graduation-scope values are overridden. If omitted, `tokenFilter.market.ageHours.max` defaults to `24` hours, and the scanner searches `PUMPFUN`, `MOONSHOT`, `RAYDIUM_LAUNCH`, `METEORA_BONDING_CURVE`, `FOURMEME_V2`, `LETS_BONK`, `BELIEVE`, and `BAGS`. */
+        /** @description Send a `ScannerTokensRequest` JSON body. Use `tokenFilter` to narrow results and `cursor` for cursor pagination. This route forces graduated-only results ordered by age descending; supplied `rankBy`, `orderBy`, or graduation-scope values are overridden. If omitted, `tokenFilter.market.ageHours.max` defaults to `24` hours, and the scanner searches `PUMPFUN`, `MOONSHOT`, `RAYDIUM_LAUNCH`, `METEORA_BONDING_CURVE`, `LETS_BONK`, `BELIEVE`, and `BAGS`. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ScannerTokensRequest"];
@@ -18184,7 +20279,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send a JSON `ScannerTokensRequest` object with token criteria under `tokenFilter`. All request properties are optional and may be `null`. Omit `cursor` or set it to `null` for the first page; send the returned opaque `nextCursor` as `cursor` with the same filters for the next page. Omitted or `null` filter values use server defaults. If `tokenFilter.scope.platforms` is omitted or `null`, it defaults to `PUMPFUN`, `MOONSHOT`, `RAYDIUM_LAUNCH`, `METEORA_BONDING_CURVE`, `FOURMEME_V2`, `LETS_BONK`, `BELIEVE`, and `BAGS`. For this route, omitted or `null` graduating defaults are `tokenFilter.market.ageHours.max = 24`, `tokenFilter.activity.oneHour.transactions.min = 1`, `tokenFilter.activity.oneHour.buys.min = 1`, and `tokenFilter.activity.oneHour.volumeUsd.min = 10`. Migration ranking, descending order, and the `ignoreGraduated` scope are enforced and cannot be overridden. Unknown properties in the request or nested filter objects are rejected. */
+        /** @description Send a JSON `ScannerTokensRequest` object with token criteria under `tokenFilter`. All request properties are optional and may be `null`. Omit `cursor` or set it to `null` for the first page; send the returned opaque `nextCursor` as `cursor` with the same filters for the next page. Omitted or `null` filter values use server defaults. If `tokenFilter.scope.platforms` is omitted or `null`, it defaults to `PUMPFUN`, `MOONSHOT`, `RAYDIUM_LAUNCH`, `METEORA_BONDING_CURVE`, `LETS_BONK`, `BELIEVE`, and `BAGS`. For this route, omitted or `null` graduating defaults are `tokenFilter.market.ageHours.max = 24`, `tokenFilter.activity.oneHour.transactions.min = 1`, `tokenFilter.activity.oneHour.buys.min = 1`, and `tokenFilter.activity.oneHour.volumeUsd.min = 10`. Migration ranking, descending order, and the `ignoreGraduated` scope are enforced and cannot be overridden. Unknown properties in the request or nested filter objects are rejected. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ScannerTokensRequest"];
@@ -18209,7 +20304,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description JSON body conforming to `ScannerTokensRequest`; `{}` is accepted. `tokenFilter` and `cursor` may be omitted or `null`. This route forces `rankBy` to `age` and `orderBy` to `desc`, ignores `tokenFilter.scope.graduation`, and uses `PUMPFUN`, `MOONSHOT`, `RAYDIUM_LAUNCH`, `METEORA_BONDING_CURVE`, `FOURMEME_V2`, `LETS_BONK`, `BELIEVE`, and `BAGS` when `tokenFilter.scope.platforms` is omitted or `null`. An explicit empty platform list remains empty. To fetch the next page, send `nextCursor` as `cursor` on this route with the same caller and effective filter settings; otherwise, the cursor is rejected. */
+        /** @description JSON body conforming to `ScannerTokensRequest`; `{}` is accepted. `tokenFilter` and `cursor` may be omitted or `null`. This route forces `rankBy` to `age` and `orderBy` to `desc`, ignores `tokenFilter.scope.graduation`, and uses `PUMPFUN`, `MOONSHOT`, `RAYDIUM_LAUNCH`, `METEORA_BONDING_CURVE`, `LETS_BONK`, `BELIEVE`, and `BAGS` when `tokenFilter.scope.platforms` is omitted or `null`. An explicit empty platform list remains empty. To fetch the next page, send `nextCursor` as `cursor` on this route with the same caller and effective filter settings; otherwise, the cursor is rejected. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ScannerTokensRequest"];
@@ -18479,10 +20574,16 @@ export interface operations {
     token_chart_markers: {
         parameters: {
             query?: {
-                /** @description Start of the window, as Unix epoch seconds. Omit it for no lower bound. */
+                /** @description Window start, Unix epoch seconds. Defaults to 12 hours before `to`. */
                 from?: number;
                 /** @description End of the window, as Unix epoch seconds. Omit it for no upper bound. */
                 to?: number;
+                /** @description Inclusive floor on marker size in USD. Defaults to 10. */
+                minUsd?: number;
+                /** @description Inclusive ceiling on marker size in USD. Must not be below `minUsd`. */
+                maxUsd?: number;
+                /** @description Show only markers from wallets you track. Requires authentication. */
+                curated?: boolean;
             };
             header?: never;
             path: {
@@ -19114,6 +21215,71 @@ export interface operations {
             };
         };
     };
+    trade_update_pending_buy_trigger: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description target chain */
+                chain: components["schemas"]["Chain"];
+                /** @description Token contract address */
+                token: components["schemas"]["Address"];
+                /** @description Pending BUY swap identifier */
+                swap_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePendingBuyTriggerRequest"];
+            };
+        };
+        responses: {
+            /** @description Pending BUY trigger update accepted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatePendingBuyTriggerTradeResponse"];
+                };
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Pending BUY swap not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Pending BUY swap is no longer editable */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Invalid trigger */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     trade_create_sell: {
         parameters: {
             query?: never;
@@ -19372,6 +21538,8 @@ export interface operations {
                 latestSwapAgeMinutesMin?: number;
                 /** @description Inclusive maximum whole minutes since the trader's last swap. Omit it for no maximum. */
                 latestSwapAgeMinutesMax?: number;
+                /** @description Platforms to include (`FOMO`, `PUMPFUN`, `KOL`), comma separated. Omit it or leave it empty for the global ranking. Labeled-wallet identity is returned on every ranking row, not only when this filter is set. */
+                sources?: string[];
             };
             header?: never;
             path?: never;
@@ -19758,16 +21926,16 @@ export interface operations {
                 /** @description Only return events by the author with this handle, matched case-insensitively. Omit it to include every author. */
                 authorHandle?: string | null;
                 /** @description Only return events with these actions, such as `TWEET` or `REPLY`. Omit it to include every action. */
-                actions?: string | null;
-                /** @description Only return events whose author has one of these tags, such as `kol` or `founder`. Omit it to include every author. */
-                tags?: string | null;
+                actions?: string[];
+                /** @description Only events whose author carries one of these tags. */
+                tags?: string[];
                 /** @description Whether to return only events that name a token contract address. Defaults to `false`. */
                 onlyCa?: boolean;
-                /** @description Inclusive minimum follower count for the author, where an unknown count counts as zero. Omit it for no minimum. */
+                /** @description Inclusive minimum follower count. Unknown counts as zero. */
                 minFollowers?: number | null;
-                /** @description Text to search for, matched case-insensitively as set by `searchMode`. A leading `$` or `@` is ignored. Omit it for no search. */
+                /** @description Text to search for. A leading `$` or `@` is ignored. */
                 search?: string | null;
-                /** @description Which fields `search` looks at. `BOTH` (the default) covers both, `TOKEN` covers token symbols and addresses, and `KEYWORD` covers author and event text. */
+                /** @description Which fields `search` looks at. Defaults to `BOTH`. */
                 searchMode?: string | null;
             };
             header?: never;
@@ -19797,16 +21965,16 @@ export interface operations {
                 /** @description Only return events by the author with this handle, matched case-insensitively. Omit it to include every author. */
                 authorHandle?: string | null;
                 /** @description Only return events with these actions, such as `TWEET` or `REPLY`. Omit it to include every action. */
-                actions?: string | null;
-                /** @description Only return events whose author has one of these tags, such as `kol` or `founder`. Omit it to include every author. */
-                tags?: string | null;
+                actions?: string[];
+                /** @description Only events whose author carries one of these tags. */
+                tags?: string[];
                 /** @description Whether to return only events that name a token contract address. Defaults to `false`. */
                 onlyCa?: boolean;
-                /** @description Inclusive minimum follower count for the author, where an unknown count counts as zero. Omit it for no minimum. */
+                /** @description Inclusive minimum follower count. Unknown counts as zero. */
                 minFollowers?: number | null;
-                /** @description Text to search for, matched case-insensitively as set by `searchMode`. A leading `$` or `@` is ignored. Omit it for no search. */
+                /** @description Text to search for. A leading `$` or `@` is ignored. */
                 search?: string | null;
-                /** @description Which fields `search` looks at. `BOTH` (the default) covers both, `TOKEN` covers token symbols and addresses, and `KEYWORD` covers author and event text. */
+                /** @description Which fields `search` looks at. Defaults to `BOTH`. */
                 searchMode?: string | null;
             };
             header?: never;
@@ -19822,15 +21990,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TwitterEventsResponse"];
-                };
-            };
-            /** @description Unsupported search modes return HTTP 400. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Authentication failed. */
@@ -20742,6 +22901,269 @@ export interface operations {
             };
         };
     };
+    wallets_feed: {
+        parameters: {
+            query?: {
+                /** @description Labels to include. Accepts `labels[]=name`, repeated `labels=name`, and CSV `labels=name,other`. */
+                labels?: string[];
+                /** @description Platforms to include. Accepts `sources[]=FOMO`, repeated `sources=FOMO`, and CSV `sources=FOMO,KOL`. */
+                sources?: string[];
+                /** @description Restrict to these wallets. Accepts `wallets[]=address`, repeated `wallets=address`, and CSV `wallets=address,other`. */
+                wallets?: string[];
+                /**
+                 * @description Only swaps from wallets you curated. Requires authentication.
+                 *
+                 *     REST only. The socket has no `curated` param: subscribe to
+                 *     `wallets:personal` instead, which is the curated stream.
+                 */
+                curated?: boolean;
+                /** @description Chain to read. Defaults to `SOL`. */
+                chain?: components["schemas"]["Chain"];
+                /** @description How far back to look, in minutes. Defaults to 10, which is also the cap. */
+                minutes?: number;
+                /** @description Inclusive floor on swap size in USD. Defaults to 10. */
+                minUsd?: number;
+                /** @description Inclusive ceiling on swap size in USD. Must not be below `minUsd`. */
+                maxUsd?: number;
+                /** @description `BUY` or `SELL`. Omit for both. */
+                side?: string;
+                /** @description Maximum rows to return. Capped at 500. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recent labeled-wallet swaps, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabeledWalletFeedResponse"];
+                };
+            };
+        };
+    };
+    wallets_labeled: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive search over label text and wallet address. */
+                query?: string;
+                /** @description Platforms to include. Accepts `sources[]=FOMO`, repeated `sources=FOMO`, and CSV `sources=FOMO,KOL`. */
+                sources?: string[];
+                /** @description Chain to list. Defaults to `SOL`. */
+                chain?: components["schemas"]["Chain"];
+                /**
+                 * @description Opaque page selector from a previous response's `nextCursor` or
+                 *     `prevCursor`.
+                 */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of labeled wallets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabeledWalletsResponse"];
+                };
+            };
+        };
+    };
+    wallets_labels: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive search over label text and wallet address. */
+                query?: string;
+                /** @description Platforms to include. Accepts `sources[]=FOMO`, repeated `sources=FOMO`, and CSV `sources=FOMO,KOL`. */
+                sources?: string[];
+                /** @description Chain to list. Defaults to `SOL`. */
+                chain?: components["schemas"]["Chain"];
+                /**
+                 * @description Opaque page selector from a previous response's `nextCursor` or
+                 *     `prevCursor`.
+                 */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of distinct labels */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WalletLabelsResponse"];
+                };
+            };
+        };
+    };
+    wallets_subscriptions: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive search over label text and wallet address. */
+                query?: string;
+                /** @description Platforms to include. Accepts `sources[]=FOMO`, repeated `sources=FOMO`, and CSV `sources=FOMO,KOL`. */
+                sources?: string[];
+                /** @description Chain to list. Defaults to `SOL`. */
+                chain?: components["schemas"]["Chain"];
+                /**
+                 * @description Opaque page selector from a previous response's `nextCursor` or
+                 *     `prevCursor`.
+                 */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of curated wallets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabeledWalletSubscriptionsResponse"];
+                };
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    wallets_subscribe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Chain the wallet trades on */
+                chain: components["schemas"]["Chain"];
+                /** @description Wallet address from `/v2/wallets/labeled` */
+                wallet: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Wallet curated (or already was) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabeledWalletSubscriptionResponse"];
+                };
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    wallets_unsubscribe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Chain the wallet trades on */
+                chain: components["schemas"]["Chain"];
+                /** @description Wallet address */
+                wallet: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Wallet no longer curated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    wallets_thesis: {
+        parameters: {
+            query?: {
+                /** @description Chain to read. Defaults to `SOL`. */
+                chain?: components["schemas"]["Chain"];
+                /** @description Only theses about this token. Requires `chain`. */
+                tokenAddress?: string;
+                /** @description Only theses from wallets you curated. Requires authentication. */
+                curated?: boolean;
+                /**
+                 * @description Labels to include. Accepts bracketed, repeated, and CSV values. A thesis matches when its author
+                 *     carries any of them. Omit for every label.
+                 */
+                labels?: string[];
+                /**
+                 * @description Sources to include. Accepts bracketed, repeated, and CSV values. Omit for every
+                 *     source. `source` is accepted as an alias.
+                 */
+                sources?: string[];
+                /** @description Inclusive floor on market cap in USD at post time. */
+                minMarketcapUsd?: number;
+                /** @description Only theses posted before this Unix epoch second. */
+                before?: number;
+                /** @description Only theses posted after this Unix epoch second. */
+                after?: number;
+                /** @description Opaque page selector from a previous response. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of theses */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThesisResponse"];
+                };
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_all_feed: {
         parameters: {
             query?: {
@@ -20997,6 +23419,54 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    get_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description UserList ID owned by the authenticated user */
+                listId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Owned list with its editable token filter and source details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistSourceItem"];
+                };
+            };
+            /** @description Invalid list identifier or missing request authorization context. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description List not found or not owned by this user */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
         };
     };
@@ -22164,6 +24634,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    get_thesis_sources: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                /** @description Optional case-insensitive substring to match against the source name. */
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Thesis author catalog */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchlistSourcesResponse"];
+                };
             };
         };
     };

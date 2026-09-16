@@ -4,6 +4,7 @@
 	import { onVisibility, FLASH_MS, FLASH_COOLDOWN_MS, ROW_FLASH_MS } from '$lib/utils/visibility';
 	import type { ScannerItem } from '$lib/api/types';
 	import { formatMarketCap, formatPercent, formatNumber, formatCompactNumber, formatCompactCount, liveAge } from '$lib/utils/format';
+	import { feeShareholders, feeShareTitle } from '$lib/utils/fee-sharing';
 	import { buildSparkline } from '$lib/utils/sparkline';
 	import { getRouterInfo, getRouterIconForChain } from '$lib/utils/routers';
 	import { getNow } from '$lib/stores/tick.svelte';
@@ -11,12 +12,14 @@
 	import DexPaidIcon from './DexPaidIcon.svelte';
 	import Globe from 'lucide-svelte/icons/globe';
 	import Flame from 'lucide-svelte/icons/flame';
+	import Trophy from 'lucide-svelte/icons/trophy';
 	import Coins from 'lucide-svelte/icons/coins';
 	import Users from 'lucide-svelte/icons/users';
 	import ChefHat from 'lucide-svelte/icons/chef-hat';
 	import ChartPie from 'lucide-svelte/icons/chart-pie';
 	import BadgeCheck from 'lucide-svelte/icons/badge-check';
 	import Megaphone from 'lucide-svelte/icons/megaphone';
+	import MessageSquareQuote from 'lucide-svelte/icons/message-square-quote';
 	import MessagesSquare from 'lucide-svelte/icons/messages-square';
 	import Repeat2 from 'lucide-svelte/icons/repeat-2';
 	import SniperIcon from './SniperIcon.svelte';
@@ -164,7 +167,9 @@
 
 	let pumpfun = $derived(token.launchPad?.pumpfun ?? null);
 	let isMayhem = $derived(pumpfun?.isMayhem ?? false);
+	let isHolderReward = $derived(pumpfun?.isHolderReward ?? false);
 	let cashbackPct = $derived(pumpfun?.cashbackPct ?? 0);
+	let feeShares = $derived(feeShareholders(pumpfun));
 
 	let act5m = $derived(token.stats.timeframes['5m']);
 	let act1h = $derived(token.stats.timeframes['1h']);
@@ -186,12 +191,14 @@
 		sparkMemo = { sig, val };
 		return val;
 	});
+	let tweets = $derived(token.tweets ?? 0);
 	let twFollowers = $derived(token.socials?.profile?.followersCount ?? 0);
 	let twVerified = $derived(!!token.socials?.profile?.isBlueVerified);
 	let communityN = $derived(token.socials?.community?.memberCount ?? 0);
 	let serialLaunches = $derived(token.socials?.dev?.twitterCreateTokenCount ?? 0);
 	let isAgent = $derived(!!pumpfun?.isAgent);
 	let calls = $derived(token.calls ?? 0);
+	let theses = $derived(token.theses ?? 0);
 	const socialBtn =
 		'flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-md bg-s6 text-g11 ring-1 ring-bd hover:bg-s7 hover:text-wh';
 	const statChip = 'flex shrink-0 items-center gap-0.5 text-[11px] font-semibold tabular-nums';
@@ -292,7 +299,8 @@
 
 			<div class="flex min-w-0 flex-1 flex-col gap-1.5 overflow-hidden">
 				<div class="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap pr-[42%]">
-					<span class="shrink-0 text-sm font-bold text-tx">{token.tokenSymbol}</span>
+					<span class="min-w-0 max-w-[55%] shrink truncate text-sm font-bold text-tx" title={token.tokenSymbol ?? ''}>{token.tokenSymbol}</span>
+					{#if token.quoteTokenSymbol}<span class="shrink-0 text-[10px] text-g5">/{token.quoteTokenSymbol}</span>{/if}
 					<span class="min-w-0 flex-1 truncate text-xs text-g8">{token.tokenName}</span>
 					{#if isAgent}
 						<span class="shrink-0 rounded bg-blu/20 px-1 py-px text-[8px] font-bold uppercase tracking-wide text-blu">Agent</span>
@@ -327,8 +335,14 @@
 					{#if isMayhem}
 						<span class="shrink-0 text-org" title="Mayhem"><Flame class="h-3 w-3" /></span>
 					{/if}
+					{#if isHolderReward}
+						<span class="shrink-0 text-pnk" title="Holder rewards"><Trophy class="h-3 w-3" /></span>
+					{/if}
 					{#if cashbackPct > 0}
 						<span class="shrink-0 text-grn" title="Cashback {cashbackPct}%"><Coins class="h-3 w-3" /></span>
+					{/if}
+					{#if feeShares.length > 0}
+						<span class="shrink-0 text-blu" title={feeShareTitle(feeShares)}><Users class="h-3 w-3" /></span>
 					{/if}
 					{#if (token.holders?.snipers ?? 0) > 0}
 						<span class="flex shrink-0 items-center gap-0.5 font-semibold text-red"><SniperIcon class="h-3 w-3" /><span class="text-[10px]">{token.holders?.snipers}</span></span>
@@ -379,9 +393,21 @@
 			{/if}
 		{/if}
 		{#if calls > 0}
-			<span class="{statChip} text-g9" title="Calls">
+			<span class="{statChip} rounded bg-yel/10 px-1 text-yel" title="Calls">
 				<Megaphone class="h-3 w-3" strokeWidth={2.25} />
-				{formatCompactNumber(calls)}
+				{formatCompactCount(calls)}
+			</span>
+		{/if}
+		{#if theses > 0}
+			<span class="{statChip} text-g9" title="Theses posted about this token">
+				<MessageSquareQuote class="h-3 w-3" strokeWidth={2.25} />
+				{formatCompactCount(theses)}
+			</span>
+		{/if}
+		{#if tweets > 0}
+			<span class="{statChip} rounded bg-wh/10 px-1 text-tx" title="X posts naming this token">
+				<svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path}/></svg>
+				{formatCompactCount(tweets)}
 			</span>
 		{/if}
 		{#if twFollowers > 0}

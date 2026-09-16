@@ -30,6 +30,7 @@ and accent colours:
 | Catppuccin Macho | catppuccin / blue-eye | same base, bolder subject |
 | Rose Pine | tokyo-night / swirl-buck | `#4b1954`/`#862364` rose on dark (omarchy's own rose-pine backgrounds are all light, which fights our dark variant) |
 | Studio Ghibli | Totoro | the theme is named for it |
+| Laputa | kanagawa / the-great-wave | hand-drawn Japanese art, not a film still; `#84979b` (hue 190) matches the theme's blue accent and `#f1ead6` its background lightness |
 | Hotdog Stand | procedural Mondrian | generated, not photographic — see below |
 
 ## Hotdog Stand
@@ -50,6 +51,7 @@ one). Output is ~5KB — flat colour compresses to almost nothing in WebP.
   (Unsplash Licence — free to use, no attribution required).
 - `cyber-punk` and `warm-sand` are freely-distributed wallpapers (no known
   restriction).
+- `laputa` is Hokusai's *The Great Wave off Kanagawa* (1831) — public domain.
 - `studio-ghibli` is fan art, so the *artist* still holds copyright on it even
   though it isn't official Studio Ghibli material.
 

@@ -855,7 +855,7 @@
 							<div class="mb-2 flex items-center justify-between">
 								<div class="flex items-center gap-1.5">
 									<span class="text-[9px] md:text-xs font-medium uppercase tracking-wider text-g5">30d PnL</span>
-									<button onclick={() => showPnlCalendar = true} class="cursor-pointer text-g4 transition-colors hover:text-tx"><CalendarDays class="h-3.5 w-3.5" /></button>
+									<button onclick={() => showPnlCalendar = true} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx"><CalendarDays class="h-3.5 w-3.5" /></button>
 								</div>
 								<span class="text-xs font-bold {profile.totalPnlUsd >= 0 ? 'text-grn' : 'text-red'}">{profile.totalPnlUsd >= 0 ? '+' : ''}{formatUsd(profile.totalPnlUsd)}</span>
 							</div>
@@ -956,7 +956,7 @@
 				{ label: 'Telegram', value: 'telegram' as ProfileTab }
 			] as tab}
 					<button
-						class="relative shrink-0 flex-1 rounded-lg px-2 md:px-3 py-2 text-xs md:text-sm font-medium transition-all {activeTab === tab.value
+						class="cursor-pointer relative shrink-0 flex-1 rounded-lg px-2 md:px-3 py-2 text-xs md:text-sm font-medium transition-all {activeTab === tab.value
 							? 'bg-s7 text-tx'
 							: 'text-g6 hover:text-g9'}"
 						onclick={() => (activeTab = tab.value)}
@@ -1086,7 +1086,7 @@
 																			<button
 																				onclick={() => sellToken(wallet.chain, bal.token.address)}
 																				disabled={sellingToken === sellKey}
-																				class="cursor-pointer rounded bg-red/10 px-1.5 py-0.5 text-[9px] font-semibold text-red opacity-0 transition-all hover:bg-red/20 group-hover/row:opacity-100 disabled:opacity-50 {sellingToken === sellKey ? '!opacity-100' : ''}"
+																				class="cursor-pointer rounded bg-red/10 px-1.5 py-1 text-[10px] font-semibold text-red transition-all hover:bg-red/20 disabled:opacity-50 md:py-0.5 md:text-[9px] md:opacity-0 md:group-hover/row:opacity-100 {sellingToken === sellKey ? '!opacity-100' : ''}"
 																			>{sellingToken === sellKey ? '...' : 'Sell'}</button>
 																			{/if}
 																		</div>
@@ -1634,7 +1634,7 @@
 				<div class="fixed inset-0 z-50 flex items-center justify-center bg-s0/60 backdrop-blur-[2px] p-4" role="presentation" onclick={() => (viewingProfile = null)} onkeydown={(e) => { if (e.key === 'Escape') viewingProfile = null; }}>
 					<div class="w-full max-w-sm overflow-hidden rounded-2xl border border-bd bg-s5 shadow-2xl backdrop-blur-xl" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
 						<div class="relative px-5 pt-5 pb-4">
-							<button onclick={() => (viewingProfile = null)} class="absolute right-4 top-4 cursor-pointer text-g4 transition-colors hover:text-tx">
+							<button onclick={() => (viewingProfile = null)} class="absolute right-3 top-3 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 									<X class="h-4 w-4" />
 								</button>
 								<div class="flex items-center gap-3">
@@ -1896,7 +1896,7 @@
 				<div
 					onclick={(e) => { e.stopPropagation(); toggleFollow(user); }}
 					onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); toggleFollow(user); } }}
-					class="shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all {followToggling.has(user.id) ? 'opacity-50' : ''} {user.isFollowing
+					class="cursor-pointer shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all {followToggling.has(user.id) ? 'opacity-50' : ''} {user.isFollowing
 						? 'border border-bd text-g7 hover:border-red/40 hover:text-red'
 						: 'bg-grn/10 text-grn ring-1 ring-grn/20 hover:bg-grn/20'}"
 					role="button"
@@ -1943,7 +1943,7 @@
 				<div
 					onclick={(e) => { e.stopPropagation(); toggleFollow(user); }}
 					onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); toggleFollow(user); } }}
-					class="shrink-0 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all {followToggling.has(user.id) ? 'opacity-50' : ''} {user.isFollowing
+					class="cursor-pointer shrink-0 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all {followToggling.has(user.id) ? 'opacity-50' : ''} {user.isFollowing
 						? 'border border-bd text-g7 hover:border-red/40 hover:text-red'
 						: 'bg-grn/10 text-grn ring-1 ring-grn/20 hover:bg-grn/20'}"
 					role="button"

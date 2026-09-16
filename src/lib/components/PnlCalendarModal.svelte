@@ -120,7 +120,7 @@
 					<h2 class="text-sm font-semibold text-tx">{title}</h2>
 					<span class="text-xs text-g5">Last {numDays} days</span>
 				</div>
-				<button onclick={close} class="cursor-pointer text-g4 transition-colors hover:text-tx"><X class="h-4 w-4" /></button>
+				<button onclick={close} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx"><X class="h-4 w-4" /></button>
 			</div>
 
 			<div class="p-4 md:p-5">

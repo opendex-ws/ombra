@@ -9,7 +9,7 @@
 	import PictureInPicture2 from 'lucide-svelte/icons/picture-in-picture-2';
 	import Minimize2 from 'lucide-svelte/icons/minimize-2';
 	import { portal } from '$lib/actions/portal';
-	import { getTradePanelCollapsed, toggleTradePanelCollapsed, getTradePanelPopout, setTradePanelPopout, getTradePanelFloat, setTradePanelFloatPos, setTradePanelFloatSize } from '$lib/stores/feSettings.svelte';
+	import { getTradePanelCollapsed, toggleTradePanelCollapsed, getTradePanelPopout, setTradePanelPopout, getTradePanelFloat, setTradePanelFloatPos, setTradePanelFloatSize, getBuyWith } from '$lib/stores/feSettings.svelte';
 	import { getPanelZ, bringToFront } from '$lib/stores/floatingPanels.svelte';
 	import MobileScanModal from './MobileScanModal.svelte';
 	import TargetCard from './TargetCard.svelte';
@@ -199,8 +199,16 @@
 	});
 	const managedWallet = $derived(getManagedWalletForChain(chain));
 	const nativeBalance = $derived(managedWallet?.assets.find(b => b.isNative || b.token.symbol === nativeSymbol) ?? null);
-	const nativeValueUsd = $derived(nativeBalance ? nativeBalance.valueUsd : 0);
-	const hasBalance = $derived(nativeValueUsd > 0);
+	// `isFiat` marks the chain's USD stablecoin, which is what funds a FIAT buy.
+	const fiatBalance = $derived(managedWallet?.assets.find((b) => b.isFiat) ?? null);
+	const buyWith = $derived(getBuyWith());
+	// Affordability has to be measured against the pot the buy actually spends.
+	const fundingBalance = $derived(buyWith === 'FIAT' ? fiatBalance : nativeBalance);
+	const fundingValueUsd = $derived(fundingBalance ? fundingBalance.valueUsd : 0);
+	const fundingSymbol = $derived(
+		buyWith === 'FIAT' ? (fiatBalance?.token.symbol ?? 'USDC') : nativeSymbol
+	);
+	const hasBalance = $derived(fundingValueUsd > 0);
 
 	$effect(() => {
 		if (getIsLoggedIn()) {
@@ -272,11 +280,11 @@
 			class="flex shrink-0 items-center gap-2 border-b border-bd px-3 py-1.5 {floatDragging ? 'cursor-grabbing' : 'cursor-grab'}"
 			onmousedown={onFloatDragDown}
 		>
-			<span class="text-[11px] font-bold text-tx">Trade {tokenSymbol}</span>
+			<span class="min-w-0 truncate text-[11px] font-bold text-tx" title={tokenSymbol ?? ''}>Trade {tokenSymbol}</span>
 			<div class="ml-auto flex items-center gap-1">
 				<button
 					onclick={() => setTradePanelPopout(false)}
-					class="cursor-pointer p-0.5 text-g4 transition-colors hover:text-tx"
+					class="cursor-pointer rounded p-1.5 text-g4 transition-colors hover:bg-s7 hover:text-tx md:p-0.5"
 					aria-label="Dock trade panel"
 					title="Dock back to sidebar"
 				>
@@ -284,7 +292,7 @@
 				</button>
 				<button
 					onclick={toggleTradePanelCollapsed}
-					class="cursor-pointer p-0.5 text-g4 transition-colors hover:text-tx"
+					class="cursor-pointer rounded p-1.5 text-g4 transition-colors hover:bg-s7 hover:text-tx md:p-0.5"
 					aria-label={getTradePanelCollapsed() ? 'Expand' : 'Collapse'}
 				>
 					<ChevronDown class="h-3.5 w-3.5 transition-transform duration-200 {getTradePanelCollapsed() ? 'rotate-180' : ''}" />
@@ -341,8 +349,8 @@
 				<Plus class="h-6 w-6 text-g5" strokeWidth={1.5} />
 			</div>
 			<div class="text-center">
-				<div class="text-sm font-medium text-tx">Deposit {nativeSymbol} to Trade</div>
-				<div class="mt-0.5 text-xs text-g6">Send {nativeSymbol} to your managed wallet</div>
+				<div class="text-sm font-medium text-tx">Deposit {fundingSymbol} to Trade</div>
+				<div class="mt-0.5 text-xs text-g6">Send {fundingSymbol} to your managed wallet</div>
 			</div>
 			<button
 				onclick={copyAddress}
@@ -472,7 +480,17 @@
 				<div class="mt-1 flex items-center justify-between px-0.5 text-[10px] text-g5">
 					<span>{#if getFeeEstimate()}Fee {@html fmtVal(getFeeEstimate()?.gasFeeUsdStr ?? '0', getFeeEstimate()?.gasFeeNativeStr ?? '0', chain)}{/if}</span>
 					{#if managedWallet}
-						<span>Avail <span class="{hasBalance ? 'text-g8' : 'text-red'} font-semibold">{@html fmtVal(nativeBalance?.valueUsdStr ?? '0', nativeBalance?.tokensBalanceStr ?? '0', chain)}</span></span>
+						<span>
+							Avail
+							<span class="{hasBalance ? 'text-g8' : 'text-red'} font-semibold">
+								{#if buyWith === 'FIAT'}
+									{formatUsd(fundingBalance?.valueUsdStr ?? '0')}
+								{:else}
+									{@html fmtVal(fundingBalance?.valueUsdStr ?? '0', fundingBalance?.tokensBalanceStr ?? '0', chain)}
+								{/if}
+							</span>
+							<span class="text-g5">{buyWith === 'FIAT' ? fiatBalance?.token.symbol ?? 'USD' : ''}</span>
+						</span>
 					{/if}
 				</div>
 			</div>

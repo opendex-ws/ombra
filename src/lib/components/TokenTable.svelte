@@ -208,9 +208,11 @@
 </div>
 
 {#if pinnedToken && pinRect}
-	<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+	<!-- Pointer-only overlay: a pinned duplicate of a row already in the table,
+	     so it is presentational and never reached by keyboard or AT. -->
 	<div
 		use:portal
+		role="presentation"
 		onmouseleave={unpinRow}
 		onclick={unpinRow}
 		onwheel={onPinWheel}

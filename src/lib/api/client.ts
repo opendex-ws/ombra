@@ -7,6 +7,17 @@ import { apiOrigin } from './config';
 // mode or the backend origin in direct mode — see api/config.ts.
 export const api = createClient<paths>({ baseUrl: apiOrigin() });
 
+/**
+ * Query type for an operation. openapi-fetch's own `params.query` typing does NOT
+ * excess-property-check, so a renamed backend param silently becomes an ignored
+ * query key. Annotating the query object with this makes the rename a type error.
+ */
+export type QueryOf<P extends keyof paths, M extends keyof paths[P] = 'get'> = paths[P][M] extends {
+	parameters: { query?: infer Q };
+}
+	? NonNullable<Q>
+	: never;
+
 const REFRESH_PATH = '/v2/auth/refresh';
 
 const authMiddleware: Middleware = {
@@ -122,6 +133,9 @@ export type UpdateTgChatFilterRequest = components['schemas']['UpdateTgChatFilte
 export type PaginatedProfileResponse = components['schemas']['PaginatedProfileResponse'];
 export type TokenMarketLaunchPad = components['schemas']['TokenMarketLaunchPad'];
 export type TokenMarketBondingCurve = components['schemas']['TokenMarketBondingCurve'];
+export type TokenMarketPumpfun = components['schemas']['TokenMarketPumpfun'];
+export type TokenMarketPumpfunFeeSharing = components['schemas']['TokenMarketPumpfunFeeSharing'];
+export type TokenMarketPumpfunFeeShareholder = components['schemas']['TokenMarketPumpfunFeeShareholder'];
 export type TokenMigrationSummary = components['schemas']['TokenMigrationSummary'];
 export type TokenSnapshot = components['schemas']['TokenSnapshot'];
 export type TokenSnapshotBase = components['schemas']['TokenSnapshotBase'];
@@ -131,6 +145,7 @@ export type TokenMarketFilter = components['schemas']['TokenMarketFilter'];
 export type TokenSecurityFilter = components['schemas']['TokenSecurityFilter'];
 export type TokenSocialFilter = components['schemas']['TokenSocialFilter'];
 export type TokenSourceFilter = components['schemas']['TokenSourceFilter'];
+export type TokenSourceFilterRead = components['schemas']['TokenSourceFilterRead'];
 export type TokenSourceGroup = components['schemas']['TokenSourceGroup'];
 export type TokenTaxFilter = components['schemas']['TokenTaxFilter'];
 export type WatchlistSourceItem = components['schemas']['WatchlistSourceItem'];
@@ -158,6 +173,20 @@ export type TraderPnlStats = components['schemas']['TraderPnlStats'];
 export type TraderRankItem = components['schemas']['TraderRankItem'];
 export type TraderRankingResponse = components['schemas']['TraderRankingResponse'];
 export type WalletLabelInfo = components['schemas']['WalletLabelInfo'];
+export type LabeledWalletSwap = components['schemas']['LabeledWalletSwap'];
+export type LabeledWallet = components['schemas']['LabeledWallet'];
+export type WalletLabelSource = NonNullable<WalletLabelInfo['source']>;
+export type WalletLabelSummary = components['schemas']['WalletLabelSummary'];
+export type ThesisItem = components['schemas']['ThesisItem'];
+export type ThesisResponse = components['schemas']['ThesisResponse'];
+export type ThesisSource = components['schemas']['ThesisSource'];
+export type ThesisToken = components['schemas']['ThesisToken'];
+export type TokenSwapsFilterParams = components['schemas']['TokenSwapsFilterParams'];
+export type TokenChartMarkersFilterParams = components['schemas']['TokenChartMarkersFilterParams'];
+export type WalletLabelsResponse = components['schemas']['WalletLabelsResponse'];
+export type LabeledWalletsResponse = components['schemas']['LabeledWalletsResponse'];
+export type LabeledWalletSubscriptionsResponse =
+	components['schemas']['LabeledWalletSubscriptionsResponse'];
 export type TraderSnapshotBase = components['schemas']['TraderSnapshotBase'];
 export type TraderTokenPnlDetailResponse = components['schemas']['TraderTokenPnlDetailResponse'];
 export type TraderTokenPnlItem = components['schemas']['TraderTokenPnlItem'];

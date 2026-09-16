@@ -309,5 +309,10 @@ export const PRESETS: ThemePreset[] = [
 	pair('Catppuccin Macho', { bg: '#1e1e2e', text: '#cdd6f4', green: '#40d875', red: '#e8304a', yellow: '#e8b820', blue: '#4488ff', orange: '#e87020', pink: '#d040a0', isDark: true }),
 	pair('Rose Pine', { bg: '#191724', text: '#e0def4', green: '#9ccfd8', red: '#eb6f92', yellow: '#f6c177', blue: '#31748f', orange: '#ea9a97', pink: '#c4a7e7', isDark: true }),
 	pair('Studio Ghibli', { bg: '#d2cf94', text: '#3a3720', green: '#4e8a35', red: '#c85a3c', yellow: '#c8971f', blue: '#3f7f96', orange: '#cf7526', pink: '#bd6f92', isDark: false }),
+	// Laputa by way of Panchiko's disc-rot cover: sky-blue base with mossy
+	// overgrowth, brass airship fittings and robot-soldier rust. Accents are
+	// deliberately low-saturation but dark enough to clear 3.5:1 on the lighter
+	// background — a faded palette reads beautifully and illegibly by default.
+	pair('Laputa', { bg: '#c3ddea', text: '#26383f', green: '#4f7761', red: '#a35b4a', yellow: '#856b30', blue: '#45757f', orange: '#9c5f39', pink: '#975b71', isDark: false }),
 	{ name: 'Hotdog Stand', dark: { bg: '#dd0000', text: '#ffff00', green: '#ffff00', red: '#000000', yellow: '#ffffff', blue: '#ffff00', orange: '#ffffff', pink: '#ffff00', isDark: true }, light: { bg: '#dd0000', text: '#ffff00', green: '#ffff00', red: '#000000', yellow: '#ffffff', blue: '#ffff00', orange: '#ffffff', pink: '#ffff00', isDark: true } },
 ];

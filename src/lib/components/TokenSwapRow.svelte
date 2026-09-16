@@ -40,8 +40,8 @@
 		<div class="mt-0.5 flex items-center gap-3 text-[11px]">
 			<div class="flex min-w-0 items-center gap-1">
 				<button type="button" class="min-w-0 cursor-pointer truncate text-left transition-colors hover:text-tx {(trade.labels ?? []).length > 0 ? 'font-medium text-blu' : trade.isDev ? 'font-medium text-yel' : 'text-g5'}" onclick={() => onOpenTrader(trade.walletAddress ?? '')}>{(trade.labels ?? []).length > 0 ? trade.labels![0].label : trade.isDev ? 'Dev' : shortAddress(trade.walletAddress ?? '')}</button>
-				<button type="button" class="shrink-0 cursor-pointer p-0.5 text-g2 transition-colors hover:text-grn {filteredMaker === trade.walletAddress ? 'text-grn' : ''}" onclick={() => onFilterMaker(trade.walletAddress ?? '')}><Filter class="h-2.5 w-2.5" /></button>
-				<a href={explorerAddressUrl(chain as string, trade.walletAddress ?? '')} target="_blank" rel="noopener" class="shrink-0 p-0.5 text-g4 transition-colors hover:text-tx" aria-label="Open wallet in explorer" onclick={(event) => event.stopPropagation()} onkeydown={(event) => event.stopPropagation()}><ExternalLink class="h-3 w-3" /></a>
+				<button type="button" class="-m-1 shrink-0 cursor-pointer rounded p-1 text-g2 transition-colors hover:text-grn md:m-0 md:p-0.5 {filteredMaker === trade.walletAddress ? 'text-grn' : ''}" onclick={() => onFilterMaker(trade.walletAddress ?? '')}><Filter class="h-3 w-3 md:h-2.5 md:w-2.5" /></button>
+				<a href={explorerAddressUrl(chain as string, trade.walletAddress ?? '')} target="_blank" rel="noopener" class="-m-1 shrink-0 rounded p-1 text-g4 transition-colors hover:text-tx md:m-0 md:p-0.5" aria-label="Open wallet in explorer" onclick={(event) => event.stopPropagation()} onkeydown={(event) => event.stopPropagation()}><ExternalLink class="h-3 w-3" /></a>
 			</div>
 			<div class="flex items-center gap-1">
 				{#if fees.total > 0}<span class="text-g5">fee</span>{/if}

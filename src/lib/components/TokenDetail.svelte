@@ -6,6 +6,7 @@
 	import { api } from '$lib/api/client';
 	import type { Chain, TokenSnapshot, TokenHoldersResponse, TokenSafetyResponse, TokenSwap, TokenTopTrader, TokenCallsResponse, DevTokensResponse, DevTokenItem, WatchlistCallItem, TokenMarketHolderInfo, TokenMarketStats, TokenMarketTimeframeStats, TokenPairMarket, components } from '$lib/api/types';
 	import { formatPrice, formatUsd, formatPercent, formatNumber, formatMarketCap, timeAgo, fullDateTime, shortAddress, liveAge, explorerTxUrl, explorerAddressUrl, formatMultiplier, fmtVal, fmtPrice, fmtPriceHtml, formatPriceText, avatarUrl, formatCompactNumber, formatCompactCount } from '$lib/utils/format';
+	import { feeShareLabel, feeShareName, feeSharePctLabel, feeShareSocialUrl, feeShareholders } from '$lib/utils/fee-sharing';
 	import { getWalletIconUrl, getWalletAddress } from '$lib/utils/walleticon';
 
 	import { getRouterName, getRouterInfo, getRouterIconForChain } from '$lib/utils/routers';
@@ -18,6 +19,7 @@
 	import Globe from 'lucide-svelte/icons/globe';
 	import Sparkles from 'lucide-svelte/icons/sparkles';
 	import Flame from 'lucide-svelte/icons/flame';
+	import Trophy from 'lucide-svelte/icons/trophy';
 	import Coins from 'lucide-svelte/icons/coins';
 	import Users from 'lucide-svelte/icons/users';
 	import BadgeCheck from 'lucide-svelte/icons/badge-check';
@@ -27,6 +29,11 @@
 	import ShieldAlert from 'lucide-svelte/icons/shield-alert';
 	import Snowflake from 'lucide-svelte/icons/snowflake';
 	import ChevronDown from 'lucide-svelte/icons/chevron-down';
+	import MessageSquareQuote from 'lucide-svelte/icons/message-square-quote';
+	import Megaphone from 'lucide-svelte/icons/megaphone';
+	import Layers from 'lucide-svelte/icons/layers';
+	import ThesisFeedPanel from './ThesisFeedPanel.svelte';
+	import TwitterFeedPanel from './TwitterFeedPanel.svelte';
 	import ExternalLink from 'lucide-svelte/icons/external-link';
 	import Filter from 'lucide-svelte/icons/funnel';
 	import XIcon from 'lucide-svelte/icons/x';
@@ -45,7 +52,7 @@
 	import CurrencyValue from './CurrencyValue.svelte';
 	import FundingSourcePreview from './FundingSourcePreview.svelte';
 	import VirtualSwapList from './VirtualSwapList.svelte';
-	import { fundingSourceOf, preserveFundingSources } from '$lib/source-funds';
+	import { fundingSourceOf, preserveRestOnlyTraderFields } from '$lib/source-funds';
 	import { safeUrl } from '$lib/safeUrl';
 
 	type TokenHolderBalanceUpdate = components['schemas']['TokenHolderBalanceUpdate'];
@@ -71,6 +78,16 @@
 
 	const MAX_TRADES_PAGINATED = 1000;
 	const MAX_LIVE_TRADES = 100;
+	let tradesHoverPaused = false;
+	let heldLiveTrades: TokenSwap[] = [];
+
+	function prependLiveTrades(fresh: TokenSwap[]) {
+		if (fresh.length === 0) return;
+		const next = [...fresh, ...liveTrades];
+		for (let i = MAX_LIVE_TRADES; i < next.length; i++) liveTradeKeys.delete(tradeKey(next[i]));
+		liveTrades = next.slice(0, MAX_LIVE_TRADES);
+	}
+
 	const swapsCoalescer = createCoalescer<TokenSwap>((batch) => {
 		const fresh: TokenSwap[] = [];
 		for (let i = batch.length - 1; i >= 0 && fresh.length < MAX_LIVE_TRADES; i--) {
@@ -84,12 +101,22 @@
 			}
 			fresh.push(swap);
 		}
-		if (fresh.length > 0) {
-			const next = [...fresh, ...liveTrades];
-			for (let i = MAX_LIVE_TRADES; i < next.length; i++) liveTradeKeys.delete(tradeKey(next[i]));
-			liveTrades = next.slice(0, MAX_LIVE_TRADES);
+		if (fresh.length === 0) return;
+		if (tradesHoverPaused) {
+			heldLiveTrades = [...fresh, ...heldLiveTrades].slice(0, MAX_LIVE_TRADES);
+			return;
 		}
+		prependLiveTrades(fresh);
 	}, { maxBatch: MAX_TRADES_PAGINATED });
+
+	function setTradesHoverPaused(paused: boolean) {
+		tradesHoverPaused = paused;
+		if (!paused && heldLiveTrades.length > 0) {
+			const held = heldLiveTrades;
+			heldLiveTrades = [];
+			prependLiveTrades(held);
+		}
+	}
 
 	function applySwapsUpdate(data: unknown) {
 		if (!data) return;
@@ -132,6 +159,17 @@
 	}
 
 	let token: TokenSnapshot | null = $state(null);
+	/**
+	 * One-shot correction from the popover's `totalCount`, used until the next
+	 * live tally arrives. The badge otherwise rides the snapshot `theses`, which
+	 * TOKEN_STATS keeps live, so it costs no request of its own.
+	 */
+	let thesisListCount = $state<number | null>(null);
+	const thesisCount = $derived.by(() => thesisListCount ?? token?.theses ?? 0);
+	// Counts tweets from the 7 days before the scanner started plus every one
+	// since, so it is a shorter window than the 30-day thesis tally.
+	const tweetCount = $derived.by(() => token?.tweets ?? 0);
+
 	let tokenBirth: string | null = $state(null);
 	let liveTrades: TokenSwap[] = $state([]);
 	let historicalTrades: TokenSwap[] = $state([]);
@@ -141,10 +179,11 @@
 	let tradeCount = $derived(Math.min(liveTrades.length + historicalTrades.length, tradesPaginated ? MAX_TRADES_PAGINATED : MAX_LIVE_TRADES));
 
 	function resetTrades(swaps: TokenSwap[] = []) {
-		liveTrades = [];
+		heldLiveTrades = [];
 		historicalTrades = swaps.slice(0, MAX_TRADES_PAGINATED);
-		liveTradeKeys.clear();
 		historicalTradeKeys = new Set(historicalTrades.map(tradeKey));
+		liveTrades = liveTrades.filter((trade) => !historicalTradeKeys.has(tradeKey(trade)));
+		liveTradeKeys = new Set(liveTrades.map(tradeKey));
 	}
 
 	function appendHistoricalTrades(swaps: TokenSwap[]) {
@@ -160,6 +199,23 @@
 		if (fresh.length > 0) historicalTrades = [...historicalTrades, ...fresh];
 	}
 	let mobileHeaderExpanded = $state(false);
+	/** Mobile has no hover, so the token image expands on tap instead. */
+	let mobileImagePreview = $state<{ x: number; y: number } | null>(null);
+
+	function openMobileImage(e: MouseEvent) {
+		// Without this the tap would also toggle the header row it sits in.
+		e.stopPropagation();
+		if (mobileImagePreview || !token?.tokenAddress) {
+			mobileImagePreview = null;
+			return;
+		}
+		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const size = 200;
+		mobileImagePreview = {
+			x: Math.max(8, Math.min(rect.left, window.innerWidth - size - 16)),
+			y: Math.min(rect.bottom + 8, window.innerHeight - size - 16)
+		};
+	}
 	let aiNarrativeOpen = $state(false);
 	let tradeFilterSide: 'ALL' | 'BUY' | 'SELL' = $state('ALL');
 	let tradeFilterMinUsd: string = $state('');
@@ -252,6 +308,32 @@
 	let isFav: boolean = $state(false);
 	let favToggling: boolean = $state(false);
 	let callsPopoverOpen: boolean = $state(false);
+	/** Theses for THIS token, in the same popover shape as calls. */
+	let thesisPopoverOpen: boolean = $state(false);
+	let thesisPopoverPos = $state({ x: 0, y: 0 });
+
+	/** X chatter naming THIS token, same popover shape as calls and theses. */
+	let tweetsPopoverOpen: boolean = $state(false);
+	let tweetsPopoverPos = $state({ x: 0, y: 0 });
+
+	function openTweetsPopover(e: MouseEvent) {
+		e.stopPropagation();
+		tweetsPopoverOpen = !tweetsPopoverOpen;
+		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		tweetsPopoverPos = { x: Math.min(r.left, window.innerWidth - 352), y: r.bottom };
+	}
+
+	function openThesisPopover(e: MouseEvent) {
+		e.stopPropagation();
+		thesisPopoverOpen = !thesisPopoverOpen;
+		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		thesisPopoverPos = { x: Math.min(r.left, window.innerWidth - 352), y: r.bottom };
+	}
+
+	// Header badge: REST once per route, live 7→8 over `wallets:thesis`.
+	// Do not key this off `token` identity — TOKEN_STATS quote/holder patches
+	// replace the snapshot object and would otherwise zero the chip every tick.
+	// TokenSnapshot has `calls`, not a thesis field.
 	let callsPopoverPos: { x: number; y: number } = $state({ x: 0, y: 0 });
 	let activeTab: string = $state('Trades');
 	let statsTimeframe: string = $state('5m');
@@ -373,7 +455,10 @@
 	});
 	let pumpfun = $derived((token as TokenSnapshot | null)?.launchPad?.pumpfun ?? null);
 	let isMayhem = $derived(pumpfun?.isMayhem ?? false);
+	let isHolderReward = $derived(pumpfun?.isHolderReward ?? false);
 	let cashbackPct = $derived(pumpfun?.cashbackPct ?? 0);
+	let feeShares = $derived(feeShareholders(pumpfun));
+	let feeSharing = $derived(pumpfun?.feeSharing);
 	let migPct = $derived((token as TokenSnapshot | null)?.launchPad?.bondingCurve?.progressPct ?? 0);
 	let isGraduated = $derived((token as TokenSnapshot | null)?.launchPad?.bondingCurve?.state === 'Migrated');
 	let migratedFromIcon = $derived.by(() => {
@@ -705,6 +790,13 @@
 		if (!token) return;
 		let updated = { ...token };
 		if (data.calls !== undefined) updated = { ...updated, calls: data.calls };
+		if (data.tweets !== undefined) updated = { ...updated, tweets: data.tweets };
+		if (data.theses !== undefined) {
+			updated = { ...updated, theses: data.theses };
+			// A live tally supersedes the popover's one-shot count, which would
+			// otherwise shadow it for the rest of the token view.
+			thesisListCount = null;
+		}
 		if (data.autoSlippage !== undefined) updated = { ...updated, autoSlippage: data.autoSlippage };
 		if (data.quote) updated = { ...updated, quote: { ...updated.quote, ...data.quote } as typeof updated.quote };
 		if (data.stats?.timeframes) {
@@ -742,7 +834,7 @@
 			topTraders = [];
 			return;
 		}
-		topTraders = preserveFundingSources(topTraders, data.traders);
+		topTraders = preserveRestOnlyTraderFields(topTraders, data.traders);
 	}
 
 	function applyMigrationUpdate(data: TokenMigrationUpdate) {
@@ -846,8 +938,18 @@
 			calls = [];
 			rememberCallsPage(undefined);
 			callsPopoverOpen = false;
+			thesisPopoverOpen = false;
+			tweetsPopoverOpen = false;
 			activeTab = 'Trades';
+			tradesHoverPaused = false;
+			heldLiveTrades = [];
+			liveTrades = [];
+			liveTradeKeys = new Set();
+			historicalTrades = [];
+			historicalTradeKeys = new Set();
+			swapsCoalescer.clear();
 			holdersCount = null;
+			thesisListCount = null;
 			isFav = false;
 			favToggling = false;
 			pairs = [];
@@ -962,10 +1064,15 @@
 			.then(({ data }) => {
 				if (`${chain}:${resolvedAddress}` !== key) return;
 				if (!data) return;
+				// Fall back to what we already have only when the pair response omits
+				// these, so the header does not blank mid-switch. Overriding a value
+				// that IS present splices two tokens into one record: a response for
+				// the wrong side of a pair then renders as `WILL / WILL`, with the
+				// old symbol over the new token's address and quote.
 				token = {
 					...data,
-					tokenSymbol: token?.tokenSymbol ?? data.tokenSymbol,
-					tokenName: token?.tokenName ?? data.tokenName,
+					tokenSymbol: data.tokenSymbol || token?.tokenSymbol || '',
+					tokenName: data.tokenName || token?.tokenName || ''
 				};
 				isFav = !!data.isFavourited;
 				if (data.holders?.holderCount !== undefined) holdersCount = data.holders.holderCount;
@@ -1374,9 +1481,24 @@
 	{:else if token}
 		<div class="shrink-0 border-b border-bd/40 px-2 md:px-4 py-2">
 			<!-- Mobile compact header -->
-			<div class="flex md:hidden items-center gap-2">
-				<div
-					class="relative h-8 w-8 shrink-0 rounded-lg p-[2px]"
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				class="cursor-pointer flex md:hidden items-center gap-2"
+				role="button"
+				tabindex="0"
+				onclick={() => (mobileHeaderExpanded = !mobileHeaderExpanded)}
+				onkeydown={(e) => {
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						mobileHeaderExpanded = !mobileHeaderExpanded;
+					}
+				}}
+			>
+				<button
+					type="button"
+					aria-label="Enlarge token image"
+					onclick={openMobileImage}
+					class="relative h-8 w-8 shrink-0 cursor-pointer rounded-lg p-[2px]"
 					style={isGraduated ? 'background: var(--t-yel)' : migPct > 0 ? `background: conic-gradient(var(--t-grn) ${migPct * 3.6}deg, var(--t-bd2) ${migPct * 3.6}deg)` : 'background: var(--t-s5)'}
 				>
 					{#if token.tokenAddress}
@@ -1387,7 +1509,7 @@
 					{#if isGraduated}
 						<span class="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-s6 px-1 text-[8px] font-bold text-yel ring-1 ring-yel/20">GRAD</span>
 					{/if}
-				</div>
+				</button>
 				<div class="min-w-0 flex-1">
 					<div class="flex items-center gap-1">
 						<span class="truncate text-sm font-bold text-tx">{token.tokenSymbol ?? '???'}</span>
@@ -1399,21 +1521,67 @@
 								<img src={routerIconUrl} alt={displayRouter.name} class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" />
 							{/if}
 						</span>
-						{#if token.calls > 0}
-							<button onclick={(e) => { callsPopoverOpen = !callsPopoverOpen; const r = e.currentTarget.getBoundingClientRect(); callsPopoverPos = { x: Math.min(r.left, window.innerWidth - 352), y: r.bottom }; }} class="cursor-pointer rounded bg-yel/10 px-1.5 py-px text-xs font-bold text-yel ring-1 ring-yel/20">{token.calls}</button>
+						{#if (token.calls ?? 0) > 0}
+							<button
+								onclick={(e) => { e.stopPropagation(); callsPopoverOpen = !callsPopoverOpen; const r = e.currentTarget.getBoundingClientRect(); callsPopoverPos = { x: Math.min(r.left, window.innerWidth - 352), y: r.bottom }; }}
+								class="flex shrink-0 cursor-pointer items-center gap-0.5 rounded bg-yel/10 px-2 py-1 text-xs font-bold text-yel ring-1 ring-yel/20 md:px-1.5 md:py-px"
+								title="Calls"
+							>
+								<Megaphone class="h-3 w-3" strokeWidth={2.5} />
+								{formatCompactCount(token.calls)}
+							</button>
+						{/if}
+						{#if thesisCount > 0}
+							<button
+								onclick={openThesisPopover}
+								class="flex shrink-0 cursor-pointer items-center gap-0.5 rounded bg-blu/10 px-2 py-1 text-xs font-bold text-blu-light ring-1 ring-blu/20 md:px-1.5 md:py-px"
+								title="Why wallets bought this token"
+							>
+								<MessageSquareQuote class="h-3 w-3" strokeWidth={2.5} />
+								{formatCompactCount(thesisCount)}
+							</button>
+						{/if}
+						{#if tweetCount > 0}
+							<button
+								onclick={openTweetsPopover}
+								class="flex shrink-0 cursor-pointer items-center gap-1 rounded bg-wh/10 px-2 py-1 text-xs font-bold text-tx ring-1 ring-wh/20 md:px-1.5 md:py-px"
+								title="X posts naming this token"
+							>
+								<span class="flex h-4 items-center">
+									<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path} /></svg>
+								</span>
+								{formatCompactCount(tweetCount)}
+							</button>
 						{/if}
 					</div>
 					<div class="flex items-center gap-1 text-[11px]">
 						<CurrencyValue usd={token.quote.priceUsdStr} native={token.quote.priceNativeStr} chain={chain} mode="price" class="font-bold text-tx" iconClass="h-3 w-3 text-tx" />
 						<span class="text-g5">MC {formatUsd(token.quote.marketCapUsdStr)}</span>
 						{#if holdersCount !== null}<span class="text-g5">· {formatNumber(holdersCount)} holders</span>{/if}
-						{#if token.tokenName}<span class="truncate text-g6">· {token.tokenName}</span>{/if}
+						{#if token.tokenName}<span class="min-w-0 truncate text-g6" title={token.tokenName}>· {token.tokenName}</span>{/if}
 					</div>
 				</div>
-				<button onclick={() => (mobileHeaderExpanded = !mobileHeaderExpanded)} class="shrink-0 cursor-pointer rounded-md p-1 text-g4 transition-colors hover:text-tx">
+				<div class="pointer-events-none shrink-0 rounded-md p-1 text-g4">
 					<ChevronDown class="h-4 w-4 transition-transform {mobileHeaderExpanded ? 'rotate-180' : ''}" />
-				</button>
+				</div>
 			</div>
+			{#if mobileImagePreview}
+				<!-- Portalled: the header sits inside scrollable, clipping panels. -->
+				<div use:portal class="fixed inset-0 z-[60] md:hidden">
+					<button
+						type="button"
+						aria-label="Close image"
+						class="absolute inset-0 cursor-default"
+						onclick={() => (mobileImagePreview = null)}
+					></button>
+					<div
+						class="absolute h-[200px] w-[200px] rounded-xl border border-bd bg-s5 p-1 shadow-2xl"
+						style="left: {mobileImagePreview.x}px; top: {mobileImagePreview.y}px"
+					>
+						<img src={tokenImage(token.chain, token.tokenAddress, 256)} alt="" class="h-full w-full rounded-lg object-cover" />
+					</div>
+				</div>
+			{/if}
 			{#if mobileHeaderExpanded}
 				<div class="mt-2 space-y-1.5 md:hidden">
 					<div class="flex items-center gap-1.5 flex-wrap">
@@ -1423,15 +1591,15 @@
 						{#if socialLinks?.instagram}<a href={socialLinks.instagram} target="_blank" rel="noopener" title="Instagram" class="flex h-6 w-6 items-center justify-center rounded-md bg-s7 text-g7 transition-colors hover:text-grn"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d={siInstagram.path}/></svg></a>{/if}
 						{#if socialLinks?.discord}<a href={socialLinks.discord} target="_blank" rel="noopener" title="Discord" class="flex h-6 w-6 items-center justify-center rounded-md bg-s7 text-g7 transition-colors hover:text-grn"><svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor"><path d={siDiscord.path}/></svg></a>{/if}
 						{#if aiNarrative}
-							<button onclick={() => (aiNarrativeOpen = !aiNarrativeOpen)} class="flex h-6 w-6 items-center justify-center rounded-md bg-s7 text-g7 transition-colors hover:text-grn" aria-label="AI summary" title="AI summary"><Sparkles class="h-3.5 w-3.5" /></button>
+							<button onclick={() => (aiNarrativeOpen = !aiNarrativeOpen)} class="cursor-pointer flex h-6 w-6 items-center justify-center rounded-md bg-s7 text-g7 transition-colors hover:text-grn" aria-label="AI summary" title="AI summary"><Sparkles class="h-3.5 w-3.5" /></button>
 						{/if}
 						{#if getIsLoggedIn()}
 							<button onclick={toggleFavourite} disabled={favToggling} class="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md bg-s7 transition-colors {isFav ? 'text-pnk' : 'text-g7 hover:text-pnk'} disabled:opacity-50"><Heart class="h-3.5 w-3.5" fill={isFav ? 'currentColor' : 'none'} /></button>
 						{/if}
-						<button onclick={copyAddress} class="rounded-md px-1.5 py-0.5 text-[11px] text-g7 transition-colors hover:bg-s7 hover:text-tx">{copied ? 'Copied!' : shortAddress(token.tokenAddress ?? address)}</button>
+						<button onclick={copyAddress} class="cursor-pointer rounded-md px-1.5 py-0.5 text-[11px] text-g7 transition-colors hover:bg-s7 hover:text-tx">{copied ? 'Copied!' : shortAddress(token.tokenAddress ?? address)}</button>
 						<span class="text-[11px] text-g6">{liveAge(tokenBirth, getNow())}</span>
 						{#if pairs.length > 1}
-							<button onclick={() => (pairsOpen = !pairsOpen)} class="flex cursor-pointer items-center gap-0.5 rounded-md border border-bd bg-s4 px-1.5 py-0.5 text-[10px] text-g9 hover:text-tx">
+							<button onclick={() => (pairsOpen = !pairsOpen)} class="flex cursor-pointer items-center gap-0.5 rounded-md border border-bd bg-s4 px-2 py-1.5 text-[11px] text-g9 hover:text-tx md:px-1.5 md:py-0.5 md:text-[10px]">
 								{#if selectedPairIdx !== null && pairs[selectedPairIdx]}{getRouterInfo(pairs[selectedPairIdx].platformType ?? '').name}{:else}{pairs.find(p => p.isBestPair) ? getRouterInfo(pairs.find(p => p.isBestPair)!.platformType ?? '').name : 'Best'}{/if}
 								<ChevronDown class="h-2.5 w-2.5" />
 							</button>
@@ -1446,36 +1614,42 @@
 						</div>
 					{/if}
 					<div class="grid grid-cols-4 gap-1">
+						<div class="rounded border border-bd/40 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">MCap</div><div class="text-[11px] font-bold text-tx">{formatUsd(token.quote.marketCapUsdStr)}</div></div>
 						<div class="rounded border border-bd/40 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">Liq</div><CurrencyValue usd={token.quote.liquidityUsdStr} native={token.quote.liquidityNativeStr} chain={chain} mode="value" class="text-[11px] font-bold text-tx" iconClass="h-3 w-3 text-tx" /></div>
 						<div class="rounded border border-bd/40 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">Vol 24h</div><div class="text-[11px] font-bold text-tx">{formatUsd(token.stats.total.volumeStr)}</div></div>
 						<div class="rounded border border-bd/40 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">ATH</div><CurrencyValue usd={liveAthDisplay.usdStr} native={liveAthDisplay.nativeStr} chain={chain} mode="price" class="text-[11px] font-bold text-tx" iconClass="h-3 w-3 text-tx" /></div>
-						<div class="rounded border border-bd/40 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">ATH x</div><div class="text-[11px] font-bold text-tx">{liveAthMultDisplay ? formatMultiplier(liveAthMultDisplay) : '—'}</div></div>
 					</div>
 					<div class="flex items-center gap-1 flex-wrap">
-						<span class="flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium {token.audit.mintable ? 'bg-red/10 text-red' : 'bg-grn/10 text-grn'}">
+						<span class="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded px-1 py-0.5 text-[9px] font-medium {token.audit.mintable ? 'bg-red/10 text-red' : 'bg-grn/10 text-grn'}">
 							{#if token.audit.mintable}<ShieldAlert size={9} />{:else}<ShieldCheck size={9} />{/if}
 							Mint {token.audit.mintable ? 'On' : 'Off'}
 						</span>
-						<span class="flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium {token.audit.freezable ? 'bg-red/10 text-red' : 'bg-grn/10 text-grn'}">
+						<span class="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded px-1 py-0.5 text-[9px] font-medium {token.audit.freezable ? 'bg-red/10 text-red' : 'bg-grn/10 text-grn'}">
 							<Snowflake size={9} />
 							Freeze {token.audit.freezable ? 'On' : 'Off'}
 						</span>
 						{#if token.audit.lpLockedPct >= 50}
-							<span class="flex items-center gap-0.5 rounded bg-grn/10 px-1 py-0.5 text-[9px] font-medium text-grn"><ShieldCheck size={9} /> LP {token.audit.lpLockedPct.toFixed(0)}%</span>
+							<span class="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded bg-grn/10 px-1 py-0.5 text-[9px] font-medium text-grn"><ShieldCheck size={9} /> LP {token.audit.lpLockedPct.toFixed(0)}%</span>
 						{:else if token.audit.lpLockedPct >= 25}
-							<span class="flex items-center gap-0.5 rounded bg-yel/10 px-1 py-0.5 text-[9px] font-medium text-yel"><ShieldAlert size={9} /> LP {token.audit.lpLockedPct.toFixed(0)}%</span>
+							<span class="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded bg-yel/10 px-1 py-0.5 text-[9px] font-medium text-yel"><ShieldAlert size={9} /> LP {token.audit.lpLockedPct.toFixed(0)}%</span>
 						{:else}
-							<span class="flex items-center gap-0.5 rounded bg-red/10 px-1 py-0.5 text-[9px] font-medium text-red"><ShieldAlert size={9} /> LP{token.audit.lpLockedPct > 0 ? ` ${token.audit.lpLockedPct.toFixed(0)}%` : ' 0%'}</span>
+							<span class="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded bg-red/10 px-1 py-0.5 text-[9px] font-medium text-red"><ShieldAlert size={9} /> LP{token.audit.lpLockedPct > 0 ? ` ${token.audit.lpLockedPct.toFixed(0)}%` : ' 0%'}</span>
 						{/if}
 						{#if token.audit.dexScreenerPaid}
-							<span class="flex items-center gap-0.5 rounded bg-yel/10 px-1 py-0.5 text-[9px] font-medium text-yel"><DexPaidIcon class="h-2.5 w-2.5 text-yel" /> Dex Paid</span>
+							<span class="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded bg-yel/10 px-1 py-0.5 text-[9px] font-medium text-yel"><DexPaidIcon class="h-2.5 w-2.5 text-yel" /> Dex Paid</span>
 						{/if}
 						{#if isMayhem}
-							<span class="flex items-center gap-0.5 rounded bg-org/10 px-1 py-0.5 text-[9px] font-medium text-org"><Flame size={9} /> Mayhem</span>
+							<span class="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded bg-org/10 px-1 py-0.5 text-[9px] font-medium text-org"><Flame size={9} /> Mayhem</span>
+						{/if}
+						{#if isHolderReward}
+							<span class="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded bg-pnk/10 px-1 py-0.5 text-[9px] font-medium text-pnk" title="Holder rewards"><Trophy size={9} /> Holder rewards</span>
 						{/if}
 						{#if cashbackPct > 0}
-							<span class="flex items-center gap-0.5 rounded bg-grn/10 px-1 py-0.5 text-[9px] font-medium text-grn"><Coins size={9} /> {cashbackPct}% Cashback</span>
+							<span class="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded bg-grn/10 px-1 py-0.5 text-[9px] font-medium text-grn"><Coins size={9} /> {cashbackPct}% Cashback</span>
 						{/if}
+						{#each feeShares as share}
+							<span class="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded bg-blu/10 px-1 py-0.5 text-[9px] font-medium text-blu" title="Creator fee share">{feeShareLabel(share)}</span>
+						{/each}
 					</div>
 				</div>
 			{/if}
@@ -1510,7 +1684,7 @@
 						</div>
 							<div class="min-w-0">
 							<div class="flex flex-wrap items-center gap-1.5 md:gap-2">
-								<span class="text-base md:text-xl font-bold text-tx">{token.tokenSymbol ?? '???'}</span>
+								<span class="min-w-0 max-w-[22ch] truncate text-base font-bold text-tx md:text-xl" title={token.tokenSymbol ?? ''}>{token.tokenSymbol ?? '???'}</span>
 								<span class="text-base text-g6">/</span>
 								<span class="text-base text-g7">{token.quoteTokenSymbol ?? ''}</span>
 								{#if pairs.length > 1}
@@ -1528,7 +1702,7 @@
 											<ChevronDown class="h-3 w-3" strokeWidth={2} />
 										</button>
 										{#if pairsOpen}
-											<button class="fixed inset-0 z-40" onclick={() => (pairsOpen = false)} aria-label="Close"></button>
+											<button class="cursor-default fixed inset-0 z-40" onclick={() => (pairsOpen = false)} aria-label="Close"></button>
 											<div class="absolute left-0 top-full z-50 mt-1 w-64 rounded-lg border border-bd bg-s5 shadow-2xl">
 												<div class="max-h-60 overflow-y-auto py-1">
 													{#each pairs as pair, i (pair.pairAddress)}
@@ -1551,7 +1725,7 @@
 																	{/if}
 																	<button
 																		onclick={(e) => { e.stopPropagation(); copyPairAddress(pair.pairAddress); }}
-																		class="ml-auto shrink-0 cursor-pointer rounded px-1 py-px text-[10px] text-g5 transition-colors hover:bg-s7 hover:text-tx"
+																		class="ml-auto shrink-0 cursor-pointer rounded px-2 py-1 text-[11px] text-g5 transition-colors hover:bg-s7 hover:text-tx md:px-1 md:py-px md:text-[10px]"
 																		title="Copy pair address"
 																	>{copiedPair === pair.pairAddress ? 'Copied!' : shortAddress(pair.pairAddress)}</button>
 																</div>
@@ -1565,14 +1739,6 @@
 										{/if}
 									</div>
 								{/if}
-								{#if token.calls > 0}
-									<button
-										onclick={(e) => { callsPopoverOpen = !callsPopoverOpen; const r = e.currentTarget.getBoundingClientRect(); callsPopoverPos = { x: Math.min(r.left, window.innerWidth - 352), y: r.bottom }; }}
-										class="flex cursor-pointer items-center rounded-lg bg-yel/10 px-2.5 py-0.5 text-lg font-bold text-yel ring-1 ring-yel/20 transition-all hover:bg-yel/20 hover:ring-yel/40"
-									>
-										{token.calls}
-									</button>
-								{/if}
 								<span class="relative inline-flex items-center" title={chain}>
 									<img src="/icons/{chain.toLowerCase()}.png" alt={chain} class="h-5 w-5 rounded-full" />
 									{#if routerIconUrl}
@@ -1583,7 +1749,41 @@
 									{/if}
 								</span>
 							</div>
-							<div class="text-sm text-g7">{#if token.tokenName}{token.tokenName}{/if}{#if holdersCount !== null}<span class="text-g5">{token.tokenName ? ' · ' : ''}{formatNumber(holdersCount)} holders</span>{/if}</div>
+							<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+								<div class="min-w-0 max-w-full truncate text-sm text-g7" title={token.tokenName ?? ''}>{#if token.tokenName}{token.tokenName}{/if}{#if holdersCount !== null}<span class="text-g5">{token.tokenName ? ' · ' : ''}{formatNumber(holdersCount)} holders</span>{/if}</div>
+								{#if (token.calls ?? 0) > 0}
+									<button
+										onclick={(e) => { callsPopoverOpen = !callsPopoverOpen; const r = e.currentTarget.getBoundingClientRect(); callsPopoverPos = { x: Math.min(r.left, window.innerWidth - 352), y: r.bottom }; }}
+										class="flex shrink-0 cursor-pointer items-center gap-0.5 rounded bg-yel/10 px-2 py-1 text-xs font-bold text-yel ring-1 ring-yel/20 md:px-1.5 md:py-px"
+										title="Calls"
+									>
+										<Megaphone class="h-3 w-3" strokeWidth={2.5} />
+										{formatCompactCount(token.calls)}
+									</button>
+								{/if}
+								{#if thesisCount > 0}
+									<button
+										onclick={openThesisPopover}
+										class="flex shrink-0 cursor-pointer items-center gap-0.5 rounded bg-blu/10 px-2 py-1 text-xs font-bold text-blu-light ring-1 ring-blu/20 md:px-1.5 md:py-px"
+										title="Why wallets bought this token"
+									>
+										<MessageSquareQuote class="h-3 w-3" strokeWidth={2.5} />
+										{formatCompactCount(thesisCount)}
+									</button>
+								{/if}
+								{#if tweetCount > 0}
+									<button
+										onclick={openTweetsPopover}
+										class="flex shrink-0 cursor-pointer items-center gap-1 rounded bg-wh/10 px-2 py-1 text-xs font-bold text-tx ring-1 ring-wh/20 md:px-1.5 md:py-px"
+										title="X posts naming this token"
+									>
+										<span class="flex h-4 items-center">
+											<svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path} /></svg>
+										</span>
+										{formatCompactCount(tweetCount)}
+									</button>
+								{/if}
+							</div>
 							<div class="mt-0.5 flex items-center gap-2">
 								{#if socialLinks}
 									{#if socialLinks.website}
@@ -1697,7 +1897,7 @@
 							{/if}
 							<button
 								onclick={copyAddress}
-								class="rounded-lg px-2 py-0.5 text-sm text-g7 transition-colors hover:bg-s7 hover:text-tx"
+								class="cursor-pointer rounded-lg px-2 py-0.5 text-sm text-g7 transition-colors hover:bg-s7 hover:text-tx"
 								aria-label="Copy address"
 							>
 								{copied ? 'Copied!' : shortAddress(token.tokenAddress ?? address)}
@@ -1733,56 +1933,78 @@
 						<div class="text-[9px] font-medium uppercase tracking-wider text-g7">Fees 24h</div>
 						<CurrencyValue usd={token.stats.timeframes['24h'].fees.totalFeeUsdStr} native={token.stats.timeframes['24h'].fees.totalFeeNativeStr} chain={chain} mode="value" class="text-xs font-bold text-tx" iconClass="h-3 w-3 text-tx" />
 					</div>
-					<div class="col-span-4 flex items-center gap-1.5 pt-0.5">
-						<span class="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium {token.audit.mintable ? 'bg-red/10 text-red' : 'bg-grn/10 text-grn'}" title="Mint Authority">
+					<div class="col-span-full flex flex-wrap items-center gap-1.5 pt-0.5">
+						<span class="flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium {token.audit.mintable ? 'bg-red/10 text-red' : 'bg-grn/10 text-grn'}" title="Mint Authority">
 							{#if token.audit.mintable}<ShieldAlert size={10} strokeWidth={2} />{:else}<ShieldCheck size={10} strokeWidth={2} />{/if}
 							Mint {token.audit.mintable ? 'On' : 'Off'}
 						</span>
-						<span class="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium {token.audit.freezable ? 'bg-red/10 text-red' : 'bg-grn/10 text-grn'}" title="Freeze Authority">
+						<span class="flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium {token.audit.freezable ? 'bg-red/10 text-red' : 'bg-grn/10 text-grn'}" title="Freeze Authority">
 							<Snowflake size={10} strokeWidth={2} />
 							Freeze {token.audit.freezable ? 'On' : 'Off'}
 						</span>
 						{#if token.audit.lpLockedPct >= 50}
-							<span class="flex items-center gap-1 rounded bg-grn/10 px-1.5 py-0.5 text-[10px] font-medium text-grn" title="LP Locked {token.audit.lpLockedPct.toFixed(0)}%">
+							<span class="flex shrink-0 items-center gap-1 whitespace-nowrap rounded bg-grn/10 px-1.5 py-0.5 text-[10px] font-medium text-grn" title="LP Locked {token.audit.lpLockedPct.toFixed(0)}%">
 								<ShieldCheck size={10} strokeWidth={2} />
 								LP {token.audit.lpLockedPct.toFixed(0)}%
 							</span>
 						{:else if token.audit.lpLockedPct >= 25}
-							<span class="flex items-center gap-1 rounded bg-yel/10 px-1.5 py-0.5 text-[10px] font-medium text-yel" title="LP Locked {token.audit.lpLockedPct.toFixed(0)}%">
+							<span class="flex shrink-0 items-center gap-1 whitespace-nowrap rounded bg-yel/10 px-1.5 py-0.5 text-[10px] font-medium text-yel" title="LP Locked {token.audit.lpLockedPct.toFixed(0)}%">
 								<ShieldAlert size={10} strokeWidth={2} />
 								LP {token.audit.lpLockedPct.toFixed(0)}%
 							</span>
 						{:else}
-							<span class="flex items-center gap-1 rounded bg-red/10 px-1.5 py-0.5 text-[10px] font-medium text-red" title="LP{token.audit.lpLockedPct > 0 ? ` ${token.audit.lpLockedPct.toFixed(0)}%` : ' Unlocked'}">
+							<span class="flex shrink-0 items-center gap-1 whitespace-nowrap rounded bg-red/10 px-1.5 py-0.5 text-[10px] font-medium text-red" title="LP{token.audit.lpLockedPct > 0 ? ` ${token.audit.lpLockedPct.toFixed(0)}%` : ' Unlocked'}">
 								<ShieldAlert size={10} strokeWidth={2} />
 								LP{token.audit.lpLockedPct > 0 ? ` ${token.audit.lpLockedPct.toFixed(0)}%` : ' Unlocked'}
 							</span>
 						{/if}
 						{#if token.audit.dexScreenerPaid}
-							<span class="flex items-center gap-1 rounded bg-yel/10 px-1.5 py-0.5 text-[10px] font-medium text-yel" title="DexScreener Paid">
+							<span class="flex shrink-0 items-center gap-1 whitespace-nowrap rounded bg-yel/10 px-1.5 py-0.5 text-[10px] font-medium text-yel" title="DexScreener Paid">
 								<DexPaidIcon class="h-2.5 w-2.5 text-yel" />
 								Dex Paid
 							</span>
 						{/if}
 						{#if isMayhem}
-							<span class="flex items-center gap-1 rounded bg-org/10 px-1.5 py-0.5 text-[10px] font-medium text-org" title="Pump.fun Mayhem">
+							<span class="flex shrink-0 items-center gap-1 whitespace-nowrap rounded bg-org/10 px-1.5 py-0.5 text-[10px] font-medium text-org" title="Pump.fun Mayhem">
 								<Flame size={10} strokeWidth={2} />
 								Mayhem
 							</span>
 						{/if}
+						{#if isHolderReward}
+							<span class="flex shrink-0 items-center gap-1 whitespace-nowrap rounded bg-pnk/10 px-1.5 py-0.5 text-[10px] font-medium text-pnk" title="Holder rewards">
+								<Trophy size={10} strokeWidth={2} />
+								Holder rewards
+							</span>
+						{/if}
 						{#if cashbackPct > 0}
-							<span class="flex items-center gap-1 rounded bg-grn/10 px-1.5 py-0.5 text-[10px] font-medium text-grn" title="Cashback {cashbackPct}%">
+							<span class="flex shrink-0 items-center gap-1 whitespace-nowrap rounded bg-grn/10 px-1.5 py-0.5 text-[10px] font-medium text-grn" title="Cashback {cashbackPct}%">
 								<Coins size={10} strokeWidth={2} />
 								{cashbackPct}% Cashback
 							</span>
 						{/if}
+						{#each feeShares as share}
+							<span class="flex shrink-0 items-center gap-1 whitespace-nowrap rounded bg-blu/10 px-1.5 py-0.5 text-[10px] font-medium text-blu" title="Creator fee share">
+								<Users size={10} strokeWidth={2} />
+								{feeShareLabel(share)}
+							</span>
+						{/each}
 					</div>
 				</div>
 			</div>
 			{#if pairsOpen && pairs.length > 1}
 				<div class="md:hidden" use:portal>
-					<button class="fixed inset-0 z-[190] bg-s0/60" onclick={() => (pairsOpen = false)} aria-label="Close"></button>
-					<div class="fixed left-2 right-2 bottom-[7.5rem] z-[191] max-h-60 overflow-y-auto rounded-xl border border-bd bg-s5 py-1 shadow-2xl">
+					<button class="cursor-default fixed inset-0 z-[190] bg-s0/50" onclick={() => (pairsOpen = false)} aria-label="Close"></button>
+					<div class="glass-strong fixed inset-x-0 bottom-0 z-[191] flex h-[60dvh] flex-col rounded-t-2xl border-t border-bd bg-s2 pb-[env(safe-area-inset-bottom,0px)] shadow-2xl">
+						<div class="flex shrink-0 items-center gap-1.5 border-b border-bd px-3 py-3">
+							<Layers class="h-3.5 w-3.5 text-g7" strokeWidth={2} />
+							<span class="text-[11px] font-bold text-tx">Pairs</span>
+							<span class="text-[10px] text-g5">{pairs.length}</span>
+							<span class="truncate text-[10px] text-g5">markets for {token?.tokenSymbol ?? ''}</span>
+							<button onclick={() => (pairsOpen = false)} class="-m-1.5 ml-auto cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx" aria-label="Close">
+								<XIcon class="h-4 w-4" />
+							</button>
+						</div>
+						<div class="min-h-0 flex-1 overflow-y-auto py-1">
 						{#each pairs as pair, i (pair.pairAddress)}
 							{@const ri = getRouterInfo(pair.platformType ?? '')}
 							<div role="button" tabindex="0" onclick={() => selectPair(pair.isBestPair ? null : i)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectPair(pair.isBestPair ? null : i); } }} class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-wh/5 {(selectedPairIdx === null && pair.isBestPair) || selectedPairIdx === i ? 'bg-wh/5' : ''}">
@@ -1791,13 +2013,14 @@
 									<div class="flex items-center gap-1.5">
 										<span class="text-xs font-medium text-tx">{ri.name}</span>
 										{#if pair.isBestPair}<span class="rounded bg-grn/10 px-1 py-px text-[9px] font-medium text-grn">Best</span>{/if}
-										<button onclick={(e) => { e.stopPropagation(); copyPairAddress(pair.pairAddress); }} class="ml-auto shrink-0 cursor-pointer rounded px-1 py-px text-[10px] text-g5 transition-colors hover:bg-s7 hover:text-tx" title="Copy pair address">{copiedPair === pair.pairAddress ? 'Copied!' : shortAddress(pair.pairAddress)}</button>
+										<button onclick={(e) => { e.stopPropagation(); copyPairAddress(pair.pairAddress); }} class="ml-auto shrink-0 cursor-pointer rounded px-2 py-1 text-[11px] text-g5 transition-colors hover:bg-s7 hover:text-tx md:px-1 md:py-px md:text-[10px]" title="Copy pair address">{copiedPair === pair.pairAddress ? 'Copied!' : shortAddress(pair.pairAddress)}</button>
 									</div>
 									<div class="text-[10px] text-g5">Liq {formatMarketCap(pair.liquidityUsdStr)}</div>
 									<div class="text-[10px] text-g5">Vol {formatMarketCap(pair.volume24hUsdStr)}</div>
 								</div>
 							</div>
 						{/each}
+						</div>
 					</div>
 				</div>
 			{/if}
@@ -1854,32 +2077,32 @@
 				<div class="mb-2 flex flex-wrap items-center gap-1.5 rounded-lg border border-bd/40 bg-s4/40 px-2.5 py-1.5">
 					<div class="flex gap-0.5 rounded-lg border border-bd bg-s4 p-0.5">
 						{#each ['ALL', 'BUY', 'SELL'] as side}
-							<button onclick={() => { tradeFilterSide = side as typeof tradeFilterSide; refetchTrades(); }} class="cursor-pointer rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors {tradeFilterSide === side ? side === 'BUY' ? 'bg-grn/20 text-grn' : side === 'SELL' ? 'bg-red/20 text-red' : 'bg-wh/10 text-tx' : 'text-g5 hover:text-g9'}">{side === 'ALL' ? 'All' : side === 'BUY' ? 'Buys' : 'Sells'}</button>
+							<button onclick={() => { tradeFilterSide = side as typeof tradeFilterSide; refetchTrades(); }} class="cursor-pointer rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors md:px-2 md:py-0.5 md:text-[10px] {tradeFilterSide === side ? side === 'BUY' ? 'bg-grn/20 text-grn' : side === 'SELL' ? 'bg-red/20 text-red' : 'bg-wh/10 text-tx' : 'text-g5 hover:text-g9'}">{side === 'ALL' ? 'All' : side === 'BUY' ? 'Buys' : 'Sells'}</button>
 						{/each}
 					</div>
 					<div class="flex items-center gap-1">
 						<span class="text-[10px] text-g5">USD</span>
-						<input type="text" placeholder="Min" bind:value={tradeFilterMinUsd} oninput={debouncedRefetchTrades} class="w-14 rounded border border-bd bg-s4 px-1.5 py-0.5 text-[10px] text-tx placeholder-g3 outline-none focus:border-grn/40" />
+						<input type="text" placeholder="Min" bind:value={tradeFilterMinUsd} oninput={debouncedRefetchTrades} class="w-16 rounded border border-bd bg-s4 px-1.5 py-1.5 text-[11px] text-tx placeholder-g3 outline-none focus:border-grn/40 md:w-14 md:py-0.5 md:text-[10px]" />
 						<span class="text-[9px] text-g5">-</span>
-						<input type="text" placeholder="Max" bind:value={tradeFilterMaxUsd} oninput={debouncedRefetchTrades} class="w-14 rounded border border-bd bg-s4 px-1.5 py-0.5 text-[10px] text-tx placeholder-g3 outline-none focus:border-grn/40" />
+						<input type="text" placeholder="Max" bind:value={tradeFilterMaxUsd} oninput={debouncedRefetchTrades} class="w-16 rounded border border-bd bg-s4 px-1.5 py-1.5 text-[11px] text-tx placeholder-g3 outline-none focus:border-grn/40 md:w-14 md:py-0.5 md:text-[10px]" />
 					</div>
-					<div class="flex items-center gap-1">
-						<span class="text-[10px] text-g5">Maker</span>
-						<input type="text" placeholder="Address..." bind:value={tradeFilterMaker} oninput={debouncedRefetchTrades} class="w-28 rounded border border-bd bg-s4 px-1.5 py-0.5 text-[10px] text-tx placeholder-g3 outline-none focus:border-grn/40" />
+					<div class="flex min-w-0 flex-1 items-center gap-1 md:flex-none">
+						<span class="shrink-0 text-[10px] text-g5">Maker</span>
+						<input type="text" placeholder="Address..." bind:value={tradeFilterMaker} oninput={debouncedRefetchTrades} class="min-w-0 flex-1 rounded border border-bd bg-s4 px-1.5 py-1.5 text-[11px] text-tx placeholder-g3 outline-none focus:border-grn/40 md:w-28 md:flex-none md:py-0.5 md:text-[10px]" />
 					</div>
 					{#if tradeFilterMaker && !tradeFiltersOpen}
 						<span class="flex items-center gap-1 rounded-md bg-grn/10 px-1.5 py-0.5 text-[10px] text-grn">
 							{shortAddress(tradeFilterMaker)}
-							<button onclick={() => { tradeFilterMaker = ''; refetchTrades(); }} class="cursor-pointer hover:text-tx"><XIcon class="h-2.5 w-2.5" /></button>
+							<button onclick={() => { tradeFilterMaker = ''; refetchTrades(); }} class="cursor-pointer p-1 hover:text-tx md:p-0"><XIcon class="h-3.5 w-3.5 md:h-2.5 md:w-2.5" /></button>
 						</span>
 					{/if}
 					{#if hasTradeFilters}
-						<button onclick={clearTradeFilters} class="flex cursor-pointer items-center gap-1 text-[10px] text-g4 transition-colors hover:text-tx"><XIcon class="h-3 w-3" /> Clear</button>
+						<button onclick={clearTradeFilters} class="flex cursor-pointer items-center gap-1 p-1 text-[11px] text-g4 transition-colors hover:text-tx md:p-0 md:text-[10px]"><XIcon class="h-3.5 w-3.5 md:h-3 md:w-3" /> Clear</button>
 						<span class="ml-auto text-[10px] text-g5">{tradeCount} results</span>
 					{/if}
 				</div>
 			{/if}
-			{#if tradesLoading}
+			{#if tradesLoading && tradeCount === 0}
 				<div class="space-y-2">
 						{#each Array(5) as _, i}
 							<div class="skeleton h-8 rounded-md" style="animation-delay: {i * 60}ms"></div>
@@ -1889,7 +2112,7 @@
 					<div class="py-6 text-center text-sm text-g7">No trades found</div>
 				{:else}
 					<div class="min-h-0 flex-1 text-sm">
-						<VirtualSwapList {liveTrades} {historicalTrades} {tradeCount} {chain} filteredMaker={tradeFilterMaker} loadingMore={tradesLoadingMore} onLoadMore={loadMoreTrades} onOpenTrader={openTrader} onFilterMaker={filterByMaker} />
+						<VirtualSwapList {liveTrades} {historicalTrades} {tradeCount} {chain} filteredMaker={tradeFilterMaker} loadingMore={tradesLoadingMore} onLoadMore={loadMoreTrades} onOpenTrader={openTrader} onFilterMaker={filterByMaker} onhoverpause={setTradesHoverPaused} />
 					</div>
 				{/if}
 
@@ -2374,6 +2597,42 @@
 									</div>
 								</div>
 							{/if}
+
+							{#if feeShares.length > 0}
+								<div class="mb-4">
+									<div class="mb-2 flex items-center gap-2">
+										<div class="flex items-center gap-1.5 text-sm font-semibold text-g7">
+											<Users class="h-3.5 w-3.5 text-blu" />
+											Fee Sharing
+										</div>
+										{#if feeSharing?.adminRevoked}
+											<span class="rounded bg-yel/10 px-1.5 py-0.5 text-[10px] font-medium text-yel">Admin revoked</span>
+										{/if}
+									</div>
+									<div class="space-y-1.5">
+										{#each feeShares as share}
+											{@const socialUrl = feeShareSocialUrl(share)}
+											<div class="flex items-center justify-between gap-2 rounded border border-bd bg-s2 px-2 py-1.5">
+												<div class="min-w-0">
+													{#if socialUrl}
+														<a href={socialUrl} target="_blank" rel="noopener" class="truncate text-xs text-tx hover:text-g11">{feeShareName(share)}</a>
+													{:else}
+														<a href={explorerAddressUrl(chain as string, share.address)} target="_blank" rel="noopener" class="truncate text-xs text-tx hover:text-g11">{feeShareName(share)}</a>
+													{/if}
+													{#if share.kind === 'donation'}
+														<div class="text-[10px] text-g5">Donation</div>
+													{:else if share.kind === 'social'}
+														<div class="text-[10px] text-g5">Social</div>
+													{:else}
+														<div class="text-[10px] text-g5">Wallet</div>
+													{/if}
+												</div>
+												<span class="shrink-0 text-xs font-semibold tabular-nums text-tx">{feeSharePctLabel(share)}</span>
+											</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
 						</div>
 
 						<div>
@@ -2476,11 +2735,83 @@
 	{/if}
 </div>
 
+{#if thesisPopoverOpen && token}
+	<div use:portal>
+		<button class="cursor-default fixed inset-0 z-40 bg-s0/50 md:bg-transparent" onclick={() => (thesisPopoverOpen = false)} aria-label="Close"></button>
+		<div
+			class="glass-strong fixed inset-x-0 bottom-0 z-50 flex h-[75dvh] flex-col rounded-t-2xl border-t border-bd bg-s2 pb-[env(safe-area-inset-bottom,0px)] shadow-2xl md:inset-x-auto md:bottom-auto md:left-[var(--pop-x)] md:top-[var(--pop-y)] md:block md:h-auto md:max-h-none md:w-[340px] md:rounded-xl md:border md:bg-s5 md:pb-0 md:backdrop-blur-md"
+			style="--pop-x:{thesisPopoverPos.x}px; --pop-y:{thesisPopoverPos.y + 8}px;"
+		>
+			<div class="flex shrink-0 items-center gap-1.5 border-b border-bd px-3 py-3 md:py-2">
+				<MessageSquareQuote class="h-3.5 w-3.5 text-blu-light" strokeWidth={2} />
+				<span class="text-[11px] font-bold text-tx">Thesis</span>
+				{#if thesisCount > 0}
+					<span class="text-[10px] text-g5">{formatCompactCount(thesisCount)}</span>
+				{/if}
+				<span class="text-[10px] text-g5">why wallets bought {token.tokenSymbol ?? ''}</span>
+				<button onclick={() => (thesisPopoverOpen = false)} class="ml-auto cursor-pointer text-g4 transition-colors hover:text-tx" aria-label="Close">
+					<XIcon class="h-4 w-4" />
+				</button>
+			</div>
+			<div class="min-h-0 flex-1 overflow-hidden md:flex-none">
+				<ThesisFeedPanel
+					compact
+					chain={token.chain}
+					tokenAddress={token.tokenAddress || address}
+					oncount={(count) => {
+						if (count !== null) thesisListCount = count;
+					}}
+					onnavigate={() => (thesisPopoverOpen = false)}
+				/>
+			</div>
+		</div>
+	</div>
+{/if}
+
+{#if tweetsPopoverOpen && token}
+	<div use:portal>
+		<button class="fixed inset-0 z-40 cursor-default bg-s0/50 md:bg-transparent" onclick={() => (tweetsPopoverOpen = false)} aria-label="Close"></button>
+		<div
+			class="glass-strong fixed inset-x-0 bottom-0 z-50 flex h-[75dvh] flex-col rounded-t-2xl border-t border-bd bg-s2 pb-[env(safe-area-inset-bottom,0px)] shadow-2xl md:inset-x-auto md:bottom-auto md:left-[var(--pop-x)] md:top-[var(--pop-y)] md:h-auto md:max-h-[520px] md:w-[380px] md:rounded-xl md:border md:bg-s5 md:pb-0 md:backdrop-blur-md"
+			style="--pop-x:{tweetsPopoverPos.x}px; --pop-y:{tweetsPopoverPos.y + 8}px;"
+		>
+			<div class="flex shrink-0 items-center gap-1.5 border-b border-bd px-3 py-3 md:py-2">
+				<svg class="h-3 w-3 text-tx" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path} /></svg>
+				<span class="text-[11px] font-bold text-tx">X</span>
+				{#if tweetCount > 0}
+					<span class="text-[10px] text-g5">{formatCompactCount(tweetCount)}</span>
+				{/if}
+				<span class="truncate text-[10px] text-g5">posts naming {token.tokenSymbol ?? ''}</span>
+				<button onclick={() => (tweetsPopoverOpen = false)} class="-m-1.5 ml-auto cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx" aria-label="Close">
+					<XIcon class="h-4 w-4" />
+				</button>
+			</div>
+			<div class="min-h-0 flex-1 overflow-hidden md:h-[440px] md:flex-none">
+				<TwitterFeedPanel
+					compact
+					active={tweetsPopoverOpen}
+					initialSearch={token.tokenAddress || address}
+					initialSearchMode="TOKEN"
+				/>
+			</div>
+		</div>
+	</div>
+{/if}
+
 {#if callsPopoverOpen && calls.length > 0}
 	<div use:portal>
-	<button class="fixed inset-0 z-40 bg-s0/60 backdrop-blur-[2px] md:bg-transparent md:backdrop-blur-none" onclick={() => (callsPopoverOpen = false)} aria-label="Close"></button>
-	<div class="fixed z-50 rounded-xl border border-bd bg-s5 shadow-2xl backdrop-blur-md inset-x-2 bottom-[7.5rem] md:inset-auto md:bottom-auto md:w-[340px] md:left-[var(--pop-x)] md:top-[var(--pop-y)]" style="--pop-x:{callsPopoverPos.x}px; --pop-y:{callsPopoverPos.y + 8}px;">
-		<div class="max-h-[50vh] md:max-h-[400px] overflow-y-auto" onscroll={handleCallsScroll}>
+	<button class="cursor-default fixed inset-0 z-40 bg-s0/50 md:bg-transparent" onclick={() => (callsPopoverOpen = false)} aria-label="Close"></button>
+	<div class="glass-strong fixed inset-x-0 bottom-0 z-50 flex h-[75dvh] flex-col rounded-t-2xl border-t border-bd bg-s2 pb-[env(safe-area-inset-bottom,0px)] shadow-2xl md:inset-x-auto md:bottom-auto md:left-[var(--pop-x)] md:top-[var(--pop-y)] md:block md:h-auto md:max-h-none md:w-[340px] md:rounded-xl md:border md:bg-s5 md:pb-0 md:backdrop-blur-md" style="--pop-x:{callsPopoverPos.x}px; --pop-y:{callsPopoverPos.y + 8}px;">
+		<div class="flex shrink-0 items-center gap-1.5 border-b border-bd px-3 py-3 md:py-2">
+			<Megaphone class="h-3.5 w-3.5 text-yel" strokeWidth={2} />
+			<span class="text-[11px] font-bold text-tx">Calls</span>
+			<span class="text-[10px] text-g5">{formatCompactCount(token?.calls ?? calls.length)}</span>
+			<span class="truncate text-[10px] text-g5">who called {token?.tokenSymbol ?? ''}</span>
+			<button onclick={() => (callsPopoverOpen = false)} class="-m-1.5 ml-auto cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx" aria-label="Close">
+				<XIcon class="h-4 w-4" />
+			</button>
+		</div>
+		<div class="min-h-0 flex-1 overflow-y-auto md:max-h-[400px] md:flex-none" onscroll={handleCallsScroll}>
 			{#each calls as call}
 				{@const athMult = call.callDetails.athMultiplier ?? 0}
 				{@const curMult = call.callDetails.currentMultiplier ?? 0}

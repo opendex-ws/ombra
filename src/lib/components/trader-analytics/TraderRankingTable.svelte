@@ -1,19 +1,19 @@
 <script lang="ts">
-	import type { TraderRankItem, WalletTimeRange } from '$lib/api/types';
-	import { ageFromSeconds, explorerAddressUrl, fmtVal, formatNumber, formatPercent, formatUsd, shortAddress } from '$lib/utils/format';
-	import ChainIcon from '../ChainIcon.svelte';
-	import WalletIcon from '../WalletIcon.svelte';
+	import type { TraderRankItem, WalletLabelSource, WalletTimeRange } from '$lib/api/types';
+	import { ageFromSeconds, fmtVal, formatNumber, formatPercent, formatUsd } from '$lib/utils/format';
 	import { valueColorClass, walletTimeRangeLabel } from './config';
-	import ExternalLink from 'lucide-svelte/icons/external-link';
+	import TraderIdentity from './TraderIdentity.svelte';
 
 	let {
 		items,
 		timeRange,
-		onselect
+		onselect,
+		preferSource = ''
 	}: {
 		items: TraderRankItem[];
 		timeRange: WalletTimeRange;
 		onselect: (item: TraderRankItem) => void;
+		preferSource?: WalletLabelSource | '';
 	} = $props();
 
 </script>
@@ -38,30 +38,7 @@
 				<tr class="border-b border-bd/40 transition-colors hover:bg-wh/5">
 					<td class="px-3 py-3 text-g5">{index + 1}</td>
 					<td class="px-3 py-3">
-						<div class="flex items-center gap-2">
-							<WalletIcon address={item.walletAddress} photoId={item.labels?.[0]?.photoId} size={20} class="h-5 w-5" />
-							<ChainIcon chain={item.chain} class="h-3.5 w-3.5 text-g6" />
-							{#if (item.labels ?? []).length > 0}
-								<button type="button" class="cursor-pointer font-medium text-tx transition-colors hover:text-grn" onclick={() => onselect(item)}>{item.labels![0].label}</button>
-								<span class="shrink-0 rounded bg-s7 px-1.5 py-px font-mono text-[10px] font-medium text-g7">{shortAddress(item.walletAddress)}</span>
-							{:else}
-								<button type="button" class="cursor-pointer font-medium text-tx transition-colors hover:text-grn" onclick={() => onselect(item)}>{shortAddress(item.walletAddress)}</button>
-							{/if}
-							<a
-								href={explorerAddressUrl(item.chain, item.walletAddress)}
-								target="_blank"
-								rel="noopener"
-								class="text-g4 transition-colors hover:text-tx"
-								aria-label="Open wallet in explorer"
-								onclick={(event) => event.stopPropagation()}
-								onkeydown={(event) => event.stopPropagation()}
-							>
-								<ExternalLink class="h-3 w-3" />
-							</a>
-							{#each (item.labels ?? []).slice(1) as wl}
-								<span class="shrink-0 rounded bg-blu/20 px-1.5 py-px text-[10px] font-medium text-blu">{wl.label}</span>
-							{/each}
-						</div>
+						<TraderIdentity {item} {onselect} compact {preferSource} />
 					</td>
 					<td class="px-3 py-3 text-right">
 						<div class="font-bold {valueColorClass(item.stats.pnlUsd)}">{formatUsd(item.stats.pnlUsdStr)}</div>

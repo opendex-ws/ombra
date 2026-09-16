@@ -12,7 +12,7 @@ vi.mock('$lib/api/client', () => ({
 
 import {
 	loadWalletFunding,
-	preserveFundingSources,
+	preserveRestOnlyTraderFields,
 	type FundingSourcePreview as Preview
 } from './source-funds';
 
@@ -188,7 +188,7 @@ describe('source funds UI', () => {
 			{ walletAddress: 'wallet-b', fundingSource: null, pnl: '4' }
 		];
 
-		const merged = preserveFundingSources(current, incoming);
+		const merged = preserveRestOnlyTraderFields(current, incoming);
 
 		expect(merged[0]).toMatchObject({ pnl: '3', fundingSource: preview });
 		expect(merged[1]).toMatchObject({ pnl: '4', fundingSource: null });
@@ -352,5 +352,40 @@ describe('source funds UI', () => {
 		expect(await screen.findByText('Unable to load wallet funding evidence.')).toBeVisible();
 		expect(screen.getByLabelText(/Open funding source Label first/)).toBeVisible();
 		expect(screen.getByRole('button', { name: 'Load more deposits' })).toBeVisible();
+	});
+});
+
+describe('preserveRestOnlyTraderFields', () => {
+	// The top-traders WS snapshot omits `fundingSource` AND `pnlSparkline`, and a
+	// snapshot replaces the rendered rows outright.
+	const spark = { tokenPnlUsd: [1, 2, 3], pnlUsd: [1, 2, 3] };
+
+	test('carries the sparkline across a live snapshot', () => {
+		const current = [
+			{ walletAddress: 'W1', fundingSource: preview as Preview | null, pnlSparkline: spark as unknown }
+		];
+		const incoming = [
+			{ walletAddress: 'W1', fundingSource: null as Preview | null, pnlSparkline: undefined as unknown }
+		];
+		const merged = preserveRestOnlyTraderFields(current, incoming);
+		expect(merged[0].pnlSparkline).toEqual(spark);
+		expect(merged[0].fundingSource).toEqual(preview);
+	});
+
+	test('prefers whatever the incoming row actually carries', () => {
+		const current = [{ walletAddress: 'W1', pnlSparkline: spark as unknown }];
+		const fresh = { tokenPnlUsd: [9], pnlUsd: [9] };
+		const merged = preserveRestOnlyTraderFields(current, [
+			{ walletAddress: 'W1', pnlSparkline: fresh as unknown }
+		]);
+		expect(merged[0].pnlSparkline).toEqual(fresh);
+	});
+
+	test('leaves a wallet it has never seen alone', () => {
+		const merged = preserveRestOnlyTraderFields(
+			[{ walletAddress: 'W1', pnlSparkline: spark as unknown }],
+			[{ walletAddress: 'W2', pnlSparkline: undefined as unknown }]
+		);
+		expect(merged[0].pnlSparkline).toBeUndefined();
 	});
 });

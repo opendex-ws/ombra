@@ -40,10 +40,10 @@
 				<span class="text-right">Fees</span>
 			</div>
 			{#each swaps as swap, index (`${swap.txHash}:${swap.token.address}:${index}`)}
-				<div class="grid {gridCols} items-center gap-2 border-b border-bd/40 px-2.5 py-1.5 text-[11px] last:border-0 hover:bg-wh/5 [contain:layout_paint_style] [content-visibility:auto] [contain-intrinsic-size:auto_34px]">
+				<div class="group grid {gridCols} items-center gap-2 border-b border-bd/40 px-2.5 py-1.5 text-[11px] last:border-0 hover:bg-wh/5 [contain:layout_paint_style] [content-visibility:auto] [contain-intrinsic-size:auto_34px]">
 					<a href={explorerTxUrl(chain, swap.txHash)} target="_blank" rel="noopener" class="flex cursor-help items-center gap-1 truncate whitespace-nowrap text-g5 hover:text-tx" title={fullDateTime(swap.timestamp)}>
 						{timeAgo(swap.timestamp)}
-						<ExternalLink class="h-2.5 w-2.5 opacity-0 transition-opacity group-hover:opacity-100" />
+						<ExternalLink class="h-3 w-3 shrink-0 transition-opacity md:h-2.5 md:w-2.5 md:opacity-0 md:group-hover:opacity-100" />
 					</a>
 					{#if showToken}
 						<div class="min-w-0">

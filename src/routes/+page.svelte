@@ -58,6 +58,22 @@
 	let tickerScroll = $state(false);
 	const tickerFavCount = $derived(getIsLoggedIn() ? getFavourites().length : 0);
 
+	/**
+	 * Width of the FIRST copy only, so the result does not change when the list
+	 * gets duplicated for scrolling. Measuring `offsetWidth` instead made the
+	 * decision depend on its own outcome: just-over-width switched scrolling on,
+	 * the duplicated measurement came out smaller, and it flipped back every frame
+	 * — a 1–2px horizontal shake.
+	 */
+	function tickerContentPx(): number {
+		if (!tickerInner || tickerFavCount === 0) return 0;
+		const kids = tickerInner.children;
+		if (kids.length < tickerFavCount) return 0;
+		const first = kids[0] as HTMLElement;
+		const last = kids[tickerFavCount - 1] as HTMLElement;
+		return last.offsetLeft + last.offsetWidth - first.offsetLeft;
+	}
+
 	function tickerPeriodPx(): number {
 		if (!tickerInner) return 0;
 		const kids = tickerInner.children;
@@ -118,8 +134,15 @@
 		tickerLastTs = ts;
 		if (tickerInner && tickerEl) {
 			const period = tickerPeriodPx();
-			const singleW = period > 0 ? period : tickerInner.offsetWidth;
-			const needScroll = singleW > tickerEl.clientWidth;
+			const contentW = tickerContentPx();
+			// The inner element carries the horizontal padding, so discount both
+			// sides; `offsetLeft` of the first child is the left pad.
+			const pad = (tickerInner.children[0] as HTMLElement | undefined)?.offsetLeft ?? 0;
+			const available = tickerEl.clientWidth - pad * 2;
+			// 2px of hysteresis absorbs sub-pixel layout noise at the boundary.
+			const needScroll = tickerScroll
+				? contentW > available - 2
+				: contentW > available + 2;
 			if (needScroll !== tickerScroll) tickerScroll = needScroll;
 
 			if (!needScroll) {
@@ -484,7 +507,7 @@
 									role="button"
 									tabindex="-1"
 									onclick={(e: MouseEvent) => handlePopoutTab(e, tab)}
-									class="ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-tx opacity-0 group-hover:opacity-100"
+									class="cursor-pointer ml-auto flex h-4 w-4 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-tx opacity-0 group-hover:opacity-100"
 									title="Pop out"
 								>
 									<PictureInPicture2 class="h-3 w-3" />
@@ -494,7 +517,7 @@
 									role="button"
 									tabindex="-1"
 									onclick={(e: MouseEvent) => handleCloseTab(e, tab)}
-									class="flex h-4 w-4 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-tx {active ? '' : 'opacity-0 group-hover:opacity-100'}"
+									class="cursor-pointer flex h-4 w-4 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-tx {active ? '' : 'opacity-0 group-hover:opacity-100'}"
 									title="Close"
 								>
 									<X class="h-3 w-3" />
@@ -550,7 +573,7 @@
 	{#if isOpen}
 		{@const sheetId = title.toLowerCase().replace(/\s/g, '-')}
 		<div class="fixed inset-0 z-[100] md:hidden flex flex-col justify-end">
-			<button class="absolute inset-0 bg-s0/50" onclick={closeFn} aria-label="Close"></button>
+			<button class="cursor-default absolute inset-0 bg-s0/50" onclick={closeFn} aria-label="Close"></button>
 			<div
 				class="glass-strong relative mobile-panel-enter flex flex-col rounded-t-2xl border-t border-bd bg-s2 mobile-safe-bottom"
 				style="max-height: {height}; transform: translateY({sheetDragY}px); transition: {sheetDragging ? 'none' : 'transform 0.25s ease-out'};"

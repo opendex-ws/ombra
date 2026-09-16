@@ -652,7 +652,7 @@
 						? getPendingTradesTotal()
 						: getCompletedTotalCount()}
 			<button
-				class="relative flex-1 px-2 py-2 text-xs font-semibold transition-all duration-200 {activeTab ===
+				class="cursor-pointer relative flex-1 px-2 py-2 text-xs font-semibold transition-all duration-200 {activeTab ===
 				tab.value
 					? 'text-tx'
 					: 'text-g6 hover:text-g9'}"
@@ -790,7 +790,7 @@
 							</div>
 							{#if activeTab === 'history'}
 								<button
-									class="shrink-0 cursor-pointer rounded-md p-1 text-g4 transition-colors hover:text-grn"
+									class="shrink-0 cursor-pointer rounded-md p-1.5 text-g4 transition-colors hover:text-grn md:p-1"
 									onclick={(e) => {
 										e.stopPropagation();
 										shareTrade = trade as CompletedTrade;
@@ -807,7 +807,7 @@
 								</button>
 							{/if}
 							<button
-								class="shrink-0 cursor-pointer rounded-md p-0.5 text-g4 transition-all hover:text-g9"
+								class="shrink-0 cursor-pointer rounded-md p-1.5 text-g4 transition-all hover:text-g9 md:p-0.5"
 								onclick={(e) => toggleExpand(trade.id, e)}
 								title={isExpanded ? 'Collapse' : 'Expand'}
 							>

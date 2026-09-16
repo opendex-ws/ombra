@@ -4,7 +4,9 @@
 	import type { ScannerItem } from '$lib/api/types';
 	import type { RowFlashType } from '$lib/utils/scanner-ws';
 	import { formatPrice, formatPercent, formatMarketCap } from '$lib/utils/format';
+	import { feeShareholders, feeShareTitle } from '$lib/utils/fee-sharing';
 	import { getRouterInfo } from '$lib/utils/routers';
+	import Users from 'lucide-svelte/icons/users';
 
 	let { token, isSelected = false, rowFlash = undefined, onselect }: {
 		token: ScannerItem;
@@ -16,6 +18,7 @@
 	let migPct = $derived(token.launchPad?.bondingCurve?.progressPct ?? 0);
 	let isGraduated = $derived(token.launchPad?.bondingCurve?.state === 'Migrated');
 	let platformIcon = $derived(token.platformName ? getRouterInfo(token.platformName).icon : '');
+	let feeShares = $derived(feeShareholders(token.launchPad?.pumpfun));
 
 	function percentColor(value: string | number | undefined | null): string {
 		if (value === undefined || value === null) return 'text-g6';
@@ -102,9 +105,12 @@
 		{/if}
 	</div>
 	<div class="min-w-0 flex-1">
-		<div class="flex items-center gap-1.5">
+		<div class="flex min-w-0 items-center gap-1.5">
 			{#if platformIcon}<img src={platformIcon} alt="" class="h-3.5 w-3.5 rounded" />{/if}
-			<span class="font-semibold text-tx">{token.tokenSymbol}</span>
+			<span class="min-w-0 max-w-[60%] truncate font-semibold text-tx" title={token.tokenSymbol ?? ''}>{token.tokenSymbol}</span>
+			{#if feeShares.length > 0}
+				<span class="text-blu" title={feeShareTitle(feeShares)}><Users class="h-3 w-3" /></span>
+			{/if}
 			<span class="truncate text-xs text-g5">{token.tokenName}</span>
 		</div>
 		<div class="mt-1 flex items-center justify-between text-xs">

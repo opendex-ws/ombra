@@ -287,7 +287,7 @@
 					</button>
 				{/if}
 				<button type="button" class="cursor-pointer p-1.5 text-g4 transition-colors hover:text-tx" onclick={refresh} aria-label="Refresh trader overview"><RefreshCw class="h-4 w-4 {detailLoading || swapsLoading ? 'animate-spin' : ''}" /></button>
-				<button type="button" class="cursor-pointer text-g4 transition-colors hover:text-tx" onclick={closeTraderOverview} aria-label="Close"><X class="h-4 w-4" /></button>
+				<button type="button" class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx" onclick={closeTraderOverview} aria-label="Close"><X class="h-4 w-4" /></button>
 			</div>
 
 			<div class="min-h-0 flex-1 overflow-y-auto p-3 md:p-4">

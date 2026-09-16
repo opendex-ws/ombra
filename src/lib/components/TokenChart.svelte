@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { dev } from '$app/environment';
-	import { api } from '$lib/api/client';
+	import { api, type QueryOf, type TokenChartMarkersFilterParams } from '$lib/api/client';
 	import type { Chain, CandleFrame, WatchlistCallItem } from '$lib/api/types';
 	import { subscribe, unsubscribe } from '$lib/ws/client';
-	import { formatPriceText, formatUsd, avatarUrl, shortAddress } from '$lib/utils/format';
+	import { formatPriceText, formatUsd, avatarUrl, shortAddress, formatCompactCount, ageFromSeconds } from '$lib/utils/format';
 	import { getWalletIconUrl, getWalletIconImage, getWalletAddress } from '$lib/utils/walleticon';
 	import { SwapPrimitive, MigrationPrimitive, drawChefHat, type SwapIndicatorData, type SwapInfo } from '$lib/utils/chart-primitives';
 	import type { ChartMarker, ChartMarkerSwap } from '$lib/api/types';
@@ -21,7 +21,10 @@
 		type CandleColors,
 		type CandlePoint,
 		type RawCandleUpdate,
-		type VolumePoint
+		type VolumePoint,
+		markerFetchRanges,
+		shouldClampBarSpacing,
+		DEFAULT_BAR_SPACING
 	} from '$lib/utils/candle-updates';
 	import { createCandleDiagnostics } from '$lib/utils/candle-diagnostics';
 	import { getIsLoggedIn } from '$lib/stores/auth.svelte';
@@ -29,15 +32,23 @@
 	import UserPlus from 'lucide-svelte/icons/user-plus';
 	import Check from 'lucide-svelte/icons/check';
 	import ChartLine from 'lucide-svelte/icons/chart-line';
+	import { getIsDesktop } from '$lib/stores/viewport.svelte';
 	import { getSelectedFrame, setSelectedFrame, getShowMarketCap, setShowMarketCap, setLiveAthPrice } from '$lib/stores/chart.svelte';
 	import LoaderCircle from 'lucide-svelte/icons/loader-circle';
 	import LineChart from 'lucide-svelte/icons/line-chart';
 	import DollarSign from 'lucide-svelte/icons/dollar-sign';
 	import BarChart3 from 'lucide-svelte/icons/chart-column';
 	import Layers from 'lucide-svelte/icons/layers';
+	import ChevronDown from 'lucide-svelte/icons/chevron-down';
 	import UserRound from 'lucide-svelte/icons/user-round';
 	import Megaphone from 'lucide-svelte/icons/megaphone';
 	import Crown from 'lucide-svelte/icons/crown';
+	import Heart from 'lucide-svelte/icons/heart';
+	import { portal } from '$lib/actions/portal';
+	import XIcon from 'lucide-svelte/icons/x';
+	import MessageSquareQuote from 'lucide-svelte/icons/message-square-quote';
+	import XLogo from './XLogo.svelte';
+	import UserCheck from 'lucide-svelte/icons/user-check';
 	import { tc, getTheme, getThemeVersion } from '$lib/stores/theme.svelte';
 
 	// Append a 2-char hex alpha to a color for lightweight-charts. The CSS
@@ -66,45 +77,114 @@
 		onopentrader?: (walletAddress: string) => void;
 		tokenSymbol?: string;
 		active?: boolean;
+		/** Narrow host (popout window): collapse the frame row into a dropdown. */
+		compact?: boolean;
 	};
 	type SwapChartMarker = Extract<
 		ChartMarker,
 		{ kind: 'KOL' | 'DEV' | 'USER_SWAP' }
 	>;
 
-	let { chain, address, chartHeight = 450, athPrice = null, athMcap = null, onopentrader, tokenSymbol = '', active = true }: Props = $props();
+	let { chain, address, chartHeight = 450, athPrice = null, athMcap = null, onopentrader, tokenSymbol = '', active = true, compact = false }: Props = $props();
 
 	let chartContainer: HTMLDivElement;
 	let selectedFrame: string = $derived(getSelectedFrame());
 	let showMarketCap: boolean = $derived(getShowMarketCap());
 
 	const MARKER_VIS_KEY = 'ombra_chart_markers';
-	function loadMarkerVis(): { user: boolean; calls: boolean; kols: boolean } {
-		if (typeof localStorage === 'undefined') return { user: true, calls: true, kols: true };
+	/** Marker prefs are set-and-forget: visibility plus the size filter live together. */
+	type MarkerPrefs = { user: boolean; calls: boolean; kols: boolean; theses: boolean; tweets: boolean; minUsd: number; maxUsd: number | null; curated: boolean };
+	/** Server default for `minUsd`, so dust trades do not clutter the chart. */
+	const MARKER_MIN_USD_DEFAULT = 10;
+	function loadMarkerPrefs(): MarkerPrefs {
+		const fallback: MarkerPrefs = { user: true, calls: true, kols: true, theses: true, tweets: true, minUsd: MARKER_MIN_USD_DEFAULT, maxUsd: null, curated: false };
+		if (typeof localStorage === 'undefined') return fallback;
 		try {
 			const raw = localStorage.getItem(MARKER_VIS_KEY);
 			if (raw) {
-				const v = JSON.parse(raw) as Partial<{ user: boolean; calls: boolean; kols: boolean }>;
-				return { user: v.user !== false, calls: v.calls !== false, kols: v.kols !== false };
+				const v = JSON.parse(raw) as Partial<MarkerPrefs>;
+				// Bounds are decimal, not integer — `10.5` is a valid floor.
+				const minUsd = Number.isFinite(v.minUsd) && (v.minUsd as number) >= 0 ? (v.minUsd as number) : MARKER_MIN_USD_DEFAULT;
+				const maxUsd = Number.isFinite(v.maxUsd) && (v.maxUsd as number) >= minUsd ? (v.maxUsd as number) : null;
+				return { user: v.user !== false, calls: v.calls !== false, kols: v.kols !== false, theses: v.theses !== false, tweets: v.tweets !== false, minUsd, maxUsd, curated: v.curated === true };
 			}
 		} catch { /* ignore */ }
-		return { user: true, calls: true, kols: true };
+		return fallback;
 	}
-	const initialMarkerVis = loadMarkerVis();
+	const initialMarkerVis = loadMarkerPrefs();
 	let showUserSwaps = $state(initialMarkerVis.user);
 	let showCalls = $state(initialMarkerVis.calls);
 	let showKols = $state(initialMarkerVis.kols);
-	let markerMenuOpen = $state(false);
+	let showTheses = $state(initialMarkerVis.theses);
+	let showTweets = $state(initialMarkerVis.tweets);
+	let markerMinUsd = $state(initialMarkerVis.minUsd);
+	let markerMaxUsd = $state<number | null>(initialMarkerVis.maxUsd);
+	let markerCurated = $state(initialMarkerVis.curated);
+	// `curated` needs auth, so a signed-out session must not send it at all.
+	const curatedActive = $derived(markerCurated && getIsLoggedIn());
 
-	function toggleMarkerVis(kind: 'user' | 'calls' | 'kols') {
+	function persistMarkerPrefs() {
+		if (typeof localStorage === 'undefined') return;
+		try {
+			localStorage.setItem(
+				MARKER_VIS_KEY,
+				JSON.stringify({ user: showUserSwaps, calls: showCalls, kols: showKols, theses: showTheses, tweets: showTweets, minUsd: markerMinUsd, maxUsd: markerMaxUsd, curated: markerCurated })
+			);
+		} catch { /* ignore */ }
+	}
+
+	/**
+	 * The size filter is applied server-side, so everything already fetched was
+	 * fetched under the old bounds — drop the cache and re-hydrate the window.
+	 */
+	function applyMarkerSizeFilter(min: number, max: number | null) {
+		if (min === markerMinUsd && max === markerMaxUsd) return;
+		markerMinUsd = min;
+		markerMaxUsd = max;
+		persistMarkerPrefs();
+		resetMarkerCache();
+		// The bounds are a subscription param, so the live tail has to be re-opened
+		// under the new room too — otherwise REST honours them and the WS does not.
+		if (markersWsTarget) setupMarkersWs(markersWsTarget.chain, markersWsTarget.address);
+		void fetchChartMarkers();
+		updateMarkers();
+	}
+
+	function toggleMarkerCurated() {
+		markerCurated = !markerCurated;
+		persistMarkerPrefs();
+		resetMarkerCache();
+		if (markersWsTarget) setupMarkersWs(markersWsTarget.chain, markersWsTarget.address);
+		void fetchChartMarkers();
+		updateMarkers();
+	}
+
+	function onMarkerMinInput(raw: string) {
+		const next = Number(raw);
+		const min = Number.isFinite(next) && next >= 0 ? next : MARKER_MIN_USD_DEFAULT;
+		// The ceiling is inclusive and must not sit below the floor.
+		applyMarkerSizeFilter(min, markerMaxUsd !== null && markerMaxUsd < min ? null : markerMaxUsd);
+	}
+
+	function onMarkerMaxInput(raw: string) {
+		const trimmed = raw.trim();
+		const next = Number(trimmed);
+		applyMarkerSizeFilter(
+			markerMinUsd,
+			trimmed !== '' && Number.isFinite(next) && next >= markerMinUsd ? next : null
+		);
+	}
+
+	let markerMenuOpen = $state(false);
+	let frameMenuOpen = $state(false);
+
+	function toggleMarkerVis(kind: 'user' | 'calls' | 'kols' | 'theses' | 'tweets') {
 		if (kind === 'user') showUserSwaps = !showUserSwaps;
 		else if (kind === 'calls') showCalls = !showCalls;
+		else if (kind === 'theses') showTheses = !showTheses;
+		else if (kind === 'tweets') showTweets = !showTweets;
 		else showKols = !showKols;
-		if (typeof localStorage !== 'undefined') {
-			try {
-				localStorage.setItem(MARKER_VIS_KEY, JSON.stringify({ user: showUserSwaps, calls: showCalls, kols: showKols }));
-			} catch { /* ignore */ }
-		}
+		persistMarkerPrefs();
 		updateMarkers();
 	}
 
@@ -122,6 +202,58 @@
 		{ label: '4h', value: '4h' },
 		{ label: '1d', value: '24h' }
 	];
+
+	// The 8 frame chips do not fit a phone or a popout window, so those collapse to
+	// a dropdown. Gate on the viewport store, not CSS: both variants would mount.
+	const frameDropdown = $derived(compact || !getIsDesktop());
+	const selectedFrameLabel = $derived(frames.find((f) => f.value === selectedFrame)?.label ?? selectedFrame);
+
+	/** Backend caps a single chart-markers request at one day. */
+	const MARKER_MAX_SPAN_SECONDS = 86_400;
+
+	const frameSeconds: Record<string, number> = {
+		'1s': 1, '5s': 5, '15s': 15, '30s': 30,
+		'1m': 60, '5m': 300, '15m': 900, '30m': 1800,
+		'1h': 3600, '4h': 14400, '6h': 21600, '12h': 43200, '24h': 86400
+	};
+
+	/**
+	 * Markers can only sit on candles, so requests follow the candles rather than
+	 * the visible time span: a token with one candle today and one 90 days ago
+	 * would otherwise ask the backend for 90 days.
+	 */
+	function markerRangeOptions() {
+		const frame = frameSeconds[selectedFrame] ?? 60;
+		return {
+			// 50 empty candles in a row means there is nothing worth asking for.
+			gapSeconds: Math.max(frame * 50, 3600),
+			// The backend trims any request longer than a day, so chunk to match.
+			maxSpanSeconds: MARKER_MAX_SPAN_SECONDS,
+			maxRanges: 4
+		};
+	}
+
+	/**
+	 * Fetches the marker chunks covering [from, to] and reports the oldest point
+	 * actually retrieved. Requests are capped server-side, so coverage must track
+	 * what came back — assuming the whole window was covered would leave older
+	 * markers permanently unfetched.
+	 */
+	async function fetchMarkerRanges(from: number, to: number, gen: number): Promise<number | null> {
+		const ranges = markerFetchRanges(candleTimesAsc(), from, to, markerRangeOptions());
+		if (ranges.length === 0) return from;
+		let covered = Infinity;
+		for (const range of ranges) {
+			const readFrom = await fetchMarkerRange(range.from, range.to, gen);
+			if (readFrom === null) return null;
+			covered = Math.min(covered, readFrom);
+		}
+		return covered;
+	}
+
+	function candleTimesAsc(): number[] {
+		return allCandleData.map((candle) => candle.time as number);
+	}
 
 	const frameToWsTopic: Record<string, string> = {
 		'1s': '1s', '5s': '5s', '15s': '15s', '30s': '30s',
@@ -155,6 +287,8 @@
 	let projectionDirty = false;
 	let projectionInProgress = false;
 	let pendingFirstPaint = true;
+	let viewportResetPending = false;
+	let viewportKey = '';
 	let savedVisibleRange: { from: number; to: number } | null = null;
 	let wasPinnedLive = true;
 	let pendingWidth = 0;
@@ -175,6 +309,29 @@
 	function waitForProjection() {
 		if (canProject()) return Promise.resolve();
 		return new Promise<void>((resolve) => projectionWaiters.add(resolve));
+	}
+
+	/**
+	 * Bar spacing is a time-scale property that survives a data swap, and fitting a
+	 * handful of candles stretches them to the full pane. That combination is why
+	 * one 5m candle left the 5s view still showing a couple of bars: the switch kept
+	 * the blown-up spacing. Re-fit on every token/timeframe change, and cap the
+	 * spacing so a sparse token lands on a normal-looking chart instead.
+	 */
+	function resetViewport() {
+		if (!chartInstance) return;
+		const timeScale = chartInstance.timeScale();
+		timeScale.fitContent();
+		const count = allCandleData.length;
+		const width = pendingWidth > 0 ? pendingWidth : (chartContainer?.clientWidth ?? 0);
+		if (shouldClampBarSpacing(count, width)) {
+			timeScale.applyOptions({ barSpacing: DEFAULT_BAR_SPACING });
+			timeScale.scrollToRealTime();
+		}
+		// The pre-switch range belongs to the old timeframe; do not restore it.
+		savedVisibleRange = null;
+		wasPinnedLive = true;
+		viewportResetPending = false;
 	}
 
 	function captureViewport() {
@@ -200,7 +357,7 @@
 			}
 			updatePriceLines();
 			const timeScale = chartInstance.timeScale();
-			if (pendingFirstPaint) timeScale.fitContent();
+			if (pendingFirstPaint || viewportResetPending) resetViewport();
 			else if (wasPinnedLive) timeScale.scrollToRealTime();
 			else if (savedVisibleRange) timeScale.setVisibleRange(savedVisibleRange);
 			updateAreaGradient();
@@ -237,8 +394,14 @@
 	let devMarkers: ChartMarkerSwap[] = [];
 	let userSwapMarkers: UserSwapMarker[] = [];
 	let callMarkers: WatchlistCallItem[] = [];
+	type ThesisMarker = Extract<ChartMarker, { kind: 'THESIS' }>;
+	type TweetMarker = Extract<ChartMarker, { kind: 'TWEET' }>;
+	let thesisMarkers: ThesisMarker[] = [];
+	let tweetMarkers: TweetMarker[] = [];
 	let kolByCandle = new Map<number, ChartMarkerSwap[]>();
 	let devByCandle = new Map<number, ChartMarkerSwap[]>();
+	let thesisByCandle = new Map<number, ThesisMarker[]>();
+	let tweetByCandle = new Map<number, TweetMarker[]>();
 	// Unified marker cache: every id-bearing marker (KOL/DEV/USER_SWAP/CALL) deduped
 	// by id, tracking the contiguous time span already fetched so pans/zooms only
 	// request the uncovered gap. Migration is idless and tracked separately.
@@ -251,6 +414,7 @@
 	let markersFetchTimer: ReturnType<typeof setTimeout> | null = null;
 	let markersFetchGen = 0;
 	let markersWsKey: string | null = null;
+	let markersWsTarget: { chain: string; address: string } | null = null;
 	const markersCoalescer = createCoalescer<ChartMarker>((batch) => {
 		if (disposed) return;
 		let changed = false;
@@ -270,11 +434,81 @@
 	}, { maxBatch: 200 });
 	type KolRow = { name: string; walletAddress: string; photoUrl: string | null; buys: number; sells: number; buyUsd: number; sellUsd: number; isDev?: boolean };
 	type KolSummary = { time: number; rows: KolRow[]; totalBuyUsd: number; totalSellUsd: number; buyCount: number; sellCount: number };
-	let chartTooltip: { x: number; y: number; lines?: string[]; kol?: KolSummary } | null = $state(null);
+	let chartTooltip: { x: number; y: number; lines?: string[]; kol?: KolSummary; posts?: PostSummary } | null = $state(null);
 	let chartTooltipTimer: ReturnType<typeof setTimeout> | null = null;
 
+	/**
+	 * Tooltips are portalled to <body> so a tall one is not clipped by the chart
+	 * box or painted under the canvas, which means their coordinates have to be
+	 * viewport-relative rather than chart-relative.
+	 */
+	let tooltipEl: HTMLDivElement | null = $state(null);
+	let tooltipLeft = $state(0);
+	let tooltipBelow = $state(false);
+
+	/**
+	 * Anchored above the marker by default. Measured after render so a tall
+	 * popover flips below rather than running off the top, and stays inside the
+	 * viewport horizontally.
+	 */
+	// Portalled coordinates are viewport-fixed, so the anchor point moves out from
+	// under the tooltip when the page scrolls or resizes. Dismiss rather than
+	// leave it stranded next to the wrong candle.
+	$effect(() => {
+		if (!chartTooltip) return;
+		// Capture catches scrolls from every element, so the tooltip's own
+		// scrollable body would dismiss it the moment you used it. Only an
+		// ancestor scrolling actually moves the anchor out from under it.
+		const dismiss = (ev: Event) => {
+			const target = ev.target as Node | null;
+			if (ev.type === 'scroll' && target && tooltipEl?.contains(target)) return;
+			chartTooltip = null;
+		};
+		window.addEventListener('scroll', dismiss, { passive: true, capture: true });
+		window.addEventListener('resize', dismiss, { passive: true });
+		return () => {
+			window.removeEventListener('scroll', dismiss, { capture: true });
+			window.removeEventListener('resize', dismiss);
+		};
+	});
+
+	$effect(() => {
+		const el = tooltipEl;
+		const t = chartTooltip;
+		if (!el || !t) return;
+		untrack(() => {
+			tooltipLeft = t.x;
+			tooltipBelow = false;
+			const width = el.offsetWidth;
+			const height = el.offsetHeight;
+			const margin = 8;
+			const half = width / 2;
+			tooltipLeft = Math.min(Math.max(t.x, half + margin), window.innerWidth - half - margin);
+			tooltipBelow = t.y - height - margin < 0;
+		});
+	});
+
+	/**
+	 * `ChartMarkerTweet.photoId` carries a scraper URL (`pbs.twimg.com/...`),
+	 * while `ChartMarkerThesis.labels[].photoId` is a real avatar-service id
+	 * (`kol-avatars/...`). One field name, two shapes, so resolve on the value.
+	 */
+	function photoResolve(photo: string | null | undefined): string | null {
+		if (!photo) return null;
+		return /^https?:\/\//.test(photo) ? photo : avatarUrl(photo);
+	}
+
+	function hideImg(ev: Event) {
+		(ev.currentTarget as HTMLImageElement).style.display = 'none';
+	}
+
+	function toViewport(x: number, y: number): { x: number; y: number } {
+		const r = chartContainer?.getBoundingClientRect();
+		return { x: (r?.left ?? 0) + x, y: (r?.top ?? 0) + y };
+	}
+
 	function showTooltip(x: number, y: number, lines: string[]) {
-		chartTooltip = { x, y, lines };
+		chartTooltip = { ...toViewport(x, y), lines };
 		if (chartTooltipTimer) clearTimeout(chartTooltipTimer);
 		chartTooltipTimer = setTimeout(() => { chartTooltip = null; }, 3000);
 	}
@@ -302,8 +536,17 @@
 		return { time, rows, totalBuyUsd, totalSellUsd, buyCount, sellCount };
 	}
 
+	type PostSummary = { theses: ThesisMarker[]; tweets: TweetMarker[] };
+
+	function buildPostSummary(time: number): PostSummary | null {
+		const theses = thesisByCandle.get(time) ?? [];
+		const tweets = tweetByCandle.get(time) ?? [];
+		if (theses.length === 0 && tweets.length === 0) return null;
+		return { theses, tweets };
+	}
+
 	function showKolInfo(x: number, y: number, summary: KolSummary) {
-		chartTooltip = { x, y, kol: summary };
+		chartTooltip = { ...toViewport(x, y), kol: summary };
 		if (chartTooltipTimer) clearTimeout(chartTooltipTimer);
 	}
 
@@ -373,8 +616,11 @@
 		const avatarHit = hitTestAvatar(clickX, clickY);
 		if (avatarHit) {
 			const summary = buildKolSummary(avatarHit.time);
-			if (summary) {
-				showKolInfo(Math.round(avatarHit.x), Math.round(avatarHit.cy - sz / 2 - 4), summary);
+			const posts = buildPostSummary(avatarHit.time);
+			if (summary || posts) {
+				const vp = toViewport(Math.round(avatarHit.x), Math.round(avatarHit.cy - sz / 2 - 4));
+				chartTooltip = { ...vp, kol: summary ?? undefined, posts: posts ?? undefined };
+				if (chartTooltipTimer) clearTimeout(chartTooltipTimer);
 				return;
 			}
 		}
@@ -428,7 +674,23 @@
 		return null;
 	}
 
-	type CallAvatarCaller = { photoUrl: string | null; walletAddress?: string; name: string; count?: number; isBuy?: boolean; isDev?: boolean };
+	type MarkerSourceKind = 'call' | 'thesis' | 'tweet' | 'kol' | 'dev';
+	type CallAvatarCaller = { photoUrl: string | null; walletAddress?: string; name: string; count?: number; isBuy?: boolean; isDev?: boolean; sourceKind?: MarkerSourceKind };
+
+	/**
+	 * Ring colour identifies what the marker IS, matching its header badge.
+	 * A KOL swap keeps its side encoded instead, since whether a tracked wallet
+	 * bought or dumped is the point of the marker.
+	 * `dev` is absent on purpose: those draw their own chef-hat badge and never
+	 * reach the ring.
+	 */
+	function markerRingColor(kind: MarkerSourceKind | undefined, isBuy: boolean | undefined): string {
+		if (kind === 'call') return tc('--t-yel');
+		if (kind === 'thesis') return tc('--t-blu');
+		if (kind === 'tweet') return tc('--t-wh');
+		if (kind === 'kol') return isBuy === false ? tc('--t-red') : tc('--t-grn');
+		return tc('--t-s0');
+	}
 	type CallAvatarData = { time: number; high: number; callers: CallAvatarCaller[] };
 
 	class CallAvatarPrimitive {
@@ -538,7 +800,7 @@
 				ctx.textBaseline = 'middle';
 				ctx.fillText(c.name[0]?.toUpperCase() ?? '?', cx, cy);
 			}
-			const ringColor = c.isBuy === undefined ? tc('--t-s0') : c.isBuy ? tc('--t-grn') : tc('--t-red');
+			const ringColor = markerRingColor(c.sourceKind, c.isBuy);
 			ctx.strokeStyle = ringColor;
 			ctx.lineWidth = Math.max(1.5, 2.5 * ratio);
 			ctx.beginPath();
@@ -705,8 +967,12 @@
 		devMarkers = [];
 		userSwapMarkers = [];
 		callMarkers = [];
+		thesisMarkers = [];
+		tweetMarkers = [];
 		kolByCandle = new Map();
 		devByCandle = new Map();
+		thesisByCandle = new Map();
+		tweetByCandle = new Map();
 		markerTimes = new Set();
 		markerArraysDirty = false;
 		migrationMarker = null;
@@ -717,27 +983,43 @@
 		devMarkers = [];
 		userSwapMarkers = [];
 		callMarkers = [];
+		thesisMarkers = [];
+		tweetMarkers = [];
 		for (const m of markersById.values()) {
 			if ('timestamp' in m && typeof m.timestamp === 'number') markerTimes.add(Math.floor(m.timestamp / 1000));
 			if (m.kind === 'KOL') kolMarkers.push(m as ChartMarkerSwap);
 			else if (m.kind === 'DEV') devMarkers.push(m as ChartMarkerSwap);
 			else if (m.kind === 'USER_SWAP') userSwapMarkers.push(m as UserSwapMarker);
 			else if (m.kind === 'CALL') callMarkers.push(m as unknown as WatchlistCallItem);
+			else if (m.kind === 'THESIS') thesisMarkers.push(m);
+			else if (m.kind === 'TWEET') tweetMarkers.push(m);
 		}
 		markerArraysDirty = false;
 	}
 
-	async function fetchMarkerRange(from: number, to: number, gen: number): Promise<boolean> {
-		if (to <= from) return true;
+	async function fetchMarkerRange(from: number, to: number, gen: number): Promise<number | null> {
+		if (to <= from) return from;
+		// `minUsd`/`maxUsd` narrow KOL and DEV markers only; the viewer's own
+		// USER_SWAP markers are never size-filtered. Annotated with `QueryOf` so a
+		// renamed param is a type error, not a silently ignored query key.
+		const query: QueryOf<'/v2/token/{chain}/{address}/chart-markers'> = {
+			from,
+			to,
+			minUsd: markerMinUsd,
+			maxUsd: markerMaxUsd ?? undefined,
+			curated: curatedActive || undefined
+		};
 		const { data } = await api.GET('/v2/token/{chain}/{address}/chart-markers', {
-			params: { path: { chain: chain as Chain, address }, query: { from, to } }
+			params: { path: { chain: chain as Chain, address }, query }
 		});
-		if (disposed || gen !== markersFetchGen) return false;
+		if (disposed || gen !== markersFetchGen) return null;
 		for (const m of data?.markers ?? []) {
 			if (m.kind === 'MIGRATION') migrationMarker = m;
 			else if ('id' in m && m.id) markersById.set(m.id, m);
 		}
-		return true;
+		// The backend reports the window it actually read; a clamped request covers
+		// less than it asked for, and trusting the request would strand history.
+		return data?.from ?? from;
 	}
 
 	async function fetchChartMarkers() {
@@ -762,8 +1044,9 @@
 			const gen = ++markersFetchGen;
 			try {
 				const dataTo = allCandleData[allCandleData.length - 1].time;
-				if (!await fetchMarkerRange(wantFrom, dataTo, gen)) return;
-				markersCoveredFrom = wantFrom;
+				const covered = await fetchMarkerRanges(wantFrom, dataTo as number, gen);
+				if (covered === null) return;
+				markersCoveredFrom = covered;
 				markersCoveredTo = Infinity;
 				rebuildMarkerArrays();
 				updateMarkers();
@@ -775,8 +1058,11 @@
 		if (wantFrom >= markersCoveredFrom) return;
 		const gen = ++markersFetchGen;
 		try {
-			if (!await fetchMarkerRange(wantFrom, markersCoveredFrom, gen)) return;
-			markersCoveredFrom = wantFrom;
+			const covered = await fetchMarkerRanges(wantFrom, markersCoveredFrom, gen);
+			// No progress means every chunk budget went to newer history; the next
+			// pan will ask again rather than looping on the same range.
+			if (covered === null || covered >= markersCoveredFrom) return;
+			markersCoveredFrom = covered;
 			rebuildMarkerArrays();
 			updateMarkers();
 		} catch {
@@ -795,13 +1081,30 @@
 		markersCoalescer.clear();
 	}
 
+	/**
+	 * Bounds go over the wire as decimal STRINGS. `curated` needs an authenticated
+	 * socket — the subscription is refused, not downgraded — so it is only sent
+	 * when actually signed in.
+	 */
+	function markerFilterParams(): TokenChartMarkersFilterParams {
+		const params: TokenChartMarkersFilterParams = { minUsd: String(markerMinUsd) };
+		if (markerMaxUsd !== null) params.maxUsd = String(markerMaxUsd);
+		if (curatedActive) params.curated = true;
+		return params;
+	}
+
 	function setupMarkersWs(c: string, a: string) {
 		cleanupMarkersWs();
+		markersWsTarget = { chain: c, address: a };
 		const topic = `token:${c}:${a}:chart_markers`;
-		markersWsKey = subscribe(topic, (event, data) => {
-			if (event !== 'CHART_MARKERS' || !data) return;
-			markersCoalescer.push(data as ChartMarker);
-		});
+		markersWsKey = subscribe(
+			topic,
+			(event, data) => {
+				if (event !== 'CHART_MARKERS' || !data) return;
+				markersCoalescer.push(data as ChartMarker);
+			},
+			markerFilterParams()
+		);
 	}
 
 	function updateMigrationMarker() {
@@ -822,9 +1125,13 @@
 	function buildCallAvatarData(): CallAvatarData[] {
 		const useCalls = showCalls && callMarkers.length > 0;
 		const useKols = showKols && (kolMarkers.length > 0 || devMarkers.length > 0);
-		if (!useCalls && !useKols) {
+		const useTheses = showTheses && thesisMarkers.length > 0;
+		const useTweets = showTweets && tweetMarkers.length > 0;
+		if (!useCalls && !useKols && !useTheses && !useTweets) {
 			kolByCandle = new Map();
 			devByCandle = new Map();
+			thesisByCandle = new Map();
+			tweetByCandle = new Map();
 			return [];
 		}
 		// Group by candle, then dedupe by wallet/name within the candle so the same
@@ -843,7 +1150,41 @@
 			const name = 'name' in call.caller ? call.caller.name ?? '?' : '?';
 			const pid = 'photoId' in call.caller ? call.caller.photoId : undefined;
 			const wa = getWalletAddress(call.caller as Record<string, unknown>);
-			pushAt(Math.floor(call.callDetails.calledAtTimestamp / 1000), wa ?? `n:${name}`, { photoUrl: avatarUrl(pid), walletAddress: wa, name });
+			pushAt(Math.floor(call.callDetails.calledAtTimestamp / 1000), wa ?? `n:${name}`, { photoUrl: avatarUrl(pid), walletAddress: wa, name, sourceKind: 'call' });
+		}
+		// A thesis author is a wallet, so identity resolves through the same label
+		// cache as KOL markers; a Fomo author with no wallet bind has neither.
+		thesisByCandle = new Map();
+		if (useTheses) for (const thesis of thesisMarkers) {
+			const label = thesis.labels?.[0];
+			const key = thesis.authorWallet ?? `t:${thesis.id}`;
+			const tc = nearestCandle(Math.floor(thesis.timestamp / 1000));
+			if (tc) {
+				const arr = thesisByCandle.get(tc.time);
+				if (arr) arr.push(thesis);
+				else thesisByCandle.set(tc.time, [thesis]);
+			}
+			pushAt(Math.floor(thesis.timestamp / 1000), key, {
+				photoUrl: avatarUrl(label?.photoId ?? undefined),
+				walletAddress: thesis.authorWallet,
+				name: label?.label ?? 'Thesis',
+				sourceKind: 'thesis'
+			});
+		}
+		// A tweet has no wallet at all — it is keyed by handle.
+		tweetByCandle = new Map();
+		if (useTweets) for (const tweet of tweetMarkers) {
+			const wc = nearestCandle(Math.floor(tweet.timestamp / 1000));
+			if (wc) {
+				const arr = tweetByCandle.get(wc.time);
+				if (arr) arr.push(tweet);
+				else tweetByCandle.set(wc.time, [tweet]);
+			}
+			pushAt(Math.floor(tweet.timestamp / 1000), `x:${tweet.handle}`, {
+				photoUrl: photoResolve(tweet.photoId),
+				name: tweet.name ?? tweet.handle,
+				sourceKind: 'tweet'
+			});
 		}
 		kolByCandle = new Map();
 		if (useKols) for (const kol of kolMarkers) {
@@ -859,7 +1200,8 @@
 				photoUrl: avatarUrl(label?.photoId ?? undefined),
 				walletAddress: kol.walletAddress,
 				name: label?.label ?? '?',
-				isBuy
+				isBuy,
+				sourceKind: 'kol'
 			});
 		}
 		devByCandle = new Map();
@@ -877,7 +1219,8 @@
 				walletAddress: dev.walletAddress,
 				name: label?.label ?? 'Dev',
 				isBuy,
-				isDev: true
+				isDev: true,
+				sourceKind: 'dev'
 			});
 		}
 		const candleMap = new Map(allCandleData.map((c: any) => [c.time, c]));
@@ -1310,6 +1653,12 @@
 			magnitudeKey = nextMagnitudeKey;
 			priceScaleResetPending = true;
 		}
+		// A different token or candle size means the old zoom describes nothing.
+		const nextViewportKey = `${chain}:${address}:${frame}`;
+		if (nextViewportKey !== viewportKey) {
+			viewportKey = nextViewportKey;
+			viewportResetPending = true;
+		}
 		loading = true;
 		error = '';
 		noMoreCandles = false;
@@ -1613,16 +1962,44 @@
 
 <div class="relative overflow-hidden rounded-xl border border-bd bg-s4">
 	<div class="flex items-center gap-px border-b border-bd bg-s0 px-1.5 py-1">
-		{#each frames as f}
-			<button
-				class="rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide transition-all duration-150 {selectedFrame === f.value
-					? 'bg-wh/10 text-tx'
-					: 'text-g5 hover:bg-s7 hover:text-g9'}"
-				onclick={() => setSelectedFrame(f.value)}
-			>
-				{f.label}
-			</button>
-		{/each}
+		{#if frameDropdown}
+			<div class="relative">
+				<button
+					class="cursor-pointer flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide transition-all duration-150 {frameMenuOpen
+						? 'bg-wh/10 text-tx'
+						: 'text-g5 hover:bg-s7 hover:text-g9'}"
+					onclick={() => (frameMenuOpen = !frameMenuOpen)}
+					title="Candle size"
+				>
+					{selectedFrameLabel}
+					<ChevronDown class="h-3 w-3 transition-transform {frameMenuOpen ? 'rotate-180' : ''}" />
+				</button>
+				{#if frameMenuOpen}
+					<button type="button" class="fixed inset-0 z-20 cursor-default" onclick={() => (frameMenuOpen = false)} aria-label="Close candle size menu"></button>
+					<div class="absolute left-0 top-full z-30 mt-1 w-20 overflow-hidden rounded-lg border border-bd bg-s5 py-1 shadow-2xl">
+						{#each frames as f}
+							<button
+								class="cursor-pointer flex w-full items-center px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors hover:bg-wh/5 {selectedFrame === f.value ? 'text-tx' : 'text-g5'}"
+								onclick={() => { setSelectedFrame(f.value); frameMenuOpen = false; }}
+							>
+								{f.label}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{:else}
+			{#each frames as f}
+				<button
+					class="cursor-pointer rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide transition-all duration-150 {selectedFrame === f.value
+						? 'bg-wh/10 text-tx'
+						: 'text-g5 hover:bg-s7 hover:text-g9'}"
+					onclick={() => setSelectedFrame(f.value)}
+				>
+					{f.label}
+				</button>
+			{/each}
+		{/if}
 		<div class="ml-auto flex items-center gap-1.5">
 			{#if fetchingMore}
 				<div class="flex items-center gap-1.5 text-[11px] text-g5">
@@ -1632,7 +2009,7 @@
 			{/if}
 			<div class="relative">
 				<button
-					class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all duration-150 {markerMenuOpen
+					class="cursor-pointer flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all duration-150 {markerMenuOpen
 						? 'bg-wh/10 text-tx'
 						: 'text-g5 hover:bg-s7 hover:text-g9'}"
 					onclick={() => (markerMenuOpen = !markerMenuOpen)}
@@ -1644,9 +2021,9 @@
 				{#if markerMenuOpen}
 					<button type="button" class="fixed inset-0 z-20 cursor-default" onclick={() => (markerMenuOpen = false)} aria-label="Close markers menu"></button>
 					<div class="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-lg border border-bd bg-s5 py-1 shadow-2xl">
-						{#snippet markerRow(label: string, active: boolean, Icon: any, kind: 'user' | 'calls' | 'kols')}
+						{#snippet markerRow(label: string, active: boolean, Icon: any, kind: 'user' | 'calls' | 'kols' | 'theses' | 'tweets')}
 							<button
-								class="flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors hover:bg-wh/5 {active ? 'text-tx' : 'text-g5'}"
+								class="cursor-pointer flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors hover:bg-wh/5 {active ? 'text-tx' : 'text-g5'}"
 								onclick={() => toggleMarkerVis(kind)}
 							>
 								<Icon class="h-3.5 w-3.5 shrink-0" />
@@ -1659,11 +2036,59 @@
 						{@render markerRow('Your swaps', showUserSwaps, UserRound, 'user')}
 						{@render markerRow('Calls', showCalls, Megaphone, 'calls')}
 						{@render markerRow('KOLs', showKols, Crown, 'kols')}
+						{@render markerRow('Theses', showTheses, MessageSquareQuote, 'theses')}
+						{@render markerRow('Tweets', showTweets, XLogo, 'tweets')}
+						{#if getIsLoggedIn()}
+							<button
+								class="cursor-pointer flex w-full items-center gap-2 px-3 py-1.5 text-xs transition-colors hover:bg-wh/5 {curatedActive ? 'text-tx' : 'text-g5'}"
+								onclick={toggleMarkerCurated}
+								title="Only wallets you follow"
+							>
+								<UserCheck class="h-3.5 w-3.5 shrink-0" />
+								<span class="flex-1 text-left">My wallets only</span>
+								<span class="relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors {curatedActive ? 'bg-grn' : 'bg-bd2'}">
+									<span class="absolute h-3 w-3 rounded-full bg-wh transition-all {curatedActive ? 'left-[14px]' : 'left-0.5'}"></span>
+								</span>
+							</button>
+						{/if}
+						<div class="mt-1 border-t border-bd/40 px-3 pb-1 pt-2">
+							<div class="mb-1 flex items-center justify-between">
+								<span class="text-[10px] font-medium uppercase tracking-wider text-g5">Trade size</span>
+								{#if markerMinUsd !== MARKER_MIN_USD_DEFAULT || markerMaxUsd !== null}
+									<button
+										class="cursor-pointer text-[10px] text-g4 transition-colors hover:text-g8"
+										onclick={() => applyMarkerSizeFilter(MARKER_MIN_USD_DEFAULT, null)}
+									>reset</button>
+								{/if}
+							</div>
+							<div class="flex items-center gap-1">
+								<span class="shrink-0 text-[10px] text-g5">$</span>
+								<input
+									type="text"
+									inputmode="decimal"
+									value={markerMinUsd}
+									onchange={(e) => onMarkerMinInput((e.currentTarget as HTMLInputElement).value)}
+									class="min-w-0 flex-1 rounded border border-bd bg-s4 px-1 py-px text-[10px] text-tx outline-none"
+									aria-label="Minimum marker trade size in USD"
+								/>
+								<span class="shrink-0 text-[10px] text-g5">–</span>
+								<input
+									type="text"
+									inputmode="decimal"
+									value={markerMaxUsd ?? ''}
+									placeholder="any"
+									onchange={(e) => onMarkerMaxInput((e.currentTarget as HTMLInputElement).value)}
+									class="min-w-0 flex-1 rounded border border-bd bg-s4 px-1 py-px text-[10px] text-tx outline-none placeholder:text-g4"
+									aria-label="Maximum marker trade size in USD"
+								/>
+							</div>
+							<div class="mt-1 text-[9px] leading-tight text-g4">KOL &amp; dev markers only</div>
+						</div>
 					</div>
 				{/if}
 			</div>
 			<button
-				class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all duration-150 {showMarketCap
+				class="cursor-pointer flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all duration-150 {showMarketCap
 					? 'bg-wh/10 text-tx'
 					: 'text-g5 hover:bg-s7 hover:text-g9'}"
 				onclick={() => setShowMarketCap(!showMarketCap)}
@@ -1699,12 +2124,77 @@
 		>
 			{frames.find((f) => f.value === selectedFrame)?.label ?? selectedFrame}
 		</div>
-			{#if chartTooltip?.kol}
+			{#if chartTooltip}
+			<div
+				use:portal
+				bind:this={tooltipEl}
+				class="fixed z-[150]"
+				style="left: {tooltipLeft}px; top: {chartTooltip.y}px; transform: translate(-50%, {tooltipBelow ? '10px' : '-100%'});"
+				onwheel={(e) => e.stopPropagation()}
+			>
+			{#if chartTooltip?.posts && !chartTooltip.kol}
+				{@const p = chartTooltip.posts}
+				<div class="w-[19rem] overflow-hidden rounded-xl border border-bd bg-s5 shadow-2xl backdrop-blur-md">
+					<div class="flex items-center gap-2 border-b border-bd bg-s1/60 px-3 py-2">
+						<MessageSquareQuote class="h-3.5 w-3.5 shrink-0 text-blu-light" strokeWidth={2} />
+						<span class="text-[11px] font-bold uppercase tracking-wider text-tx">Posts</span>
+						<span class="rounded-full bg-wh/10 px-1.5 py-px text-[10px] font-bold tabular-nums text-g8">
+							{p.theses.length + p.tweets.length}
+						</span>
+						<button type="button" class="-m-1.5 ml-auto cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx" onclick={() => (chartTooltip = null)} aria-label="Close">
+							<XIcon class="h-3.5 w-3.5" />
+						</button>
+					</div>
+					<div class="max-h-72 space-y-1.5 overflow-y-auto p-1.5">
+						{#each p.theses as thesis (thesis.id)}
+							{@const label = thesis.labels?.[0]}
+							<div class="rounded-lg bg-s2 p-2 ring-1 ring-bd/40 transition-colors hover:bg-wh/5">
+								<div class="flex items-center gap-2">
+									{@render postAvatar(label?.photoId, thesis.authorWallet, thesis.source)}
+									<span class="min-w-0 flex-1 truncate text-[11px] font-semibold text-tx">{label?.label ?? 'Anon'}</span>
+									<span class="shrink-0 text-[10px] tabular-nums text-g5">{ageFromSeconds(thesis.ageSeconds)}</span>
+								</div>
+								<p class="mt-1.5 line-clamp-4 whitespace-pre-wrap break-words text-[11.5px] leading-relaxed text-g9">{thesis.text}</p>
+								{#if thesis.likes > 0 || thesis.marketCapUsd}
+									<div class="mt-1.5 flex items-center gap-1">
+										{#if thesis.marketCapUsd}
+											<span class="rounded bg-s4 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-g8">{formatUsd(String(thesis.marketCapUsd))}</span>
+										{/if}
+										{#if thesis.likes > 0}
+											<span class="flex items-center gap-0.5 rounded bg-s4 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-g8">
+												<Heart class="h-2.5 w-2.5" strokeWidth={2.25} />{formatCompactCount(thesis.likes)}
+											</span>
+										{/if}
+									</div>
+								{/if}
+							</div>
+						{/each}
+						{#each p.tweets as tweet (tweet.id)}
+							<a
+								href={tweet.url}
+								target="_blank"
+								rel="noopener"
+								class="block rounded-lg bg-s2 p-2 ring-1 ring-bd/40 transition-colors hover:bg-wh/5"
+							>
+								<div class="flex items-center gap-2">
+									{@render postAvatar(tweet.photoId, null, 'X')}
+									<span class="min-w-0 flex-1 truncate text-[11px] font-semibold text-tx">{tweet.name ?? tweet.handle}</span>
+									<span class="shrink-0 text-[10px] tabular-nums text-g5">{ageFromSeconds(tweet.ageSeconds)}</span>
+								</div>
+								<p class="mt-1.5 line-clamp-4 whitespace-pre-wrap break-words text-[11.5px] leading-relaxed text-g9">{tweet.text}</p>
+								<div class="mt-1.5 flex items-center gap-1">
+									<span class="truncate rounded bg-s4 px-1.5 py-0.5 text-[10px] font-medium text-g8">@{tweet.handle}</span>
+									{#if tweet.followers}
+										<span class="rounded bg-s4 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-g8">{formatCompactCount(tweet.followers)}</span>
+									{/if}
+								</div>
+							</a>
+						{/each}
+					</div>
+				</div>
+			{:else if chartTooltip?.kol}
 				{@const k = chartTooltip.kol}
-				<div
-					class="absolute z-20 w-64 rounded-lg border border-bd bg-s5 shadow-2xl"
-					style="left: {chartTooltip.x}px; top: {chartTooltip.y}px; transform: translate(-50%, -100%);"
-				>
+				<div class="w-64 rounded-lg border border-bd bg-s5 shadow-2xl">
 					<div class="flex items-center justify-between border-b border-bd px-3 py-2">
 						<span class="text-[11px] font-bold text-tx">{k.rows.length} wallet{k.rows.length !== 1 ? 's' : ''}</span>
 						<button type="button" class="cursor-pointer text-g5 transition-colors hover:text-tx" onclick={() => (chartTooltip = null)} aria-label="Close"><span class="text-sm leading-none">&times;</span></button>
@@ -1749,14 +2239,36 @@
 					</div>
 				</div>
 			{:else if chartTooltip?.lines}
-				<div
-					class="absolute z-20 rounded-lg border border-bd bg-s5 px-2.5 py-1.5 shadow-lg"
-					style="left: {chartTooltip.x}px; top: {chartTooltip.y}px; transform: translate(-50%, -100%);"
-				>
+				<div class="rounded-lg border border-bd bg-s5 px-2.5 py-1.5 shadow-lg">
 					{#each chartTooltip.lines as line}
 						<div class="whitespace-nowrap text-[11px] font-medium text-tx">{line}</div>
 					{/each}
 				</div>
 			{/if}
+			</div>
+			{/if}
 	</div>
 </div>
+
+{#snippet postAvatar(photo: string | null | undefined, wallet: string | null | undefined, source: 'PUMPFUN' | 'FOMO' | 'X')}
+	{@const src = photoResolve(photo)}
+	<div class="relative h-6 w-6 shrink-0">
+		{#if src}
+			<img src={src} alt="" class="h-6 w-6 rounded-full object-cover ring-1 ring-bd" loading="lazy" onerror={hideImg} />
+		{:else if wallet}
+			<img src={getWalletIconUrl(wallet)} alt="" class="h-6 w-6 rounded-full ring-1 ring-bd" loading="lazy" />
+		{:else}
+			<div class="h-6 w-6 rounded-full bg-s4 ring-1 ring-bd"></div>
+		{/if}
+		<span
+			class="absolute -bottom-1 -left-1 flex h-3 w-3 items-center justify-center overflow-hidden rounded-full bg-s6 ring-1 ring-s6"
+			title={source === 'FOMO' ? 'FOMO' : source === 'X' ? 'X' : 'Pump.fun'}
+		>
+			{#if source === 'X'}
+				<XLogo class="h-2 w-2 text-tx" />
+			{:else}
+				<img src={source === 'FOMO' ? '/entity-icons/fomo.webp' : '/entity-icons/pumpfun.webp'} alt="" class="h-full w-full object-cover" />
+			{/if}
+		</span>
+	</div>
+{/snippet}

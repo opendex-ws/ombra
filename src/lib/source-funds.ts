@@ -50,23 +50,28 @@ export function fundingSourceOf(
 	return value?.fundingSource ?? null;
 }
 
-export function preserveFundingSources<
+/**
+ * `fundingSource` and `pnlSparkline` are REST-only — the top-traders WS snapshot
+ * omits both. A snapshot replaces the rendered rows, so without carrying them
+ * across, funding badges and sparklines vanish on the first live update.
+ */
+export function preserveRestOnlyTraderFields<
 	T extends {
 		walletAddress: string;
 		fundingSource?: FundingSourcePreview | null;
+		pnlSparkline?: unknown;
 	}
 >(current: T[], incoming: T[]): T[] {
-	const fundingByWallet = new Map(
-		current
-			.filter((item) => item.fundingSource)
-			.map((item) => [item.walletAddress, item.fundingSource] as const)
-	);
-	return incoming.map((item) =>
-		item.fundingSource || !fundingByWallet.has(item.walletAddress)
-			? item
-			: {
-					...item,
-					fundingSource: fundingByWallet.get(item.walletAddress) ?? null
-				}
-	);
+	const byWallet = new Map(current.map((item) => [item.walletAddress, item] as const));
+	return incoming.map((item) => {
+		const previous = byWallet.get(item.walletAddress);
+		if (!previous) return item;
+		const merged = { ...item };
+		if (!merged.fundingSource && previous.fundingSource) merged.fundingSource = previous.fundingSource;
+		if (merged.pnlSparkline === undefined && previous.pnlSparkline !== undefined) {
+			merged.pnlSparkline = previous.pnlSparkline;
+		}
+		return merged;
+	});
 }
+

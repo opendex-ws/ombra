@@ -13,7 +13,7 @@
 	import Filter from 'lucide-svelte/icons/funnel';
 	import { portal } from '$lib/actions/portal';
 	import { siX } from 'simple-icons';
-	import { api } from '$lib/api/client';
+	import { api, type QueryOf } from '$lib/api/client';
 	import { subscribe, unsubscribe } from '$lib/ws/client';
 	import { createCoalescer } from '$lib/utils/coalesce';
 	import { timeAgo, fullDateTime, formatMarketCap, formatCompactCount } from '$lib/utils/format';
@@ -194,11 +194,11 @@
 	});
 
 	async function fetchPage(cursor?: string) {
-		const query: Record<string, unknown> = {};
+		const query: QueryOf<'/v2/twitter/events'> = {};
 		if (cursor) query.cursor = cursor;
 		if (onlyCa) query.onlyCa = true;
-		if (selectedActions.size > 0) query.actions = [...selectedActions].map(a => a.toUpperCase()).sort().join(',');
-		if (selectedTags.size > 0) query.tags = [...selectedTags].sort().join(',');
+		if (selectedActions.size > 0) query.actions = [...selectedActions].map((a) => a.toUpperCase()).sort();
+		if (selectedTags.size > 0) query.tags = [...selectedTags].sort();
 		if (minFollowersNum > 0) query.minFollowers = minFollowersNum;
 		if (searchText.trim()) {
 			query.search = searchText.trim();
@@ -696,24 +696,28 @@
 		class="flex shrink-0 items-center gap-2 border-b border-bd px-3 py-1.5 {!mobile && getTwitterFeedPopout() ? (floatDragging ? 'cursor-grabbing' : 'cursor-grab') : ''}"
 		onmousedown={onFloatDragDown}
 	>
-		<svg viewBox="0 0 24 24" class="h-3 w-3 shrink-0 fill-tx"><path d={siX.path} /></svg>
+		{#if !compact && !mobile}
+			<svg viewBox="0 0 24 24" class="h-3 w-3 shrink-0 fill-tx"><path d={siX.path} /></svg>
+		{/if}
 		{#if view === 'manage'}
 			<button onclick={() => (view = 'feed')} class="flex cursor-pointer items-center gap-1 text-[11px] font-bold text-tx transition-colors hover:text-g8">
 				<ArrowLeft class="h-3 w-3" /> Manage Users
 			</button>
 		{:else}
-			<span class="text-[11px] font-bold text-tx">Feed</span>
+			{#if !compact && !mobile}
+				<span class="text-[11px] font-bold text-tx">Feed</span>
+			{/if}
 			{#if getIsLoggedIn()}
 				<div class="flex gap-0.5 rounded bg-s4 p-0.5">
 					<button
 						onclick={() => setMode('all')}
-						class="cursor-pointer rounded px-1.5 py-px text-[9px] font-semibold transition-colors {feedMode === 'all' ? 'bg-bd text-tx' : 'text-g5 hover:text-g8'}"
+						class="cursor-pointer rounded px-2.5 py-1 text-[11px] font-semibold transition-colors md:px-1.5 md:py-px md:text-[9px] {feedMode === 'all' ? 'bg-bd text-tx' : 'text-g5 hover:text-g8'}"
 					>
 						All
 					</button>
 					<button
 						onclick={() => setMode('mine')}
-						class="cursor-pointer rounded px-1.5 py-px text-[9px] font-semibold transition-colors {feedMode === 'mine' ? 'bg-bd text-tx' : 'text-g5 hover:text-g8'}"
+						class="cursor-pointer rounded px-2.5 py-1 text-[11px] font-semibold transition-colors md:px-1.5 md:py-px md:text-[9px] {feedMode === 'mine' ? 'bg-bd text-tx' : 'text-g5 hover:text-g8'}"
 					>
 						Mine
 					</button>
@@ -721,44 +725,44 @@
 			{/if}
 			<button
 				onclick={() => setOnlyCa(!onlyCa)}
-				class="cursor-pointer rounded px-1.5 py-px text-[10px] font-semibold transition-colors {onlyCa ? 'bg-grn/20 text-grn' : 'bg-s4 text-g5 hover:text-g8'}"
+				class="cursor-pointer rounded px-2.5 py-1 text-[11px] font-semibold transition-colors md:px-1.5 md:py-px md:text-[10px] {onlyCa ? 'bg-grn/20 text-grn' : 'bg-s4 text-g5 hover:text-g8'}"
 				title="Only events with a token contract"
 			>
 				CA
 			</button>
 			<button
 				onclick={() => (showTypeFilter = !showTypeFilter)}
-				class="relative cursor-pointer p-0.5 transition-colors {showTypeFilter ? 'text-tx' : typeFilterCount > 0 ? 'text-grn' : 'text-g4 hover:text-tx'}"
+				class="relative cursor-pointer p-1.5 transition-colors md:p-0.5 {showTypeFilter ? 'text-tx' : typeFilterCount > 0 ? 'text-grn' : 'text-g4 hover:text-tx'}"
 				title="Filter by type and tags"
 			>
-				<Filter class="h-3 w-3" strokeWidth={2} />
+				<Filter class="h-4 w-4 md:h-3 md:w-3" strokeWidth={2} />
 				{#if typeFilterCount > 0}
 					<span class="absolute -right-1 -top-1 flex h-3 min-w-3 items-center justify-center rounded-full bg-grn px-0.5 text-[8px] font-bold text-s0">{typeFilterCount}</span>
 				{/if}
 			</button>
 			<button
 				onclick={() => { showSearch = !showSearch; if (!showSearch && searchText) { searchText = ''; applyTypeFilters(); } }}
-				class="cursor-pointer p-0.5 transition-colors {showSearch || searchText ? 'text-grn' : 'text-g4 hover:text-tx'}"
+				class="cursor-pointer p-1.5 transition-colors md:p-0.5 {showSearch || searchText ? 'text-grn' : 'text-g4 hover:text-tx'}"
 				title="Search tokens and keywords"
 			>
-				<Search class="h-3 w-3" strokeWidth={2} />
+				<Search class="h-4 w-4 md:h-3 md:w-3" strokeWidth={2} />
 			</button>
 		{/if}
 		<div class="ml-auto flex items-center gap-1">
 			{#if getIsLoggedIn() && view === 'feed'}
 				<button
 					onclick={openManage}
-					class="cursor-pointer p-0.5 text-g4 transition-colors hover:text-tx"
+					class="cursor-pointer p-1.5 text-g4 transition-colors hover:text-tx md:p-0.5"
 					aria-label="Manage followed users"
 					title="Manage followed users"
 				>
-					<Users class="h-3.5 w-3.5" />
+					<Users class="h-4 w-4 md:h-3.5 md:w-3.5" />
 				</button>
 			{/if}
 			{#if !mobile && !compact}
 				<button
 					onclick={() => { const next = !getTwitterFeedPopout(); setTwitterFeedPopout(next); if (next) bringToFront('twitter'); }}
-					class="cursor-pointer p-0.5 text-g4 transition-colors hover:text-tx"
+					class="cursor-pointer p-1.5 text-g4 transition-colors hover:text-tx md:p-0.5"
 					aria-label={getTwitterFeedPopout() ? 'Dock feed' : 'Pop out feed'}
 					title={getTwitterFeedPopout() ? 'Dock back to sidebar' : 'Pop out to floating window'}
 				>
@@ -770,7 +774,7 @@
 				</button>
 				<button
 					onclick={toggleTwitterFeedCollapsed}
-					class="cursor-pointer p-0.5 text-g4 transition-colors hover:text-tx"
+					class="cursor-pointer p-1.5 text-g4 transition-colors hover:text-tx md:p-0.5"
 					aria-label={getTwitterFeedCollapsed() ? 'Expand feed' : 'Collapse feed'}
 				>
 					<ChevronDown class="h-3.5 w-3.5 transition-transform duration-200 {getTwitterFeedCollapsed() ? 'rotate-180' : ''}" />
@@ -795,7 +799,7 @@
 				{#each ['BOTH', 'TOKEN', 'KEYWORD'] as const as mode}
 					<button
 						onclick={() => { searchMode = mode; if (searchText.trim()) applyTypeFilters(); }}
-						class="cursor-pointer rounded px-1.5 py-px text-[9px] font-semibold transition-colors {searchMode === mode ? 'bg-bd text-tx' : 'text-g5 hover:text-g8'}"
+						class="cursor-pointer rounded px-2.5 py-1 text-[11px] font-semibold transition-colors md:px-1.5 md:py-px md:text-[9px] {searchMode === mode ? 'bg-bd text-tx' : 'text-g5 hover:text-g8'}"
 					>
 						{mode === 'BOTH' ? 'All' : mode === 'TOKEN' ? 'Token' : 'Text'}
 					</button>
@@ -867,7 +871,7 @@
 		</div>
 	{/if}
 
-	{#if mobile || !getTwitterFeedCollapsed()}
+	{#if mobile || compact || !getTwitterFeedCollapsed()}
 		{#if view === 'manage'}
 			<div class="flex shrink-0 items-center gap-1.5 border-b border-bd p-2">
 				<div class="flex gap-0.5 rounded-md bg-s4 p-0.5">
@@ -957,7 +961,7 @@
 								<button
 									onclick={() => toggleFollowHandle(e.author.handle ?? '')}
 									disabled={handleMutating.has(e.author.handle.toLowerCase())}
-									class="absolute -bottom-1 -right-1 hidden h-4 w-4 cursor-pointer items-center justify-center rounded-full ring-1 ring-bd transition-colors group-hover/av:flex disabled:opacity-50 {subbed ? 'bg-grn text-s0 hover:bg-red hover:text-s0' : 'bg-s7 text-tx hover:bg-grn hover:text-s0'}"
+									class="absolute -bottom-1 -right-1 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full ring-1 ring-bd transition-colors disabled:opacity-50 md:h-4 md:w-4 md:hidden md:group-hover/av:flex {subbed ? 'bg-grn text-s0 hover:bg-red hover:text-s0' : 'bg-s7 text-tx hover:bg-grn hover:text-s0'}"
 									title={subbed ? 'Remove from my feed' : 'Add to my feed'}
 								>
 									{#if handleMutating.has(e.author.handle.toLowerCase())}
@@ -972,7 +976,7 @@
 						</div>
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-1.5">
-								<a href="https://x.com/{e.author.handle}" target="_blank" rel="noopener" class="truncate text-[11px] font-semibold text-tx hover:underline">{e.author.name ?? e.author.handle}</a>
+								<a href="https://x.com/{e.author.handle}" target="_blank" rel="noopener" class="truncate text-[13px] font-semibold text-tx hover:underline md:text-[11px]">{e.author.name ?? e.author.handle}</a>
 								<span class="shrink-0 text-[10px] text-g5">{formatCompactCount(e.author.followers ?? 0)}</span>
 								{#each (e.author.tags ?? []).slice(0, 2) as tag}
 									<span class="shrink-0 rounded bg-s7 px-1 py-px text-[8px] font-semibold uppercase tracking-wide text-g6">{tag}</span>
@@ -984,18 +988,18 @@
 											href="https://x.com/{e.author.handle}/status/{e.tweetId}"
 											target="_blank"
 											rel="noopener"
-											class="ml-auto shrink-0 text-[10px] text-g4 transition-colors hover:text-tx hover:underline cursor-help"
+											class="ml-auto shrink-0 cursor-help text-[11px] text-g4 transition-colors hover:text-tx hover:underline md:text-[10px]"
 											title={fullDateTime(e.timestamp)}
 										>
 											{timeAgo(e.timestamp, getNow())}
 										</a>
 									{:else}
-										<span class="ml-auto shrink-0 text-[10px] text-g4 cursor-help" title={fullDateTime(e.timestamp)}>{timeAgo(e.timestamp, getNow())}</span>
+										<span class="ml-auto shrink-0 cursor-help text-[11px] text-g4 md:text-[10px]" title={fullDateTime(e.timestamp)}>{timeAgo(e.timestamp, getNow())}</span>
 									{/if}
 								{/if}
 							</div>
 						{#if e.content?.text}
-							<div class="mt-0.5 whitespace-pre-line break-words text-[11px] leading-snug text-g8">{@html linkify(e.content.text)}</div>
+							<div class="mt-0.5 whitespace-pre-line break-words text-[14px] leading-relaxed text-g8 md:text-[11px] md:leading-snug">{@html linkify(e.content.text)}</div>
 						{/if}
 						{#if mediaItems.length > 0}
 							<div class="mt-1 grid gap-1 {mediaItems.length > 1 ? 'grid-cols-2' : ''}">
@@ -1055,8 +1059,8 @@
 									{/if}
 									<div class="min-w-0 flex-1">
 										<div class="flex items-center gap-1.5">
-											<span class="truncate text-[11px] font-semibold text-tx">{t.name ?? t.handle}</span>
-											<span class="truncate text-[10px] text-g5">@{t.handle}</span>
+											<span class="truncate text-[13px] font-semibold text-tx md:text-[11px]">{t.name ?? t.handle}</span>
+											<span class="truncate text-[12px] text-g5 md:text-[10px]">@{t.handle}</span>
 										</div>
 										<div class="text-[10px] text-g5">
 											<span class="font-semibold text-g8">{formatCompactCount(t.followers ?? 0)}</span> followers
@@ -1064,7 +1068,7 @@
 											<span class="font-semibold text-g8">{formatCompactCount(t.following ?? 0)}</span> following
 										</div>
 										{#if t.bio}
-											<div class="mt-0.5 line-clamp-2 text-[10px] leading-snug text-g6">{t.bio}</div>
+											<div class="mt-0.5 line-clamp-2 text-[12px] leading-snug text-g6 md:text-[10px]">{t.bio}</div>
 										{/if}
 									</div>
 								</a>

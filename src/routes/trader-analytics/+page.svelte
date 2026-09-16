@@ -1,12 +1,24 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { api } from '$lib/api/client';
-	import type { Chain, TraderRankItem, TraderRankingResponse, WalletTimeRange } from '$lib/api/types';
+	import type { Chain, TraderRankItem, TraderRankingResponse, WalletLabelSource, WalletTimeRange } from '$lib/api/types';
 	import { openTraderPortfolio } from '$lib/stores/traderAnalytics.svelte';
 	import { getIsDesktop } from '$lib/stores/viewport.svelte';
-	import { subscribe, unsubscribe } from '$lib/ws/client';
+	import { getSubscriptionWindows, subscribe, unsubscribe } from '$lib/ws/client';
 	import TraderRankingFilters from '$lib/components/trader-analytics/TraderRankingFilters.svelte';
-	import { TRADER_RANKING_FILTER_KEYS, type TraderRankingFilterKey, type TraderRankingFilterValues } from '$lib/components/trader-analytics/config';
+	import {
+		TRADER_RANKING_FILTER_KEYS,
+		type TraderRankingFilterKey,
+		type TraderRankingFilterValues,
+		type TraderRankingSource
+	} from '$lib/components/trader-analytics/config';
+	import {
+		dedupeTraders,
+		itemsMatchingSource,
+		mergeLiveRanking,
+		rankingSubscribeParams,
+		snapshotMatchesSource
+	} from '$lib/components/trader-analytics/rankingSnapshot';
 	import TraderRankingTable from '$lib/components/trader-analytics/TraderRankingTable.svelte';
 	import TraderRankingCard from '$lib/components/trader-analytics/TraderRankingCard.svelte';
 	import LoaderCircle from 'lucide-svelte/icons/loader-circle';
@@ -17,12 +29,15 @@
 
 	const validChains: Chain[] = ['SOL'];
 	const validTimeRanges: WalletTimeRange[] = ['ONE_DAY', 'SEVEN_DAY', 'THIRTY_DAY', 'NINETY_DAY'];
+	const validSources: WalletLabelSource[] = ['FOMO', 'PUMPFUN', 'KOL'];
 
 	let chain: Chain = $state('SOL');
 	let timeRange: WalletTimeRange = $state('ONE_DAY');
+	let source: TraderRankingSource = $state('');
 	let draftFilters: TraderRankingFilterValues = $state({});
 	let appliedFilters: TraderRankingFilterValues = $state({});
 	let items: TraderRankItem[] = $state([]);
+	const visibleItems = $derived(itemsMatchingSource(items, source));
 	let nextCursor: string | undefined = $state(undefined);
 	let loading = $state(true);
 	let refreshing = $state(false);
@@ -44,6 +59,8 @@
 		const nextTimeRange = params.get('timeRange') as WalletTimeRange | null;
 		if (nextChain && validChains.includes(nextChain)) chain = nextChain;
 		if (nextTimeRange && validTimeRanges.includes(nextTimeRange)) timeRange = nextTimeRange;
+		const nextSource = params.get('sources')?.trim().toUpperCase() ?? '';
+		source = validSources.includes(nextSource as WalletLabelSource) ? (nextSource as WalletLabelSource) : '';
 
 		const restored: TraderRankingFilterValues = {};
 		for (const key of TRADER_RANKING_FILTER_KEYS) {
@@ -60,6 +77,7 @@
 		const params = new URLSearchParams();
 		if (chain !== 'SOL') params.set('chain', chain);
 		if (timeRange !== 'ONE_DAY') params.set('timeRange', timeRange);
+		if (source) params.set('sources', source);
 		for (const key of TRADER_RANKING_FILTER_KEYS) {
 			const value = appliedFilters[key];
 			if (value !== undefined) params.set(key, String(value));
@@ -68,25 +86,24 @@
 		history.replaceState(history.state, '', query ? `/trader-analytics?${query}` : '/trader-analytics');
 	}
 
-	function dedupeTraders(nextItems: TraderRankItem[], existing: TraderRankItem[] = []): TraderRankItem[] {
-		const seen = new Set(existing.map((item) => `${item.chain}:${item.walletAddress}`));
-		return nextItems.filter((item) => {
-			const key = `${item.chain}:${item.walletAddress}`;
-			if (seen.has(key)) return false;
-			seen.add(key);
-			return true;
-		});
+	function snapshotWindowMatches(windowId: unknown): boolean {
+		if (typeof windowId !== 'string' || !rankingWsKey) return true;
+		const windows = getSubscriptionWindows(rankingWsKey);
+		if (!windows) return true;
+		return Object.values(windows).some((window) => window.windowId === windowId);
 	}
 
 	async function fetchRanking(reset: boolean, opts?: { soft?: boolean }) {
 		if (!reset && (!nextCursor || loadingMore)) return;
 		const nextChain = chain;
 		const nextTimeRange = timeRange;
+		const nextSource = source;
 		const filters = { ...appliedFilters };
-		cleanupRankingWs();
-		const generation = ++requestGeneration;
+		const sources = nextSource ? [nextSource] : undefined;
 		const keepVisible = !!(reset && opts?.soft && items.length > 0);
 		if (reset) {
+			cleanupRankingWs();
+			requestGeneration += 1;
 			if (keepVisible) refreshing = true;
 			else {
 				loading = true;
@@ -97,6 +114,7 @@
 		} else {
 			loadingMore = true;
 		}
+		const generation = requestGeneration;
 
 		try {
 			const cursor = reset ? undefined : nextCursor;
@@ -106,6 +124,7 @@
 						chain: nextChain,
 						timeRange: nextTimeRange,
 						cursor,
+						sources,
 						...filters
 					}
 				}
@@ -119,16 +138,19 @@
 				items = [...items, ...dedupeTraders(data.items, items)];
 			}
 			nextCursor = data.nextCursor;
-			rankingWsKey = subscribe('traders:ranking', (event, payload, topic) => {
-				if (event !== 'TRADER_RANKING' || topic !== 'traders:ranking' || generation !== requestGeneration) return;
-				const snapshot = payload as TraderRankingResponse;
-				if (!Array.isArray(snapshot?.items)) return;
-				items = dedupeTraders(snapshot.items);
-				nextCursor = snapshot.nextCursor;
-			}, { chain: nextChain, timeRange: nextTimeRange, ...filters, endCursor: data.cursor }, {
-				recovery: 'refetch',
-				onReconnect: () => { void fetchRanking(true, { soft: true }); }
-			});
+			if (reset) {
+				rankingWsKey = subscribe('traders:ranking', (event, payload, topic, meta) => {
+					if (event !== 'TRADER_RANKING' || topic !== 'traders:ranking' || generation !== requestGeneration) return;
+					const snapshot = payload as TraderRankingResponse;
+					if (!Array.isArray(snapshot?.items)) return;
+					if (!snapshotWindowMatches(meta?.windowId)) return;
+					if (!snapshotMatchesSource(snapshot.items, nextSource)) return;
+					items = mergeLiveRanking(snapshot.items, items);
+				}, rankingSubscribeParams(nextChain, nextTimeRange, sources, filters), {
+					recovery: 'refetch',
+					onReconnect: () => { void fetchRanking(true, { soft: true }); }
+				});
+			}
 		} catch (cause) {
 			if (generation !== requestGeneration) return;
 			error = cause instanceof Error ? cause.message : 'Unable to load trader rankings.';
@@ -155,6 +177,13 @@
 	function changeTimeRange(value: WalletTimeRange) {
 		if (value === timeRange) return;
 		timeRange = value;
+		syncUrl();
+		void fetchRanking(true);
+	}
+
+	function changeSource(value: TraderRankingSource) {
+		if (value === source) return;
+		source = value;
 		syncUrl();
 		void fetchRanking(true);
 	}
@@ -225,9 +254,11 @@
 		<TraderRankingFilters
 			{chain}
 			{timeRange}
+			{source}
 			filters={draftFilters}
 			onchainchange={changeChain}
 			ontimechange={changeTimeRange}
+			onsourcechange={changeSource}
 			onfilterchange={changeDraftFilter}
 			onapply={applyFilters}
 			onreset={resetDraftFilters}
@@ -247,26 +278,28 @@
 					<div class="skeleton h-32 rounded-xl" style="animation-delay: {index * 50}ms"></div>
 				{/each}
 			</div>
-		{:else if error && items.length === 0}
+		{:else if error && visibleItems.length === 0}
 			<div class="flex min-h-64 flex-col items-center justify-center gap-3 rounded-xl border border-bd bg-s1 p-6 text-center">
 				<div class="text-sm font-medium text-tx">Trader rankings are unavailable</div>
 				<div class="max-w-md text-xs text-g5">{error}</div>
 				<button type="button" class="btn-secondary px-4 py-2 text-xs" onclick={() => fetchRanking(true)}>Retry</button>
 			</div>
-		{:else if items.length === 0}
+		{:else if visibleItems.length === 0}
 			<div class="flex min-h-64 items-center justify-center rounded-xl border border-bd bg-s1 text-sm text-g6">No traders match these filters.</div>
 		{:else}
+			{#key `${chain}:${timeRange}:${source}`}
 			{#if isDesktop}
 			<div>
-				<TraderRankingTable {items} {timeRange} onselect={selectTrader} />
+				<TraderRankingTable items={visibleItems} {timeRange} onselect={selectTrader} preferSource={source} />
 			</div>
 			{:else}
 			<div class="space-y-2">
-				{#each items as item, index (`${item.chain}:${item.walletAddress}`)}
-					<TraderRankingCard {item} rank={index + 1} {timeRange} onselect={selectTrader} />
+				{#each visibleItems as item, index (`${item.chain}:${item.walletAddress}`)}
+					<TraderRankingCard {item} rank={index + 1} {timeRange} onselect={selectTrader} preferSource={source} />
 				{/each}
 			</div>
 			{/if}
+			{/key}
 
 			<div class="flex flex-col items-center gap-2 py-4">
 				{#if error}
