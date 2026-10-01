@@ -350,6 +350,19 @@
 			e.preventDefault();
 			if (showSearch) closeSearch();
 			else openSearch();
+			return;
+		}
+		if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey && !showSearch) {
+			const target = e.target as HTMLElement | null;
+			const isTyping =
+				target instanceof HTMLInputElement ||
+				target instanceof HTMLTextAreaElement ||
+				target instanceof HTMLSelectElement ||
+				target?.isContentEditable;
+			if (!isTyping) {
+				e.preventDefault();
+				openSearch();
+			}
 		}
 	}
 
