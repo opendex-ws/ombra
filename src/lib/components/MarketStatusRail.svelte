@@ -51,8 +51,11 @@
 	let diagnostics = $state<WsDiagnostics>(getWsDiagnostics());
 	let now = $derived(getNow());
 	let solPrice = $derived(getPegPrices().SOL);
+	let rhPrice = $derived(getPegPrices().RH);
 	let priceAgeMs = $derived(getPegAgeMs('SOL', now));
+	let rhPriceAgeMs = $derived(getPegAgeMs('RH', now));
 	let priceStale = $derived(priceAgeMs === undefined || priceAgeMs > 60_000);
+	let rhPriceStale = $derived(rhPrice != null && (rhPriceAgeMs === undefined || rhPriceAgeMs > 60_000));
 	let pongAgeMs = $derived(
 		diagnostics.lastPongAtMs === undefined ? undefined : Math.max(0, now - diagnostics.lastPongAtMs)
 	);
@@ -142,11 +145,11 @@
 	<span class="mx-1 h-3 w-px shrink-0 bg-bd2" aria-hidden="true"></span>
 {/snippet}
 
-{#snippet mobileRow(label: string, value: string, icon: string)}
+{#snippet mobileRow(label: string, value: string, icon: string, stale = false)}
 	<div class="flex items-center gap-2 px-3 py-1.5">
 		<ChainIcon chain={icon} class="h-3.5 w-3.5 shrink-0 text-grn" />
 		<span class="flex-1 text-g6">{label}</span>
-		<span class="font-mono {priceStale ? 'text-yel' : 'text-g9'}">{value}</span>
+		<span class="font-mono {stale ? 'text-yel' : 'text-g9'}">{value}</span>
 	</div>
 {/snippet}
 
@@ -159,6 +162,15 @@
 				{solPrice ? formatUsd(solPrice) : '—'}
 			</span>
 		</span>
+		{#if rhPrice}
+			<span class="inline-flex items-center gap-1" title={rhPriceStale ? 'Last accepted RH ETH/USD price is older than 60 seconds' : 'Live Robinhood ETH/USD price'}>
+				<ChainIcon chain="RH" class="h-3 w-3 text-grn" />
+				<span class="sr-only">RH</span>
+				<span class="font-mono {getPegFlash('RH')} {rhPriceStale ? 'text-yel' : 'text-g9'}">
+					{formatUsd(rhPrice)}
+				</span>
+			</span>
+		{/if}
 		{@render railDivider()}
 		<span class="inline-flex items-center gap-1" title={statusTitle}>
 			<span class="sr-only">{connectionLabel}</span>
@@ -222,7 +234,10 @@
 						? `bottom: ${mobileRailPos.y}px`
 						: `top: ${mobileRailPos.y}px`}"
 				>
-					{@render mobileRow('SOL', solPrice ? formatUsd(solPrice) : '—', 'SOL')}
+					{@render mobileRow('SOL', solPrice ? formatUsd(solPrice) : '—', 'SOL', priceStale)}
+					{#if rhPrice}
+						{@render mobileRow('RH', formatUsd(rhPrice), 'RH', rhPriceStale)}
+					{/if}
 					<div class="my-1 border-t border-bd/40"></div>
 					<div class="flex items-center gap-2 px-3 py-1.5">
 						<span class="flex-1 text-g6">{connectionLabel}</span>

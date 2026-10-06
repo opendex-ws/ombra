@@ -2,9 +2,11 @@
 	import { page } from '$app/state';
 	import { tokenImage } from '$lib/api/config';
 	import ChainIcon from './ChainIcon.svelte';
+	import TokenChainBadge from './TokenChainBadge.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
-	import { getIsLoggedIn, getWalletAddress, getIsConnecting, getAuthError, connectWallet, disconnect, isPhantomInstalled, getAuthToken } from '$lib/stores/auth.svelte';
+	import { getIsLoggedIn, getWalletAddress, getIsConnecting, getAuthError, connectWallet, disconnect, isSolanaWalletInstalled, getAuthToken, type SolanaWalletKind } from '$lib/stores/auth.svelte';
+	import { googleStartUrl, orgIdFromApiBase } from '$lib/auth/google';
 	import { authenticate, subscribe, unsubscribe } from '$lib/ws/client';
 	import { addToast } from '$lib/stores/toast.svelte';
 	import { ageFromSeconds, shortAddress, formatNumber, formatPrice, formatMarketCap, formatPercent, formatUsd, pctColor, avatarUrl, fmtVal } from '$lib/utils/format';
@@ -30,6 +32,7 @@
 	import Settings from 'lucide-svelte/icons/settings';
 
 	import Camera from 'lucide-svelte/icons/camera';
+	import X from 'lucide-svelte/icons/x';
 	import { isDark } from '$lib/stores/theme.svelte';
 	import OmbraLogo from './OmbraLogo.svelte';
 	import type { ComponentType } from 'svelte';
@@ -100,6 +103,7 @@
 	let lookupWsKey: string | null = null;
 
 	let showWalletPopover = $state(false);
+	let showConnectMenu = $state(false);
 	let walletCopied = $state<string | null>(null);
 	let walletPopoverEl: HTMLDivElement = $state(null!);
 	let expandedWallets = $state<Set<string>>(new Set());
@@ -130,7 +134,7 @@
 		sellingToken = null;
 	}
 
-	const chainOrder: Record<string, number> = { SOL: 0, ETH: 1, BASE: 2, BSC: 3 };
+	const chainOrder: Record<string, number> = { SOL: 0, RH: 1, ETH: 2, BASE: 3, BSC: 4 };
 	const wallets = $derived(Object.entries(getManagedWallets()).map(([chain, w]) => ({ chain, ...w })).sort((a, b) => (chainOrder[a.chain] ?? 99) - (chainOrder[b.chain] ?? 99)));
 	const totalValueUsd = $derived(wallets.reduce((sum, w) => sum + w.totalValueUsd, 0));
 
@@ -149,7 +153,8 @@
 	}
 
 	function onClickOutsideWallet(e: MouseEvent) {
-		if (showWalletPopover && walletPopoverEl && !walletPopoverEl.contains(e.target as Node)) {
+		const target = e.target as Node;
+		if (showWalletPopover && walletPopoverEl && !walletPopoverEl.contains(target)) {
 			showWalletPopover = false;
 		}
 	}
@@ -159,9 +164,10 @@
 		return page.url.pathname.startsWith(href);
 	}
 
-	async function handleConnect() {
+	async function handleConnect(kind: SolanaWalletKind) {
+		showConnectMenu = false;
 		try {
-			await connectWallet();
+			await connectWallet(kind);
 			authenticate(getAuthToken());
 			fetchSettings();
 			fetchFavourites();
@@ -191,15 +197,15 @@
 
 	function applyLookupUpdate(tokens: ScannerItem[], generation: number) {
 		if (!showSearch || generation !== searchGeneration || tokens.length === 0) return;
-		const updates = new Map(tokens.map((token) => [`${token.chain}:${token.pairAddress}`, token]));
-		searchResults = searchResults.map((result) => updates.get(`${result.chain}:${result.pairAddress}`) ?? result);
+		const updates = new Map(tokens.map((token) => [`${token.chain}:${token.tokenAddress}`, token]));
+		searchResults = searchResults.map((result) => updates.get(`${result.chain}:${result.tokenAddress}`) ?? result);
 	}
 
 	function startLookupSubscription(results: ScannerItem[], generation: number) {
 		if (!showSearch || generation !== searchGeneration || results.length === 0) return;
-		const identities = new Map(results.map((result) => [`${result.chain}:${result.pairAddress}`, {
+		const identities = new Map(results.map((result) => [`${result.chain}:${result.tokenAddress}`, {
 			chain: result.chain,
-			tokenOrPairAddress: result.pairAddress
+			tokenOrPairAddress: result.tokenAddress
 		}]));
 		const params = { lookup: [...identities.values()] } satisfies ScannerLookupSubscriptionParams;
 		lookupWsKey = subscribe('scanner:lookup', (event, data) => {
@@ -346,11 +352,21 @@
 	}
 
 	function onGlobalKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && showConnectMenu) {
+			showConnectMenu = false;
+			return;
+		}
 		if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
 			e.preventDefault();
 			if (showSearch) closeSearch();
 			else openSearch();
 		}
+	}
+
+	function startGoogleLogin() {
+		const orgId = orgIdFromApiBase();
+		if (!orgId) return;
+		window.location.href = googleStartUrl(orgId);
 	}
 
 	onMount(() => {
@@ -558,36 +574,81 @@
 			{/if}
 		</div>
 	{:else}
-		{#if !isPhantomInstalled() && isMobile}
-			<button
-				onclick={openMobileScan}
-				class="flex cursor-pointer items-center gap-1.5 rounded-lg bg-grn px-4 py-1.5 text-[13px] font-semibold text-s0 transition-all hover:bg-grn/90"
-			>
-				<Camera size={14} strokeWidth={2} />
-				Scan QR
-			</button>
-		{:else}
-			<button
-				onclick={handleConnect}
-				disabled={getIsConnecting()}
-				class="cursor-pointer rounded-lg bg-grn px-4 py-1.5 text-[13px] font-semibold text-s0 transition-all hover:bg-grn/90 disabled:opacity-50 disabled:shadow-none"
-			>
-				{#if getIsConnecting()}
-					<span class="flex items-center gap-1.5">
-						<LoaderCircle size={12} strokeWidth={4} class="animate-spin" />
-						Connecting...
-					</span>
-				{:else if !isPhantomInstalled()}
-					Install Phantom
-				{:else}
-					Connect Wallet
-				{/if}
-			</button>
-		{/if}
+		<button
+			onclick={() => (showConnectMenu = true)}
+			disabled={getIsConnecting()}
+			class="flex cursor-pointer items-center gap-1.5 rounded-lg bg-grn px-4 py-1.5 text-[13px] font-semibold text-s0 transition-all hover:bg-grn/90 disabled:opacity-50"
+		>
+			{#if getIsConnecting()}
+				<LoaderCircle size={12} strokeWidth={4} class="animate-spin" />
+				Connecting...
+			{:else}
+				Connect
+			{/if}
+		</button>
 	{/if}
 	</div>
 </nav>
 
+{#if showConnectMenu}
+	<div class="fixed inset-0 z-[120] flex items-center justify-center p-4">
+		<button class="absolute inset-0 cursor-default bg-s0/70 backdrop-blur-sm" onclick={() => (showConnectMenu = false)} aria-label="Close connect"></button>
+		<div class="animate-fade-in relative w-full max-w-sm rounded-2xl border border-bd bg-s5 p-5 shadow-2xl shadow-s0/80">
+			<div class="mb-4 flex items-start justify-between gap-3">
+				<div>
+					<h2 class="text-base font-semibold text-tx">Connect</h2>
+					<p class="mt-0.5 text-xs text-g5">Choose how to sign in</p>
+				</div>
+				<button onclick={() => (showConnectMenu = false)} class="cursor-pointer rounded-lg p-1 text-g5 transition-colors hover:bg-s7 hover:text-tx" aria-label="Close">
+					<X size={16} strokeWidth={2} />
+				</button>
+			</div>
+			<div class="flex flex-col gap-2">
+				<button
+					onclick={() => handleConnect('phantom')}
+					class="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-bd bg-s4 px-3 py-3 text-left transition-colors hover:border-g6 hover:bg-s7"
+				>
+					<img src="/icons/phantom.svg" alt="" class="h-9 w-9 rounded-lg bg-s1 object-contain p-1.5" />
+					<span class="min-w-0 flex-1">
+						<span class="block text-[13px] font-semibold text-tx">Phantom</span>
+						<span class="block text-[11px] text-g5">{isSolanaWalletInstalled('phantom') ? 'Solana wallet in this browser' : 'Not installed'}</span>
+					</span>
+					<span class="text-[11px] font-semibold text-g6">{isSolanaWalletInstalled('phantom') ? 'Connect' : 'Install'}</span>
+				</button>
+				<button
+					onclick={() => handleConnect('brave')}
+					class="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-bd bg-s4 px-3 py-3 text-left transition-colors hover:border-g6 hover:bg-s7"
+				>
+					<img src="/icons/brave.svg" alt="" class="h-9 w-9 rounded-lg bg-s1 object-contain p-1" />
+					<span class="min-w-0 flex-1">
+						<span class="block text-[13px] font-semibold text-tx">Brave Wallet</span>
+						<span class="block text-[11px] text-g5">{isSolanaWalletInstalled('brave') ? 'Brave Solana wallet' : 'Not installed'}</span>
+					</span>
+					<span class="text-[11px] font-semibold text-g6">{isSolanaWalletInstalled('brave') ? 'Connect' : 'Install'}</span>
+				</button>
+				<button
+					onclick={() => { showConnectMenu = false; startGoogleLogin(); }}
+					class="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-bd bg-s4 px-3 py-3 text-left transition-colors hover:border-g6 hover:bg-s7"
+				>
+					<img src="/icons/google.svg" alt="" class="h-9 w-9 rounded-lg bg-s1 p-2" />
+					<span class="min-w-0 flex-1">
+						<span class="block text-[13px] font-semibold text-tx">Google</span>
+						<span class="block text-[11px] text-g5">Sign in with your Google account</span>
+					</span>
+				</button>
+				{#if isMobile}
+					<button
+						onclick={() => { showConnectMenu = false; openMobileScan(); }}
+						class="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-bd bg-s4 px-3 py-3 text-left transition-colors hover:border-g6 hover:bg-s7"
+					>
+						<span class="flex h-9 w-9 items-center justify-center rounded-lg bg-s1 text-g7"><Camera size={16} strokeWidth={1.75} /></span>
+						<span class="block text-[13px] font-semibold text-tx">Scan QR</span>
+					</button>
+				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
 
 {#if showSearch}
 	<div class="fixed inset-0 z-[100] flex items-start justify-center pt-[2vh] md:pt-[12vh]">
@@ -650,6 +711,7 @@
 							{:else}
 								<div class="flex h-full w-full items-center justify-center rounded-[10px] bg-s7 text-xs font-bold text-g6">{result.tokenSymbol?.[0] ?? '?'}</div>
 							{/if}
+							<TokenChainBadge chain={result.chain} class="h-3 w-3" />
 							{#if migState === 'Migrated'}
 								<span class="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-s6 px-1 py-px text-[8px] font-bold leading-none text-yel ring-1 ring-yel/20">GRAD</span>
 							{:else if migPct > 0}
@@ -660,7 +722,6 @@
 								<div class="flex min-w-0 items-center gap-2">
 									<span class="min-w-0 max-w-[55%] shrink truncate text-sm font-semibold text-tx" title={result.tokenSymbol ?? ''}>{result.tokenSymbol}</span>
 									<span class="truncate text-sm text-g5">{result.tokenName}</span>
-									<ChainIcon chain={result.chain} class="h-3.5 w-3.5 text-g6" />
 								</div>
 								<div class="mt-0.5 flex items-center gap-3 text-xs text-g5">
 									<span>{@html formatPrice(result.quote.priceUsd)}</span>

@@ -1,15 +1,19 @@
 import { apiUrl } from '$lib/api/config';
 
-interface PhantomProvider {
+export type SolanaWalletKind = 'phantom' | 'brave';
+
+interface SolanaProvider {
   isPhantom?: boolean;
+  isBraveWallet?: boolean;
   connect(): Promise<{ publicKey: { toString(): string } }>;
   disconnect(): void;
-  signMessage(message: Uint8Array, encoding: string): Promise<{ signature: Uint8Array }>;
+  signMessage(message: Uint8Array, encoding?: string): Promise<{ signature: Uint8Array } | Uint8Array>;
 }
 
-interface WindowWithPhantom extends Window {
-  phantom?: { solana?: PhantomProvider };
-  solana?: PhantomProvider;
+interface WindowWithWallets extends Window {
+  phantom?: { solana?: SolanaProvider };
+  braveSolana?: SolanaProvider;
+  solana?: SolanaProvider;
 }
 
 interface AuthChallenge {
@@ -163,6 +167,11 @@ export function setAuthToken(t: string | null): void {
   if (changed) notifyTokenListeners(t);
 }
 
+export function completeGoogleLogin(jwt: string, wallet: string | null): void {
+  setAuthToken(jwt);
+  setWallet(wallet);
+}
+
 function setWallet(addr: string | null): void {
   walletAddress = addr;
   if (typeof window !== 'undefined') {
@@ -171,39 +180,73 @@ function setWallet(addr: string | null): void {
   }
 }
 
-function getPhantom(): PhantomProvider | null {
+let activeWallet: SolanaWalletKind = 'phantom';
+
+export function getSolanaWallet(kind: SolanaWalletKind): SolanaProvider | null {
   if (typeof window === 'undefined') return null;
-  const w = window as unknown as WindowWithPhantom;
-  return w.phantom?.solana ?? w.solana ?? null;
+  const w = window as unknown as WindowWithWallets;
+  if (kind === 'phantom') {
+    const provider = w.phantom?.solana;
+    return provider?.isPhantom ? provider : null;
+  }
+  if (w.braveSolana) return w.braveSolana;
+  if (w.solana?.isBraveWallet) return w.solana;
+  return null;
+}
+
+export function isSolanaWalletInstalled(kind: SolanaWalletKind): boolean {
+  return getSolanaWallet(kind) !== null;
 }
 
 export function isPhantomInstalled(): boolean {
-  return !!getPhantom()?.isPhantom;
+  return isSolanaWalletInstalled('phantom');
+}
+
+function activeProvider(): SolanaProvider | null {
+  return getSolanaWallet(activeWallet) ?? getSolanaWallet('phantom') ?? getSolanaWallet('brave');
+}
+
+function errorText(e: unknown, fallback: string): string {
+  if (e instanceof Error && e.message) return e.message;
+  if (e && typeof e === 'object' && 'message' in e && typeof e.message === 'string' && e.message) {
+    return e.message;
+  }
+  return fallback;
+}
+
+async function signSolanaMessage(provider: SolanaProvider, message: string): Promise<Uint8Array> {
+  const encoded = new TextEncoder().encode(message);
+  // The second "utf8" argument makes current Phantom throw "Unexpected error".
+  const signed = await provider.signMessage(encoded);
+  const signature = signed instanceof Uint8Array ? signed : signed.signature;
+  if (!signature) throw new Error('Wallet did not return a signature');
+  return signature;
 }
 
 export async function signConnectedWalletMessageHex(message: string): Promise<string> {
-  const phantom = getPhantom();
-  if (!phantom?.isPhantom) throw new Error('Phantom is not available');
-  const connected = await phantom.connect();
+  const provider = activeProvider();
+  if (!provider) throw new Error('No Solana wallet is available');
+  const connected = await provider.connect();
   if (walletAddress && connected.publicKey.toString() !== walletAddress) {
     throw new Error('Connect the Solana wallet used to sign in');
   }
-  const signature = (await phantom.signMessage(new TextEncoder().encode(message), 'utf8')).signature;
+  const signature = await signSolanaMessage(provider, message);
   return Array.from(signature, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-export async function connectWallet(): Promise<void> {
-  const phantom = getPhantom();
-  if (!phantom?.isPhantom) {
-    window.open('https://phantom.app/', '_blank');
+export async function connectWallet(kind: SolanaWalletKind = 'phantom'): Promise<void> {
+  const provider = getSolanaWallet(kind);
+  if (!provider) {
+    window.open(kind === 'brave' ? 'https://brave.com/wallet/' : 'https://phantom.app/download', '_blank');
     return;
   }
+  activeWallet = kind;
 
   connecting = true;
   error = null;
 
   try {
-    const resp = await phantom.connect();
+    const resp = await provider.connect();
     const pubkey = resp.publicKey.toString();
 
     const msgResp = await fetch(apiUrl('/v2/auth/challenge'), {
@@ -221,8 +264,7 @@ export async function connectWallet(): Promise<void> {
     if (!msgResp.ok) throw new Error('Failed to get sign-in message');
     const challenge = await msgResp.json() as AuthChallenge;
 
-    const encoded = new TextEncoder().encode(challenge.message);
-    const signatureBytes: Uint8Array = (await phantom.signMessage(encoded, 'utf8')).signature;
+    const signatureBytes = await signSolanaMessage(provider, challenge.message);
     const bs58 = (await import('bs58')).default;
     const signatureB58 = bs58.encode(signatureBytes);
 
@@ -253,17 +295,17 @@ export async function connectWallet(): Promise<void> {
     setAuthToken(jwt);
     setWallet(pubkey);
   } catch (e: unknown) {
-    error = e instanceof Error ? e.message : 'Connection failed';
-    throw e;
+    error = errorText(e, 'Connection failed');
+    throw e instanceof Error ? e : new Error(error);
   } finally {
     connecting = false;
   }
 }
 
 export function disconnect(): void {
-  const phantom = getPhantom();
-  if (phantom) {
-    try { phantom.disconnect(); } catch {}
+  const provider = activeProvider();
+  if (provider) {
+    try { provider.disconnect(); } catch {}
   }
   setAuthToken(null);
   setWallet(null);
