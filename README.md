@@ -20,6 +20,10 @@ Fork it, theme it, extend it, connect it to your OpenDEX backend, and ship a ter
 
 We also want useful contributions to pay off for the people behind them, so contributors whose work improves Ombra may be rewarded with lower trading fees.
 
+## Community
+
+Join the OpenDEX Telegram: [t.me/opendexws](https://t.me/opendexws)
+
 ## Features
 
 ### Scanner
