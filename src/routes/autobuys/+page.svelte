@@ -2,10 +2,13 @@
 	import { tokenImage } from '$lib/api/config';
 	import { isNetProfit, netPnlPct, netPnlUsd } from '$lib/utils/pnl';
 	import { untrack } from 'svelte';
+	import { portal } from '$lib/actions/portal';
+	import { modalDialog } from '$lib/actions/modal-dialog';
 	import BarChart3 from 'lucide-svelte/icons/chart-column';
 	import BotIcon from 'lucide-svelte/icons/bot';
 	import List from 'lucide-svelte/icons/list';
 	import Trash2 from 'lucide-svelte/icons/trash-2';
+	import X from 'lucide-svelte/icons/x';
 	import AlertTriangle from 'lucide-svelte/icons/triangle-alert';
 	import Settings from 'lucide-svelte/icons/settings';
 	import ChevronDown from 'lucide-svelte/icons/chevron-down';
@@ -13,6 +16,7 @@
 	import ArrowUp from 'lucide-svelte/icons/arrow-up';
 	import ArrowDown from 'lucide-svelte/icons/arrow-down';
 	import ChainIcon from '$lib/components/ChainIcon.svelte';
+	import TokenChainBadge from '$lib/components/TokenChainBadge.svelte';
 	import { api } from '$lib/api/client';
 	import { liveAccumulatedParams } from '$lib/utils/livecursor';
 	import UserListModal from '$lib/components/UserListModal.svelte';
@@ -22,7 +26,7 @@
 	import BotConfigSummary from '$lib/components/BotConfigSummary.svelte';
 	import SourcePicker from '$lib/components/SourcePicker.svelte';
 	import type { components } from '$lib/api/v2.d.ts';
-	import type { WatchlistSourceItem, CallerSource } from '$lib/api/types';
+	import type { WatchlistSourceItem, Chain } from '$lib/api/types';
 	import { getIsLoggedIn, connectWallet, getIsConnecting, isPhantomInstalled, getAuthToken } from '$lib/stores/auth.svelte';
 	import { authenticate, subscribe, unsubscribe } from '$lib/ws/client';
 	import { fetchManagedWallets, getManagedWalletForChain } from '$lib/stores/trade.svelte';
@@ -32,12 +36,18 @@
 	import { formatUsd, shortAddress, timeAgo, fullDateTime, typeBadge, sourceBadge, parseTier, avatarUrl } from '$lib/utils/format';
 	import { getWalletIconUrl, getWalletAddress } from '$lib/utils/walleticon';
 	import { getNow } from '$lib/stores/tick.svelte';
-	import type { BotSourceDescriptor } from '$lib/utils/bot-settings';
+	import {
+		botSourceDisplayName,
+		descriptorFromBotSource,
+		type Bot,
+		type BotSourceDescriptor
+	} from '$lib/utils/bot-settings';
+	import type { CustomSignalIntegrationDescriptor } from '$lib/custom-signals/contracts';
+	import { fetchIntegrationDiscovery } from '$lib/watchlist/custom-integrations';
 	import { mergeUniqueById, totalAtLeastLoaded, unseenCursor } from '$lib/utils/paginated-rows';
 
 	let { routeActive = true }: { routeActive?: boolean } = $props();
 
-	type Bot = components['schemas']['Bot'];
 	type BotStatus = components['schemas']['BotStatus'];
 	type ActiveTrade = components['schemas']['ActiveTrade'];
 	type CompletedTrade = components['schemas']['CompletedTrade'];
@@ -58,7 +68,6 @@
 	type TokenSocialFilter = components['schemas']['TokenSocialFilter'];
 	type TokenSourceFilter = components['schemas']['TokenSourceFilter'];
 	type TokenTaxFilter = components['schemas']['TokenTaxFilter'];
-	type Chain = components['schemas']['Chain'];
 	type CallerSource = components['schemas']['CallerSource'];
 	type WatchlistRankingTimeframe = components['schemas']['WatchlistRankingTimeframe'];
 	type ErrorResponse = components['schemas']['ErrorResponse'];
@@ -176,6 +185,14 @@
 	let abEditBot = $state<Bot | null>(null);
 
 	let showSourcePicker = $state(false);
+	let showIntegrationPicker = $state(false);
+	let restoreIntegrationPickerFocus = true;
+	let integrationBotFlowOpener = $state<HTMLElement | null>(null);
+	let botModalRestoreTarget = $state<HTMLElement | null>(null);
+	let botIntegrationDescriptors = $state<CustomSignalIntegrationDescriptor[]>([]);
+	let botIntegrationsLoading = $state(false);
+	let botIntegrationsError = $state('');
+	let botIntegrationGeneration = 0;
 
 	let addWalletAddress = $state('');
 	let addWalletName = $state('');
@@ -229,8 +246,6 @@
 	let txErrorsHasMore = $state(false);
 	let txErrorsBotFilter = $state<string | null>(null);
 
-	const chains: Chain[] = ['SOL'];
-
 	async function handleConnect() {
 		try {
 			await connectWallet();
@@ -248,6 +263,15 @@
 
 	function getSourceType(item: WatchlistSourceItem): CallerSource {
 		return (item as { type: CallerSource }).type;
+	}
+
+	function integrationClauseCount(list: WatchlistSourceItem & { type: 'LIST' }): number {
+		const sources = list.sourceDetails.sources as unknown as {
+			integrations?: unknown[];
+			groups?: { integrations?: unknown[] }[];
+		} | null | undefined;
+		return (sources?.integrations?.length ?? 0)
+			+ (sources?.groups ?? []).reduce((count, group) => count + (group.integrations?.length ?? 0), 0);
 	}
 
 	function buildRankingQuery(
@@ -833,6 +857,26 @@
 	}
 
 	function selectRankItem(entry: WatchlistRankItem) {
+		botModalRestoreTarget = null;
+		if (entry.source.type === 'INTEGRATION') {
+			const integrationSource = entry.source;
+			abSelectedSource = {
+				type: 'INTEGRATION',
+				integrationId: integrationSource.integrationId,
+				integrationName: integrationSource.integrationName,
+				integrationPhotoId: integrationSource.integrationPhotoId,
+				integrationEnabled: true,
+				callerId: integrationSource.id,
+				callerName: integrationSource.name,
+				callerPhotoId: integrationSource.photoId,
+				metaFilter: [],
+				name: `${integrationSource.integrationName} · ${integrationSource.name}`
+			};
+			abDefaultChain = 'SOL';
+			abEditBot = null;
+			showCreateBot = true;
+			return;
+		}
 		abSelectedSource = { id: entry.source.id, type: entry.source.type, name: entry.source.name, ...(entry.source.type === 'WALLET' ? { chain: entry.source.chain } : {}) };
 		abDefaultChain = entry.source.type === 'WALLET' ? entry.source.chain : 'SOL';
 		abEditBot = null;
@@ -840,13 +884,60 @@
 	}
 
 	function openEditBot(bot: Bot) {
-		abSelectedSource = { id: bot.source.id, type: bot.source.type, name: bot.source.name, ...(bot.source.type === 'WALLET' ? { chain: bot.source.chain } : {}) };
+		botModalRestoreTarget = null;
+		abSelectedSource = descriptorFromBotSource(bot.source);
 		abDefaultChain = (Object.keys(bot.chainConfigs)[0] as Chain) ?? 'SOL';
 		abEditBot = bot;
 		showCreateBot = true;
 	}
 
+	async function openIntegrationBotPicker(opener?: HTMLElement): Promise<void> {
+		if (opener) integrationBotFlowOpener = opener;
+		restoreIntegrationPickerFocus = true;
+		showIntegrationPicker = true;
+		botIntegrationsLoading = true;
+		botIntegrationsError = '';
+		botIntegrationDescriptors = [];
+		const generation = ++botIntegrationGeneration;
+		try {
+			const discovery = await fetchIntegrationDiscovery();
+			if (generation !== botIntegrationGeneration || !showIntegrationPicker) return;
+			botIntegrationDescriptors = discovery.enabled
+				? discovery.integrations.filter((integration) => integration.enabled)
+				: [];
+		} catch (cause) {
+			if (generation !== botIntegrationGeneration || !showIntegrationPicker) return;
+			botIntegrationsError = cause instanceof Error ? cause.message : 'Failed to load integrations';
+		} finally {
+			if (generation === botIntegrationGeneration && showIntegrationPicker) botIntegrationsLoading = false;
+		}
+	}
+
+	function closeIntegrationBotPicker(): void {
+		botIntegrationGeneration += 1;
+		showIntegrationPicker = false;
+	}
+
+	function selectIntegrationBotSource(integration: CustomSignalIntegrationDescriptor): void {
+		abSelectedSource = {
+			type: 'INTEGRATION',
+			integrationId: integration.id,
+			integrationName: integration.name,
+			integrationPhotoId: integration.photoId,
+			integrationEnabled: integration.enabled,
+			metaFilter: [],
+			name: integration.name
+		};
+		abDefaultChain = 'SOL';
+		abEditBot = null;
+		restoreIntegrationPickerFocus = false;
+		botModalRestoreTarget = integrationBotFlowOpener;
+		closeIntegrationBotPicker();
+		showCreateBot = true;
+	}
+
 	function selectWalletSource(w: WalletSourceIdentity) {
+		botModalRestoreTarget = null;
 		abSelectedSource = { id: w.id, type: 'WALLET', name: w.name, chain: w.chain };
 		abDefaultChain = w.chain;
 		abEditBot = null;
@@ -854,7 +945,9 @@
 	}
 
 	function handleSourceSelected(item: WatchlistSourceItem) {
-		abSelectedSource = { id: getSourceId(item), type: getSourceType(item), name: getSourceName(item), ...(item.type === 'WALLET' ? { chain: item.chain } : {}) };
+		if (item.type === 'INTEGRATION') return;
+		botModalRestoreTarget = null;
+		abSelectedSource = { id: getSourceId(item), type: item.type, name: getSourceName(item), ...(item.type === 'WALLET' ? { chain: item.chain } : {}) };
 		abDefaultChain = item.type === 'WALLET' ? item.chain : 'SOL';
 		abEditBot = null;
 		showCreateBot = true;
@@ -1080,6 +1173,16 @@
 
 	function getRankItemType(entry: WatchlistRankItem): CallerSource {
 		return entry.source.type;
+	}
+
+	function openRankItemWatchlist(entry: WatchlistRankItem): void {
+		if (entry.source.type === 'INTEGRATION') {
+			selectWatchlistCaller(entry.source.id, 'INTEGRATION', entry.source.integrationId);
+		} else {
+			selectWatchlistCaller(entry.source.id, entry.source.type);
+		}
+		setWatchlistOpen(true);
+		if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watchlist-open-caller'));
 	}
 
 	let txErrorsByBot = $derived.by(() => {
@@ -1332,7 +1435,10 @@
 								<button onclick={() => selectBotStatus('PAUSED')} class="cursor-pointer rounded-md px-2 py-1 text-[11px] {botStatusFilter === 'PAUSED' ? 'bg-s7 text-tx' : 'text-g5'}">Paused {pausedBotsTotal ?? ''}</button>
 							</div>
 						</div>
-						<button onclick={() => (showSourcePicker = true)} class="cursor-pointer rounded-lg bg-grn px-3 py-1.5 text-xs font-semibold text-s0 transition-all">+ Create Bot</button>
+						<div class="flex items-center gap-2">
+							<button onclick={(event) => void openIntegrationBotPicker(event.currentTarget)} class="btn-secondary px-3 py-1.5 text-xs">+ Integration Bot</button>
+							<button onclick={() => (showSourcePicker = true)} class="cursor-pointer rounded-lg bg-grn px-3 py-1.5 text-xs font-semibold text-s0 transition-all">+ Create Bot</button>
+						</div>
 					</div>
 					{#if botsLoading && bots.length === 0}
 						<div class="space-y-2">{#each Array(3) as _}<div class="skeleton h-20 rounded-xl"></div>{/each}</div>
@@ -1348,7 +1454,7 @@
 									<div class="flex">
 										<button onclick={() => toggleBotExpand(bot.id)} class="cursor-pointer flex-1 min-w-0 p-3 text-left">
 											<div class="flex items-center gap-2">
-												<span class="text-sm font-semibold text-tx truncate">{bot.source.name}</span>
+												<span class="text-sm font-semibold text-tx truncate">{botSourceDisplayName(bot.source)}</span>
 												<span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium {typeBadge(bot.source.type)}">{bot.source.type}</span>
 												<span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] {bot.status === 'ACTIVE' ? 'bg-grn/10 text-grn' : 'bg-red/10 text-red'}">{bot.status === 'ACTIVE' ? 'Active' : 'Paused'}</span>
 											</div>
@@ -1411,9 +1517,11 @@
 														{#each [...trades.active, ...trades.completed] as trade}
 															<a href="/?chain={trade.chain}&token={trade.tokenAddress}" class="flex items-center justify-between px-4 py-2.5 text-xs transition-colors hover:bg-wh/5">
 																<div class="flex items-center gap-2 min-w-0">
+																	<span class="relative h-5 w-5 shrink-0">
 																	<img src={tokenImage(trade.chain, trade.tokenAddress)} alt="" class="h-5 w-5 rounded ring-1 ring-bd" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+																	<TokenChainBadge chain={trade.chain} class="h-2.5 w-2.5" />
+																	</span>
 																	<span class="font-semibold text-tx truncate">{trade.tokenSymbol}</span>
-																	<ChainIcon chain={trade.chain} class="h-3 w-3 text-g4" />
 																	<span class="rounded px-1 py-0.5 text-[9px] {'status' in trade && trade.status === 'ACTIVE' ? 'bg-grn/10 text-grn' : 'status' in trade && trade.status === 'PENDING' ? 'bg-yel/10 text-yel' : 'bg-g1 text-g7'}">{'status' in trade ? trade.status : ''}</span>
 																</div>
 																<div class="shrink-0 text-right">
@@ -1463,8 +1571,11 @@
 
 					{#if bots.length === 0 && !botsLoading && !loading}
 						<div class="rounded-xl border border-bd bg-s1 p-12 text-center">
-							<div class="mb-3 text-sm text-g5">{botStatusFilter === 'ALL' ? 'No bots yet. Create one from a caller, TG channel, list, or wallet.' : `No ${botStatusFilter.toLowerCase()} bots.`}</div>
-							<button onclick={() => (showSourcePicker = true)} class="cursor-pointer rounded-lg bg-grn px-4 py-2 text-sm font-semibold text-s0 transition-all">+ Create Bot</button>
+							<div class="mb-3 text-sm text-g5">{botStatusFilter === 'ALL' ? 'No bots yet. Create one from a caller, custom integration, TG channel, list, or wallet.' : `No ${botStatusFilter.toLowerCase()} bots.`}</div>
+							<div class="flex justify-center gap-2">
+								<button onclick={(event) => void openIntegrationBotPicker(event.currentTarget)} class="btn-secondary px-4 py-2 text-sm">+ Integration Bot</button>
+								<button onclick={() => (showSourcePicker = true)} class="cursor-pointer rounded-lg bg-grn px-4 py-2 text-sm font-semibold text-s0 transition-all">+ Create Bot</button>
+							</div>
 						</div>
 					{/if}
 
@@ -1481,7 +1592,7 @@
 									>
 										<option value="">All Bots</option>
 										{#each bots as bot}
-											<option value={bot.id}>{bot.source.name}</option>
+											<option value={bot.id}>{botSourceDisplayName(bot.source)}</option>
 										{/each}
 									</select>
 								{/if}
@@ -1560,6 +1671,7 @@
 						<div class="space-y-2">
 							{#each userLists as list}
 								{@const f = list.sourceDetails.tokenFilter}
+								{@const customIntegrationClauses = integrationClauseCount(list)}
 								<div class="rounded-xl border border-bd bg-s1 p-4">
 									<div class="flex items-center justify-between">
 										<div>
@@ -1592,6 +1704,9 @@
 												{#if f.sources?.wallets?.length}
 													<span class="text-g5">{f.sources.wallets.length} wallets</span>
 												{/if}
+												{#if customIntegrationClauses > 0}
+													<span class="text-g5">{customIntegrationClauses} integration {customIntegrationClauses === 1 ? 'clause' : 'clauses'}</span>
+												{/if}
 											</div>
 										</div>
 										<div class="flex items-center gap-2">
@@ -1607,7 +1722,45 @@
 			</div>
 		</div>
 
-		<CreateBotModal bind:show={showCreateBot} source={abSelectedSource} editBot={abEditBot} defaultChain={abDefaultChain} oncreated={fetchBots} onupdated={fetchBots} />
+		{#if showIntegrationPicker}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div use:portal role="presentation" class="fixed inset-0 z-[190] overflow-y-auto bg-s0/60 backdrop-blur-[2px]">
+				<div class="flex min-h-full items-center justify-center p-3 md:p-6" onclick={(event) => { if (event.target === event.currentTarget) closeIntegrationBotPicker(); }}>
+					<div use:modalDialog={{ onClose: closeIntegrationBotPicker, shouldRestoreFocus: () => restoreIntegrationPickerFocus }} role="dialog" aria-modal="true" aria-labelledby="integration-bot-picker-title" tabindex="-1" class="w-full max-w-sm rounded-2xl border border-bd bg-s5 p-5 shadow-2xl backdrop-blur-xl outline-none" onclick={(event) => event.stopPropagation()}>
+						<div class="mb-3 flex items-center justify-between gap-3">
+							<h2 id="integration-bot-picker-title" class="text-base font-semibold text-tx">Select integration</h2>
+							<button type="button" onclick={closeIntegrationBotPicker} aria-label="Close integration picker" class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx"><X class="h-4 w-4" /></button>
+						</div>
+						{#if botIntegrationsLoading}
+							<p class="py-6 text-center text-sm text-g5">Loading integrations…</p>
+						{:else if botIntegrationsError}
+							<div class="space-y-3 rounded-lg border border-red/20 bg-red/10 p-3">
+								<p role="alert" class="text-xs text-red">{botIntegrationsError}</p>
+								<button type="button" onclick={() => void openIntegrationBotPicker()} class="btn-secondary px-3 py-1.5 text-xs">Retry</button>
+							</div>
+						{:else if botIntegrationDescriptors.length === 0}
+							<p class="py-6 text-center text-sm text-g5">No enabled custom integrations.</p>
+						{:else}
+							<div class="space-y-1.5">
+								{#each botIntegrationDescriptors as integration (integration.id)}
+									<button type="button" onclick={() => selectIntegrationBotSource(integration)} class="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-bd bg-s2 px-3 py-2 text-left text-sm text-g8 transition-colors hover:bg-wh/5 hover:text-tx">
+										{#if integration.photoId && avatarUrl(integration.photoId)}
+											<img src={avatarUrl(integration.photoId) ?? ''} alt="" class="h-7 w-7 shrink-0 rounded object-cover" />
+										{:else}
+											<span class="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-s7 text-xs font-bold text-g7">{integration.name[0]?.toUpperCase() ?? '?'}</span>
+										{/if}
+										<span class="truncate">{integration.name}</span>
+									</button>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<CreateBotModal bind:show={showCreateBot} source={abSelectedSource} editBot={abEditBot} defaultChain={abDefaultChain} restoreFocusTo={botModalRestoreTarget} oncreated={fetchBots} onupdated={fetchBots} />
 
 		<SourcePicker
 			bind:show={showSourcePicker}
@@ -1649,7 +1802,7 @@
 	{:else}
 		<div class="space-y-2">
 			{#each entries as entry, i}
-				{@const entryPhotoId = 'photoId' in entry.source ? entry.source.photoId : undefined}
+				{@const entryPhotoId = entry.source.photoId}
 				{@const walletAddr = getWalletAddress(entry.source as Record<string, unknown>)}
 				<div class="group rounded-xl border border-bd bg-s1 p-3 md:p-4 transition-colors hover:border-bd3">
 					<div class="flex items-start gap-2.5">
@@ -1667,7 +1820,7 @@
 							<div class="flex items-center gap-1.5 md:gap-2 flex-wrap">
 								<button
 									class="cursor-pointer text-[13px] font-semibold text-tx truncate hover:underline"
-									onclick={(e) => { e.stopPropagation(); selectWatchlistCaller(entry.source.id, entry.source.type); setWatchlistOpen(true); if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watchlist-open-caller')); }}
+									onclick={(e) => { e.stopPropagation(); openRankItemWatchlist(entry); }}
 								>{getRankItemName(entry)}</button>
 								<span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium {sourceBadge(getRankItemType(entry))}">{getRankItemType(entry)}</span>
 								{#if entry.performanceScore > 0}

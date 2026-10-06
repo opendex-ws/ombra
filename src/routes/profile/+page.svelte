@@ -25,8 +25,10 @@
 		TgManagedChat,
 		PaginatedProfileResponse,
 	} from '$lib/api/types';
+	import { DISPLAY_CHAINS } from '$lib/utils/chains';
 	import { getIsLoggedIn, getWalletAddress, connectWallet, getIsConnecting, isPhantomInstalled, getAuthToken } from '$lib/stores/auth.svelte';
 	import ChainIcon from '$lib/components/ChainIcon.svelte';
+	import TokenChainBadge from '$lib/components/TokenChainBadge.svelte';
 	import TargetCard from '$lib/components/TargetCard.svelte';
 	import type { SellTargetRow, SellTargetKind } from '$lib/stores/trade.svelte';
 	import TgLoginForm from '$lib/components/TgLoginForm.svelte';
@@ -46,6 +48,7 @@
 	import Camera from 'lucide-svelte/icons/camera';
 	import CalendarDays from 'lucide-svelte/icons/calendar-days';
 	import PnlCalendarModal from '$lib/components/PnlCalendarModal.svelte';
+	import UserPnlPanel from '$lib/components/UserPnlPanel.svelte';
 	import MobileScanModal from '$lib/components/MobileScanModal.svelte';
 	import WalletWithdrawModal from '$lib/components/WalletWithdrawModal.svelte';
 	import { getSettings, fetchSettings as fetchGlobalSettings, updateSetting } from '$lib/stores/settings.svelte';
@@ -147,7 +150,6 @@
 		return { triggerType: KIND_TO_TRIGGER[r.kind], value: r.triggerValue, sellPct: r.sellPercent, targetKind: r.targetKind, mode: r.mode };
 	}
 
-	const chains: Chain[] = ['SOL'];
 	const gasOptions: { label: string; value: GasPreset }[] = [
 		{ label: 'Auto', value: 'AUTO' },
 		{ label: 'Low', value: 'LOW' },
@@ -912,6 +914,12 @@
 						</button>
 					</div>
 
+					<!-- The social profile's PnL stat is a lifetime figure; this panel is the
+					     live accounting: range-scoped, split open vs closed, attributed. -->
+					<div class="border-t border-bd p-3 md:p-4">
+						<UserPnlPanel />
+					</div>
+
 					{#if !profile.hasUsername}
 						<div class="border-t border-bd px-8 py-5">
 							<div class="mb-2 text-sm font-medium text-g7">Set Username</div>
@@ -1014,7 +1022,7 @@
 					{/if}
 
 					<div class="space-y-3">
-						{#each chains as ch}
+						{#each DISPLAY_CHAINS as ch}
 							{@const chainWallets = walletsByChain(ch)}
 							{#if chainWallets.length > 0}
 								<div class="rounded-xl border border-bd bg-s1">
@@ -1392,7 +1400,7 @@
 							<h2 class="mb-3 text-base font-semibold text-tx">Withdraw Earnings</h2>
 							<p class="mb-3 text-xs text-g6">Withdraw commissions or cashback to your managed wallet. Generates a signed coupon for on-chain claim.</p>
 							<div class="space-y-2">
-								{#each chains as ch}
+								{#each DISPLAY_CHAINS as ch}
 									<div class="flex items-center gap-2">
 										<span class="w-10 shrink-0 text-sm font-semibold text-tx">{ch}</span>
 										<button
@@ -1498,11 +1506,13 @@
 					{#each favourites as fav}
 						<div class="flex items-center justify-between border-b border-bd/40 px-4 py-3 last:border-0">
 							<div class="flex items-center gap-3">
+								<div class="relative h-8 w-8 shrink-0">
 								<img src={tokenImage(fav.token.chain, fav.token.address)} alt="" class="h-8 w-8 rounded-lg object-cover" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+								<TokenChainBadge chain={fav.token.chain} class="h-3 w-3" />
+								</div>
 								<div>
 									<div class="flex items-center gap-2">
 										<span class="text-sm font-medium text-tx">{fav.token.symbol ?? shortAddress(fav.token.address)}</span>
-										<ChainIcon chain={fav.token.chain} class="h-3 w-3 text-g7" />
 									</div>
 									{#if fav.token.name}
 										<span class="text-xs text-g6">{fav.token.name}</span>

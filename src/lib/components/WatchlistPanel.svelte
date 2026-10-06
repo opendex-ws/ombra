@@ -5,13 +5,14 @@
 	import CurrencyValue from './CurrencyValue.svelte';
 	import { api } from '$lib/api/client';
 	import { portal } from '$lib/actions/portal';
-	import type { WatchlistCallItem, WatchlistFeedResponse, TgManagedChat, TgSenderEntry, TgTopicEntry, ErrorResponse, WatchlistSourceItem, TokenFilter, TokenMarketFilter, TokenSecurityFilter, TokenSocialFilter, TokenSourceFilter, TokenTaxFilter, Chain, WalletSourceIdentity, TokenActivityFilter, TokenActivityWindowFilter, TokenHolderFilter, ScannerGraduation, WatchlistRankItem } from '$lib/api/types';
+	import type { WatchlistCallItem, WatchlistFeedResponse, WatchlistRankingResponse, TgManagedChat, TgSenderEntry, TgTopicEntry, ErrorResponse, WatchlistSourceItem, TokenFilter, TokenMarketFilter, TokenSecurityFilter, TokenSocialFilter, TokenSourceFilter, TokenTaxFilter, Chain, WalletSourceIdentity, TokenActivityFilter, TokenActivityWindowFilter, TokenHolderFilter, ScannerGraduation, WatchlistRankItem } from '$lib/api/types';
 	import type { PlatformType } from '$lib/api/types';
 	import { getIsLoggedIn, getAuthToken, connectWallet } from '$lib/stores/auth.svelte';
 	import { isCursorRecoveryReason, subscribe, unsubscribe, authenticate, type WsErrorInfo } from '$lib/ws/client';
-	import { formatMultiplier, formatUsd, formatPriceText, formatCompactNumber, formatMarketCap, timeAgo, fullDateTime, shortAddress, explorerAddressUrl, fmtVal, parseTier, avatarUrl } from '$lib/utils/format';
+	import { formatMultiplier, formatUsd, formatPriceText, formatCompactNumber, formatMarketCap, timeAgo, fullDateTime, shortAddress, explorerAddressUrl, fmtVal, parseTier, avatarUrl, isIntegrationSource } from '$lib/utils/format';
 	import { getWalletIconUrl, getWalletAddress } from '$lib/utils/walleticon';
 	import { getRouterInfo } from '$lib/utils/routers';
+	import { DISPLAY_CHAINS } from '$lib/utils/chains';
 	import { getNow } from '$lib/stores/tick.svelte';
 	import { onVisibility, FLASH_MS, FLASH_COOLDOWN_MS } from '$lib/utils/visibility';
 	import { VirtualList } from '$lib/utils/virtual.svelte';
@@ -42,9 +43,45 @@
 	import LayoutGrid from 'lucide-svelte/icons/layout-grid';
 	import StarRating from './StarRating.svelte';
 	import TgLoginForm from './TgLoginForm.svelte';
-	import type { CallerSource } from '$lib/api/types';
 	import type { operations } from '$lib/api/v2.d.ts';
-	import type { BotSourceDescriptor } from '$lib/utils/bot-settings';
+	import {
+		botSourceIdentityKey,
+		descriptorFromBotSource,
+		runtimeSourceBotKeys,
+		type Bot,
+		type BotSourceDescriptor,
+		type CallerSource
+	} from '$lib/utils/bot-settings';
+	import type { CustomMetaFilter, CustomSignalIntegrationsResponse } from '$lib/custom-signals/contracts';
+	import GeneratedFilterControls from '$lib/custom-signals/GeneratedFilterControls.svelte';
+	import { fetchIntegrationFilterFields } from '$lib/custom-signals/filter-fields';
+	import { canonicalizeMetaFilter, reconcileMetaFilter } from '$lib/custom-signals/predicates';
+	import { decodeRestMetaFilter, setRestMetaFilter } from '$lib/custom-signals/transport';
+	import { CustomSignalSchemaCache } from '$lib/custom-signals/schema-cache';
+	import type { HistoricalFilterFieldDefinition, ParsedCustomSignalSchema } from '$lib/custom-signals/schema';
+	import {
+		BUILT_IN_WATCHLIST_TABS,
+		buildIntegrationRankingQuery,
+		buildRuntimeWatchlistTabs,
+		fetchIntegrationCallers,
+		fetchIntegrationCallerRanking,
+		fetchIntegrationDiscovery,
+		fetchIntegrationRanking,
+		fetchIntegrationSchema,
+		fetchIntegrationWatchlistFeed,
+		integrationFeedRestQuery,
+		integrationFeedSubscriptionParams,
+		integrationIdFromTab,
+		integrationRankingTopic,
+		integrationRankingSubscriptionParams,
+		integrationRankingPageItems,
+		integrationTabKey,
+		type BuiltInWatchlistTab,
+		type IntegrationRankingQueryState,
+		type IntegrationCallerSourceItem,
+		type IntegrationFeedQuery,
+		type RuntimeWatchlistTab
+	} from '$lib/watchlist/custom-integrations';
 
 	let UserListModal = $state<any>(null);
 	let CreateBotModal = $state<any>(null);
@@ -56,19 +93,17 @@
 		if (!CreateBotModal) CreateBotModal = (await import('./CreateBotModal.svelte')).default;
 	}
 
-	type WatchlistTab = 'Callers' | 'Telegram' | 'Lists' | 'Wallets';
+	type WatchlistTab = RuntimeWatchlistTab;
 	type WatchlistFeedQuery = NonNullable<operations['get_callers_feed']['parameters']['query']>;
 
-	const tabs: WatchlistTab[] = ['Callers', 'Telegram', 'Lists', 'Wallets'];
-
-	const watchlistPathMap: Record<WatchlistTab, '/v2/watchlist/feed/callers' | '/v2/watchlist/feed/tg' | '/v2/watchlist/feed/lists' | '/v2/watchlist/feed/wallets'> = {
+	const watchlistPathMap: Record<BuiltInWatchlistTab, '/v2/watchlist/feed/callers' | '/v2/watchlist/feed/tg' | '/v2/watchlist/feed/lists' | '/v2/watchlist/feed/wallets'> = {
 		Callers: '/v2/watchlist/feed/callers',
 		Telegram: '/v2/watchlist/feed/tg',
 		'Lists': '/v2/watchlist/feed/lists',
 		'Wallets': '/v2/watchlist/feed/wallets'
 	};
 
-	const callTopicMap: Record<WatchlistTab, string> = {
+	const callTopicMap: Record<BuiltInWatchlistTab, string> = {
 		Callers: 'watchlist:callers',
 		Telegram: 'watchlist:tg',
 		'Lists': 'watchlist:lists',
@@ -78,6 +113,238 @@
 	let { selectedAddress = '', onnavigate = () => {}, active = true }: { selectedAddress?: string; onnavigate?: () => void; active?: boolean } = $props();
 
 	let activeTab: WatchlistTab = $state('Callers');
+	let openBotRequestId = 0;
+	let tabListEl: HTMLElement | undefined = $state(undefined);
+	let integrationDiscovery = $state<CustomSignalIntegrationsResponse | null>(null);
+	let integrationDiscoveryLoading = $state(false);
+	let integrationDiscoveryError = $state(false);
+	let activeIntegrationSchema = $state<ParsedCustomSignalSchema | null>(null);
+	let activeIntegrationSchemaLoading = $state(false);
+	let activeIntegrationSchemaError = $state(false);
+	let integrationMetaFilterDraft = $state<CustomMetaFilter>([]);
+	let integrationMetaFilterApplied = $state<CustomMetaFilter>([]);
+	let integrationHistoricalFields = $state<HistoricalFilterFieldDefinition[]>([]);
+	let integrationFilterError = $state('');
+	let integrationFilterGeneration = 0;
+	let integrationUrlFilterPendingFor: string | null = null;
+	let integrationUrlRestoreHandled = false;
+	const integrationSchemaCache = new CustomSignalSchemaCache(fetchIntegrationSchema);
+	const tabs = $derived(buildRuntimeWatchlistTabs(integrationDiscovery));
+	const rovingTab = $derived(tabs.some((tab) => tab.key === activeTab) ? activeTab : tabs[0]?.key);
+	const META_FILTER_INTEGRATION_PARAM = 'integrationId';
+
+	function isBuiltInTab(tab: WatchlistTab): tab is BuiltInWatchlistTab {
+		return (BUILT_IN_WATCHLIST_TABS as readonly string[]).includes(tab);
+	}
+
+	function activeIntegrationId(): string | null {
+		return integrationIdFromTab(activeTab);
+	}
+
+	function setActiveTab(nextTab: WatchlistTab) {
+		if (activeTab === nextTab) return;
+		openBotRequestId++;
+		activeTab = nextTab;
+	}
+
+	async function loadIntegrationDiscovery() {
+		if (integrationDiscoveryLoading) return;
+		integrationDiscoveryLoading = true;
+		integrationDiscoveryError = false;
+		try {
+			const discovery = await fetchIntegrationDiscovery();
+			integrationDiscovery = discovery;
+			if (!integrationUrlRestoreHandled) {
+				integrationUrlRestoreHandled = true;
+				restoreIntegrationFromUrl(discovery);
+			}
+		} catch {
+			integrationDiscoveryError = true;
+		} finally {
+			integrationDiscoveryLoading = false;
+		}
+	}
+
+	function restoreIntegrationFromUrl(discovery: CustomSignalIntegrationsResponse) {
+		if (typeof window === 'undefined') return;
+		const params = new URL(window.location.href).searchParams;
+		const filterValues = params.getAll('metaFilter');
+		const integrationValues = params.getAll(META_FILTER_INTEGRATION_PARAM);
+		if (filterValues.length === 0 && integrationValues.length === 0) return;
+		const integrationId = integrationValues.length === 1 ? integrationValues[0].trim() : '';
+		const exists = discovery.integrations.some((integration) => integration.id === integrationId);
+		if (filterValues.length !== 1 || !integrationId || !exists) {
+			replaceMetaFilterUrl([]);
+			return;
+		}
+		integrationUrlFilterPendingFor = integrationId;
+		setActiveTab(integrationTabKey(integrationId));
+	}
+
+	async function loadActiveIntegrationSchema(integrationId: string) {
+		activeIntegrationSchemaLoading = true;
+		activeIntegrationSchemaError = false;
+		activeIntegrationSchema = null;
+		try {
+			const schema = await integrationSchemaCache.get(integrationId);
+			if (activeIntegrationId() === integrationId) activeIntegrationSchema = schema;
+		} catch {
+			if (activeIntegrationId() === integrationId) activeIntegrationSchemaError = true;
+		} finally {
+			if (activeIntegrationId() === integrationId) activeIntegrationSchemaLoading = false;
+		}
+	}
+
+	function requestedHistoryKeys(value: unknown, schema: ParsedCustomSignalSchema): string[] {
+		if (!Array.isArray(value)) throw new Error('Metadata filter must be an array');
+		const keys = value.flatMap((predicate) => {
+			if (typeof predicate !== 'object' || predicate === null || Array.isArray(predicate) || typeof (predicate as { field?: unknown }).field !== 'string') {
+				throw new Error('Metadata predicate field must be a string');
+			}
+			try {
+				canonicalizeMetaFilter([predicate], schema.fields);
+				return [];
+			} catch {
+				return [(predicate as { field: string }).field];
+			}
+		});
+		return [...new Set(keys)];
+	}
+
+	async function validateIntegrationMetaFilter(
+		integrationId: string,
+		schema: ParsedCustomSignalSchema,
+		filter: unknown
+	): Promise<{ filter: CustomMetaFilter; historicalFields: HistoricalFilterFieldDefinition[] }> {
+		const requestedKeys = requestedHistoryKeys(filter, schema);
+		const historicalFields = requestedKeys.length > 0
+			? await fetchIntegrationFilterFields(integrationId, requestedKeys)
+			: [];
+		return {
+			filter: reconcileMetaFilter(filter, schema.fields, historicalFields).filter,
+			historicalFields
+		};
+	}
+
+	function replaceMetaFilterUrl(filter: CustomMetaFilter, integrationId = activeIntegrationId()) {
+		if (typeof window === 'undefined') return;
+		const url = new URL(window.location.href);
+		if (filter.length > 0 && integrationId) {
+			setRestMetaFilter(url.searchParams, filter);
+			url.searchParams.set(META_FILTER_INTEGRATION_PARAM, integrationId);
+		} else {
+			setRestMetaFilter(url.searchParams, []);
+			url.searchParams.delete(META_FILTER_INTEGRATION_PARAM);
+		}
+		window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+	}
+
+	async function reconcileIntegrationMetaFilterDraft(
+		integrationId: string,
+		schema: ParsedCustomSignalSchema,
+		filter: CustomMetaFilter
+	) {
+		const generation = ++integrationFilterGeneration;
+		integrationFilterError = '';
+		try {
+			const { filter: canonical, historicalFields } = await validateIntegrationMetaFilter(integrationId, schema, filter);
+			if (generation !== integrationFilterGeneration || activeIntegrationId() !== integrationId || activeIntegrationSchema?.revision !== schema.revision) return;
+			integrationHistoricalFields = historicalFields;
+			integrationMetaFilterDraft = canonical;
+		} catch (cause) {
+			if (generation !== integrationFilterGeneration || activeIntegrationId() !== integrationId) return;
+			integrationFilterError = cause instanceof Error ? cause.message : 'Metadata filters are not valid for this schema';
+		}
+	}
+
+	function setIntegrationMetaFilter(filter: CustomMetaFilter) {
+		integrationMetaFilterDraft = filter;
+		const integrationId = activeIntegrationId();
+		const schema = activeIntegrationSchema;
+		if (integrationId && schema) void reconcileIntegrationMetaFilterDraft(integrationId, schema, filter);
+	}
+
+	function applyIntegrationMetaFilter(): boolean {
+		const schema = activeIntegrationSchema;
+		if (!schema) return integrationMetaFilterDraft.length === 0;
+		try {
+			const canonical = reconcileMetaFilter(integrationMetaFilterDraft, schema.fields, integrationHistoricalFields).filter;
+			integrationMetaFilterDraft = canonical;
+			integrationMetaFilterApplied = canonical;
+			integrationFilterError = '';
+			replaceMetaFilterUrl(canonical);
+			return true;
+		} catch (cause) {
+			integrationFilterError = cause instanceof Error ? cause.message : 'Metadata filters are not valid for this schema';
+			return false;
+		}
+	}
+
+	function closeFeedFilter() {
+		showFeedFilter = false;
+		integrationFilterGeneration++;
+		integrationMetaFilterDraft = integrationMetaFilterApplied;
+		integrationFilterError = '';
+	}
+
+	function toggleFeedFilter() {
+		if (showFeedFilter) {
+			closeFeedFilter();
+			return;
+		}
+		integrationMetaFilterDraft = integrationMetaFilterApplied;
+		fetchFeedSources();
+		showFeedFilter = true;
+	}
+
+	let reconciledIntegrationSchemaIdentity = '';
+	$effect(() => {
+		const integrationId = activeIntegrationId();
+		const schema = activeIntegrationSchema;
+		const identity = integrationId && schema ? `${integrationId}:${schema.revision}` : '';
+		if (!identity || identity === reconciledIntegrationSchemaIdentity) return;
+		untrack(() => {
+			reconciledIntegrationSchemaIdentity = identity;
+			const generation = ++integrationFilterGeneration;
+			const validatesUrlFilter = integrationUrlFilterPendingFor === integrationId;
+			let initial: unknown = integrationMetaFilterApplied;
+			try {
+				if (validatesUrlFilter && typeof window !== 'undefined') {
+					initial = decodeRestMetaFilter(new URL(window.location.href).searchParams) ?? [];
+				}
+			} catch (cause) {
+				integrationFilterError = cause instanceof Error ? cause.message : 'Invalid metadata filter URL';
+				integrationMetaFilterDraft = [];
+				integrationMetaFilterApplied = [];
+				integrationUrlFilterPendingFor = null;
+				replaceMetaFilterUrl([]);
+				void fetchCalls();
+				return;
+			}
+			void validateIntegrationMetaFilter(integrationId!, schema!, initial)
+				.then(({ filter, historicalFields }) => {
+					if (generation !== integrationFilterGeneration || activeIntegrationId() !== integrationId || activeIntegrationSchema?.revision !== schema?.revision) return;
+					const changed = JSON.stringify(filter) !== JSON.stringify(integrationMetaFilterApplied);
+					integrationHistoricalFields = historicalFields;
+					integrationMetaFilterDraft = filter;
+					integrationMetaFilterApplied = filter;
+					integrationFilterError = '';
+					if (validatesUrlFilter) integrationUrlFilterPendingFor = null;
+					replaceMetaFilterUrl(filter, integrationId!);
+					if (changed || validatesUrlFilter) void fetchCalls();
+				})
+				.catch((cause) => {
+					if (generation !== integrationFilterGeneration || activeIntegrationId() !== integrationId) return;
+					integrationFilterError = cause instanceof Error ? cause.message : 'Invalid metadata filter URL';
+					integrationHistoricalFields = [];
+					integrationMetaFilterDraft = [];
+					integrationMetaFilterApplied = [];
+					if (validatesUrlFilter) integrationUrlFilterPendingFor = null;
+					replaceMetaFilterUrl([]);
+					if (validatesUrlFilter) void fetchCalls();
+				});
+		});
+	});
 	// The per-source edit gears are hover-revealed, which touch devices cannot
 	// do. This pins them open so they stay reachable without a pointer.
 	let sourceEditMode = $state(false);
@@ -86,6 +353,7 @@
 	let hasMore: boolean = $state(false);
 	let callsPagination = $state<CursorTriplet>({});
 	let loadingMore: boolean = $state(false);
+	let callsRequestId = 0;
 
 	let callsScrollEl: HTMLElement | undefined = $state(undefined);
 	let callWsKey: string | null = null;
@@ -201,11 +469,13 @@
 	let srcCallerLoadingMore = $state(false);
 
 	let selectedListIds = $state<Set<string>>(new Set());
-	const chains: Chain[] = ['SOL'];
 
-	let callerSources = $state<WatchlistSourceItem[]>([]);
+	type RuntimeSourceItem = WatchlistSourceItem | IntegrationCallerSourceItem;
+	let callerSources = $state<RuntimeSourceItem[]>([]);
 	let callerSourcesLoading = $state(false);
 	let callerSourcesFetched = $state(false);
+	let callerSourcesScope = $state<string | null>(null);
+	let callerSourcesRequestId = 0;
 	let callerSourcesCursor = $state<string | undefined>(undefined);
 	let callerSourcesHasMore = $state(false);
 	let callerSourcesLoadingMore = $state(false);
@@ -222,7 +492,7 @@
 	let feedSwapType = $state<'BUY' | 'SELL' | null>(null);
 	let feedSourceId = $state<string | null>(null);
 	let feedSourceSearch = $state('');
-	let feedSourceItems = $state<WatchlistSourceItem[]>([]);
+	let feedSourceItems = $state<RuntimeSourceItem[]>([]);
 	let feedSourceCursor = $state<string | undefined>(undefined);
 	let feedSourceHasMore = $state(false);
 	let feedSourceLoading = $state(false);
@@ -245,14 +515,19 @@
 		if (selectedChannelIds.size > 0) c++;
 		if (selectedListIds.size > 0) c++;
 		if (selectedWalletIds.size > 0) c++;
+		if (activeIntegrationId()) c += integrationMetaFilterApplied.length;
 		return c;
 	});
 
-	function getFeedSourceItems(): { id: string; name: string }[] {
-		return feedSourceItems.map(s => ({ id: getSourceId(s), name: getSourceName(s) }));
+	function getFeedSourceItems(): { id: string; name: string; photoId: string | null }[] {
+		return feedSourceItems.map(s => ({
+			id: getSourceId(s),
+			name: getSourceName(s),
+			photoId: 'photoId' in s ? s.photoId : null
+		}));
 	}
 
-	const feedSourcePathMap: Record<WatchlistTab, '/v2/watchlist/sources/callers' | '/v2/watchlist/sources/tg' | '/v2/watchlist/sources/lists' | '/v2/watchlist/sources/wallets'> = {
+	const feedSourcePathMap: Record<BuiltInWatchlistTab, '/v2/watchlist/sources/callers' | '/v2/watchlist/sources/tg' | '/v2/watchlist/sources/lists' | '/v2/watchlist/sources/wallets'> = {
 		Callers: '/v2/watchlist/sources/callers',
 		Telegram: '/v2/watchlist/sources/tg',
 		Lists: '/v2/watchlist/sources/lists',
@@ -276,9 +551,14 @@
 			const query: Record<string, string> = {};
 			if (normalizedSearch) query.search = normalizedSearch;
 			if (!reset && feedSourceCursor) query.cursor = feedSourceCursor;
-			const { data } = await api.GET(feedSourcePathMap[activeTab], {
-				params: { query: query as never }
-			});
+			const integrationId = activeIntegrationId();
+			const data = integrationId
+				? await fetchIntegrationCallers(integrationId, query)
+				: isBuiltInTab(activeTab)
+					? (await api.GET(feedSourcePathMap[activeTab], {
+						params: { query: query as never }
+					})).data
+					: undefined;
 			if (requestId !== feedSourceRequestId) return;
 			feedSourceItems = reset ? (data?.sources ?? []) : [...feedSourceItems, ...(data?.sources ?? [])];
 			feedSourceCursor = data?.nextCursor;
@@ -309,16 +589,69 @@
 	function selectTab(tab: WatchlistTab) {
 		if (activeTab === tab) return;
 		clearFeedFilters();
+		reconciledIntegrationSchemaIdentity = '';
 		sourceEditMode = false;
-		activeTab = tab;
+		setActiveTab(tab);
 		feedSourceRequestId++;
 		feedSourceItems = [];
 		feedSourceCursor = undefined;
 		feedSourceHasMore = false;
-		fetchCalls();
+		callerSourcesFetched = false;
+		callerSourcesScope = null;
+		callerSourcesRequestId++;
+		callerSources = [];
+		callerSourcesLoading = false;
+		callerSourcesLoadingMore = false;
+		loadingMore = false;
+		activeIntegrationSchema = null;
+		activeIntegrationSchemaLoading = false;
+		activeIntegrationSchemaError = false;
 	}
 
+	function focusTab(index: number) {
+		requestAnimationFrame(() => {
+			tabListEl?.querySelector<HTMLButtonElement>(`button[data-tab-index="${index}"]`)?.focus();
+		});
+	}
+
+	function handleTabListKeydown(event: KeyboardEvent) {
+		if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+		const target = (event.target as HTMLElement).closest<HTMLButtonElement>('button[role="tab"]');
+		if (!target || !tabListEl?.contains(target)) return;
+		const currentIndex = Number(target.dataset.tabIndex);
+		if (!Number.isInteger(currentIndex) || tabs.length === 0) return;
+		event.preventDefault();
+		const nextIndex = event.key === 'Home'
+			? 0
+			: event.key === 'End'
+				? tabs.length - 1
+				: event.key === 'ArrowRight'
+					? (currentIndex + 1) % tabs.length
+					: (currentIndex - 1 + tabs.length) % tabs.length;
+		selectTab(tabs[nextIndex].key);
+		focusTab(nextIndex);
+	}
+
+	function scrollHorizontal(event: WheelEvent) {
+		if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+		event.preventDefault();
+		(event.currentTarget as HTMLElement).scrollLeft += event.deltaY;
+	}
+
+	$effect(() => {
+		const selectedTab = activeTab;
+		const tabIndex = tabs.findIndex((tab) => tab.key === selectedTab);
+		const list = tabListEl;
+		if (!list || tabIndex < 0) return;
+		const frame = requestAnimationFrame(() => {
+			list.querySelector<HTMLButtonElement>(`button[data-tab-index="${tabIndex}"]`)
+				?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+		});
+		return () => cancelAnimationFrame(frame);
+	});
+
 	function getFeedSourceFamily(): string {
+		if (activeIntegrationId()) return 'integrations';
 		switch (activeTab) {
 			case 'Callers': return 'callers';
 			case 'Telegram': return 'tg';
@@ -346,7 +679,7 @@
 	let showCtWalletModal = $state(false);
 	let showCtAddModal = $state(false);
 	let ctName = $state('');
-	let ctChain = $state<Chain>(chains[0]);
+	let ctChain = $state<Chain>(DISPLAY_CHAINS[0] ?? 'SOL');
 	let ctBulk = $state(false);
 	let ctBulkText = $state('');
 	let ctBulkResults = $state<{ line: string; status: string; reason: string | null }[]>([]);
@@ -355,37 +688,218 @@
 	let ctError = $state('');
 	let selectedWalletIds = $state<Set<string>>(new Set());
 
-	import type { Bot } from '$lib/api/types';
-
 	let sourceRanking = $state<WatchlistRankItem | null>(null);
 	let sourceRankingLoading = $state(false);
+	let sourceRankingRequestId = 0;
+	let integrationRankingItems = $state<WatchlistRankItem[]>([]);
+	let integrationRankingLoading = $state(false);
+	let integrationRankingPagination = $state<CursorTriplet>({});
+	let integrationRankingRequestId = 0;
+	let integrationRankingWsKey: string | null = null;
+	let integrationRankingPendingWsKey: string | null = null;
+	let integrationRankingActiveWsIdentity = '';
+	let integrationRankingPendingWsIdentity = '';
+	let integrationRankingError = $state('');
 	let rankingCollapsed = $state(false);
 	const RANK_TIMEFRAMES = ['1d', '3d', '7d', '30d'] as const;
 	let rankTimeframe = $state<typeof RANK_TIMEFRAMES[number]>('30d');
+	let integrationRankBy = $state<IntegrationRankingQueryState['rankBy']>('performanceScore');
+	let integrationOrderBy = $state<IntegrationRankingQueryState['orderBy']>('desc');
+	let integrationWinRateMin = $state('');
+	let integrationWinRateMax = $state('');
+	let integrationCallsMin = $state('');
+	let integrationCallsMax = $state('');
+	let integrationScoreMin = $state('');
+	let integrationScoreMax = $state('');
+	let integrationRankingAppliedState = $state<IntegrationRankingQueryState>({
+		timeframe: '30d',
+		rankBy: 'performanceScore',
+		orderBy: 'desc'
+	});
+	const integrationRankOptions: { value: IntegrationRankingQueryState['rankBy']; label: string }[] = [
+		{ value: 'performanceScore', label: 'Score' },
+		{ value: 'winRatePct', label: 'Win rate' },
+		{ value: 'totalCalls', label: 'Calls' },
+		{ value: 'averageMultiplier', label: 'Average return' },
+		{ value: 'highestMultiplier', label: 'Highest return' }
+	];
+
+	function currentIntegrationRankingState(): IntegrationRankingQueryState {
+		return {
+			timeframe: rankTimeframe,
+			rankBy: integrationRankBy,
+			orderBy: integrationOrderBy,
+			winRatePctMin: integrationWinRateMin,
+			winRatePctMax: integrationWinRateMax,
+			totalCallsMin: integrationCallsMin,
+			totalCallsMax: integrationCallsMax,
+			performanceScoreMin: integrationScoreMin,
+			performanceScoreMax: integrationScoreMax
+		};
+	}
 
 	function cycleRankTimeframe() {
 		const idx = RANK_TIMEFRAMES.indexOf(rankTimeframe);
 		rankTimeframe = RANK_TIMEFRAMES[(idx + 1) % RANK_TIMEFRAMES.length];
-		fetchSourceRanking();
+		if (activeIntegrationId() && !selectedCallerId) {
+			void fetchIntegrationRankingPage(
+				undefined,
+				{ ...integrationRankingAppliedState, timeframe: rankTimeframe },
+				true
+			);
+			return;
+		}
+		refreshActiveRanking();
+	}
+
+	function applyIntegrationRankingFilters() {
+		const next = currentIntegrationRankingState();
+		try {
+			buildIntegrationRankingQuery(next);
+			void fetchIntegrationRankingPage(undefined, next, true);
+		} catch (cause) {
+			integrationRankingError = cause instanceof Error ? cause.message : 'Invalid ranking filters';
+		}
+	}
+
+	function cleanupIntegrationRankingWs() {
+		if (integrationRankingWsKey) unsubscribe(integrationRankingWsKey);
+		if (integrationRankingPendingWsKey) unsubscribe(integrationRankingPendingWsKey);
+		integrationRankingWsKey = null;
+		integrationRankingPendingWsKey = null;
+		integrationRankingActiveWsIdentity = '';
+		integrationRankingPendingWsIdentity = '';
+	}
+
+	function rememberIntegrationRankingPage(page: CursorTriplet | undefined | null) {
+		integrationRankingPagination = {
+			cursor: page?.cursor ?? undefined,
+			prevCursor: page?.prevCursor ?? undefined,
+			nextCursor: page?.nextCursor ?? undefined
+		};
+	}
+
+	function setupIntegrationRankingWs(
+		integrationId: string,
+		query: Record<string, unknown>,
+		queryState: IntegrationRankingQueryState,
+		page: WatchlistRankingResponse
+	) {
+		if (!active || activeIntegrationId() !== integrationId || selectedCallerId) return;
+		const topic = integrationRankingTopic(integrationId);
+		const params = integrationRankingSubscriptionParams(query, page.cursor);
+		const identity = `${integrationId}:${JSON.stringify(params)}`;
+		if (integrationRankingPendingWsKey) {
+			unsubscribe(integrationRankingPendingWsKey);
+			integrationRankingPendingWsKey = null;
+			integrationRankingPendingWsIdentity = '';
+		}
+		const previousKey = integrationRankingWsKey;
+		let nextKey = '';
+		nextKey = subscribe(topic, (event, payload, frameTopic) => {
+			if (event !== 'WATCHLIST_RANKING' || frameTopic !== topic || integrationRankingWsKey !== nextKey || integrationRankingActiveWsIdentity !== identity || activeIntegrationId() !== integrationId || selectedCallerId) return;
+			const snapshot = payload as WatchlistRankingResponse;
+			integrationRankingItems = integrationRankingPageItems(snapshot);
+			rememberIntegrationRankingPage(snapshot);
+		}, params, {
+			onSubscribed: () => {
+				if (integrationRankingPendingWsKey !== nextKey || integrationRankingPendingWsIdentity !== identity || activeIntegrationId() !== integrationId || selectedCallerId) return;
+				integrationRankingWsKey = nextKey;
+				integrationRankingActiveWsIdentity = identity;
+				integrationRankingPendingWsKey = null;
+				integrationRankingPendingWsIdentity = '';
+				integrationRankingItems = integrationRankingPageItems(page);
+				rememberIntegrationRankingPage(page);
+				if (previousKey && previousKey !== nextKey) unsubscribe(previousKey);
+			},
+			onError: () => {
+				if (integrationRankingPendingWsKey !== nextKey || integrationRankingPendingWsIdentity !== identity) return;
+				unsubscribe(nextKey);
+				integrationRankingPendingWsKey = null;
+				integrationRankingPendingWsIdentity = '';
+			},
+			recovery: 'refetch',
+			onReconnect: () => {
+				if (integrationRankingWsKey !== nextKey || integrationRankingActiveWsIdentity !== identity) return;
+				void fetchIntegrationRankingPage(page.cursor, queryState);
+			}
+		});
+		integrationRankingPendingWsKey = nextKey;
+		integrationRankingPendingWsIdentity = identity;
+	}
+
+	async function fetchIntegrationRankingPage(
+		cursor?: string,
+		queryState: IntegrationRankingQueryState = integrationRankingAppliedState,
+		commitAppliedState = false
+	) {
+		const integrationId = activeIntegrationId();
+		if (!integrationId || selectedCallerId) {
+			integrationRankingRequestId++;
+			integrationRankingItems = [];
+			rememberIntegrationRankingPage(undefined);
+			cleanupIntegrationRankingWs();
+			return;
+		}
+		const requestId = ++integrationRankingRequestId;
+		integrationRankingLoading = true;
+		integrationRankingError = '';
+		try {
+			const query = buildIntegrationRankingQuery(queryState, cursor);
+			const data = await fetchIntegrationRanking(integrationId, query);
+			if (requestId !== integrationRankingRequestId || activeIntegrationId() !== integrationId || selectedCallerId) return;
+			cleanupIntegrationRankingWs();
+			integrationRankingItems = integrationRankingPageItems(data);
+			rememberIntegrationRankingPage(data);
+			if (commitAppliedState) integrationRankingAppliedState = { ...queryState };
+			setupIntegrationRankingWs(integrationId, query, queryState, data);
+		} catch (cause) {
+			if (requestId === integrationRankingRequestId) integrationRankingError = cause instanceof Error ? cause.message : 'Failed to load ranking';
+		} finally {
+			if (requestId === integrationRankingRequestId) {
+				integrationRankingLoading = false;
+			}
+		}
+	}
+
+	function refreshActiveRanking() {
+		if (activeIntegrationId() && !selectedCallerId) {
+			void fetchIntegrationRankingPage();
+			return;
+		}
+		void fetchSourceRanking();
 	}
 
 	async function fetchSourceRanking() {
 		const sel = getSelectedSourceId();
 		if (!sel) {
+			sourceRankingRequestId++;
 			sourceRanking = null;
+			sourceRankingLoading = false;
 			return;
 		}
+		cleanupIntegrationRankingWs();
+		const requestId = ++sourceRankingRequestId;
+		const integrationId = activeIntegrationId();
+		const selectionKey = `${integrationId ?? ''}:${sel.source}:${sel.id}:${rankTimeframe}`;
 		sourceRankingLoading = true;
 		try {
-			const { data } = await api.GET('/v2/watchlist/ranking/{source}/{id}', {
-				params: { path: { source: sel.source, id: sel.id }, query: { timeframe: rankTimeframe } }
-			} as never);
+			const data = integrationId
+				? await fetchIntegrationCallerRanking(integrationId, sel.id, rankTimeframe)
+				: (await api.GET('/v2/watchlist/ranking/{source}/{id}', {
+					params: { path: { source: sel.source, id: sel.id }, query: { timeframe: rankTimeframe } }
+				} as never)).data;
+			const current = getSelectedSourceId();
+			const currentKey = current
+				? `${activeIntegrationId() ?? ''}:${current.source}:${current.id}:${rankTimeframe}`
+				: '';
+			if (requestId !== sourceRankingRequestId || selectionKey !== currentKey) return;
 			const items = (data as any)?.items ?? [];
 			sourceRanking = items[0] ?? null;
 		} catch {
-			sourceRanking = null;
+			if (requestId === sourceRankingRequestId) sourceRanking = null;
 		} finally {
-			sourceRankingLoading = false;
+			if (requestId === sourceRankingRequestId) sourceRankingLoading = false;
 		}
 	}
 
@@ -395,14 +909,16 @@
 	let botsBySourceId = $state<Map<string, Bot>>(new Map());
 	let botsFetched = $state(false);
 	let botsExhausted = $state(false);
-
 	async function fetchBots() {
 		if (botsFetched) return;
 		botsFetched = true;
 		try {
 			const { data } = await api.GET('/v2/bots', { params: { query: { limit: 20 } } });
 			const map = new Map<string, Bot>();
-			for (const bot of data?.bots ?? []) map.set(bot.source.id, bot);
+			for (const bot of (data?.bots ?? []) as Bot[]) {
+				const key = botSourceIdentityKey(bot.source);
+				if (!map.has(key)) map.set(key, bot);
+			}
 			botsBySourceId = map;
 			botsExhausted = !data?.nextCursor;
 		} catch {
@@ -410,20 +926,30 @@
 		}
 	}
 
-	async function findBotForSource(sourceId: string, sourceType: CallerSource, chain?: Chain): Promise<Bot | undefined> {
+	function mappedBotForSource(source: unknown): Bot | undefined {
+		for (const key of runtimeSourceBotKeys(source)) {
+			const bot = botsBySourceId.get(key);
+			if (bot) return bot;
+		}
+		return undefined;
+	}
+
+	async function findBotForSource(source: unknown, sourceType: CallerSource, chain?: Chain): Promise<Bot | undefined> {
 		await fetchBots();
-		let found = botsBySourceId.get(sourceId);
+		let found = mappedBotForSource(source);
 		if (found) return found;
+		const lookupKeys = new Set(runtimeSourceBotKeys(source));
+		if (lookupKeys.size === 0) return undefined;
 		let cursor: string | undefined;
 		const seen = new Set<string>();
 		do {
 			const { data } = await api.GET('/v2/bots', {
 				params: { query: { limit: 20, sourceType, ...(chain ? { chain } : {}), ...(cursor ? { cursor } : {}) } }
 			});
-			found = data?.bots.find((bot) => bot.source.id === sourceId);
+			found = ((data?.bots ?? []) as Bot[]).find((bot) => lookupKeys.has(botSourceIdentityKey(bot.source)));
 			if (found) {
 				const nextMap = new Map(botsBySourceId);
-				nextMap.set(sourceId, found);
+				nextMap.set(botSourceIdentityKey(found.source), found);
 				botsBySourceId = nextMap;
 				return found;
 			}
@@ -442,25 +968,47 @@
 	}
 
 	function hasBot(call: WatchlistCallItem): boolean {
-		const m = call.caller;
-		const id = 'id' in m ? String(m.id) : '';
-		return id ? botsBySourceId.has(id) : false;
+		return !!mappedBotForSource(call.caller);
 	}
 
 	function getBotForCall(call: WatchlistCallItem): Bot | undefined {
-		const m = call.caller;
-		const id = 'id' in m ? String(m.id) : '';
-		return id ? botsBySourceId.get(id) : undefined;
+		return mappedBotForSource(call.caller);
 	}
 
 	async function openBotForCall(call: WatchlistCallItem) {
+		const requestId = ++openBotRequestId;
+		const requestedTab = activeTab;
 		const m = call.caller;
-		const name = 'name' in m && m.name ? String(m.name) : 'id' in m ? String(m.id) : 'Unknown';
 		const type: CallerSource = m.type;
-		const id = 'id' in m ? String(m.id) : '';
-		editingBot = id ? await findBotForSource(id, type, m.type === 'WALLET' ? m.chain : undefined) ?? null : null;
-		botSource = { id, type, name, ...(m.type === 'WALLET' ? { chain: m.chain } : {}) };
-		void ensureCreateBotModal().then(() => { showCreateBot = true; });
+		const found = await findBotForSource(m, type, m.type === 'WALLET' ? m.chain : undefined) ?? null;
+		if (requestId !== openBotRequestId || !active || activeTab !== requestedTab) return;
+		editingBot = found;
+		if (found) {
+			botSource = descriptorFromBotSource(found.source);
+		} else {
+			const integrationSource: unknown = m;
+			if (isIntegrationSource(integrationSource)) {
+				botSource = {
+					type: 'INTEGRATION',
+					integrationId: integrationSource.integrationId,
+					integrationName: integrationSource.integrationName,
+					integrationPhotoId: integrationSource.integrationPhotoId,
+					integrationEnabled: true,
+					callerId: integrationSource.id,
+					callerName: integrationSource.name,
+					callerPhotoId: integrationSource.photoId,
+					metaFilter: [],
+					name: `${integrationSource.integrationName} · ${integrationSource.name}`
+				};
+			} else {
+				const id = 'id' in m ? String(m.id) : '';
+				const name = 'name' in m && m.name ? String(m.name) : id || 'Unknown';
+				botSource = { id, type: type as Exclude<CallerSource, 'INTEGRATION'>, name, ...(m.type === 'WALLET' ? { chain: m.chain } : {}) };
+			}
+		}
+		void ensureCreateBotModal().then(() => {
+			if (requestId === openBotRequestId && active && activeTab === requestedTab) showCreateBot = true;
+		});
 	}
 
 	let enabledChats = $derived(tgChats.filter(c => c.isEnabled));
@@ -599,6 +1147,7 @@
 
 	function cleanupAll() {
 		cleanupCallWs();
+		cleanupIntegrationRankingWs();
 	}
 
 	function callFlashKey(call: WatchlistCallItem): string {
@@ -652,14 +1201,23 @@
 
 	function getWatchlistTopic(tab: WatchlistTab): string {
 		const selected = getSelectedSourceId();
+		const integrationId = integrationIdFromTab(tab);
+		if (integrationId) {
+			return selected
+				? `watchlist:integrations:${integrationId}:${selected.id}`
+				: `watchlist:integrations:${integrationId}`;
+		}
 		if (selected) return `watchlist:${selected.source}:${selected.id}`;
-		return callTopicMap[tab];
+		return isBuiltInTab(tab) ? callTopicMap[tab] : 'watchlist:callers';
 	}
 
 	function buildFeedWsParams(): Record<string, unknown> | undefined {
 		const liveParams = liveAccumulatedParams(callsTriplet());
 		if (!liveParams) return undefined;
-		const params: Record<string, unknown> = feedFilterCount > 0 ? { ...buildFeedQuery() } : {};
+		const normalParams: Record<string, unknown> = feedFilterCount > 0 ? { ...buildFeedQuery() } : {};
+		const params = activeIntegrationId()
+			? integrationFeedSubscriptionParams(normalParams, integrationMetaFilterApplied)
+			: normalParams;
 		Object.assign(params, liveParams);
 		return Object.keys(params).length > 0 ? params : undefined;
 	}
@@ -673,6 +1231,8 @@
 	}
 
 	function setupCallWs(tab: WatchlistTab) {
+		const integrationId = integrationIdFromTab(tab);
+		if (integrationId && integrationUrlFilterPendingFor === integrationId) return;
 		cleanupCallWs();
 		if (!active) return;
 		if (requiresAuth(tab) && !getIsLoggedIn()) return;
@@ -696,33 +1256,98 @@
 		WALLET: 'Wallets'
 	};
 
-	function applyCallerSelection(id: string, sourceType: string) {
-		const tab = sourceTypeToTab[sourceType] ?? 'Callers';
-		activeTab = tab;
-		selectedCallerId = tab === 'Callers' ? id : null;
+	function applyCallerSelection(id: string, sourceType: string, integrationId?: string) {
+		const previousIntegrationId = activeIntegrationId();
+		const tab = sourceType === 'INTEGRATION' && integrationId
+			? integrationTabKey(integrationId)
+			: sourceTypeToTab[sourceType] ?? 'Callers';
+		const tabChanged = tab !== activeTab;
+		if (tabChanged) {
+			callerSourcesFetched = false;
+			callerSourcesScope = null;
+			callerSourcesRequestId++;
+			callerSources = [];
+			callerSourcesLoading = false;
+			callerSourcesLoadingMore = false;
+			loadingMore = false;
+		}
+		if (previousIntegrationId && previousIntegrationId !== integrationIdFromTab(tab)) replaceMetaFilterUrl([]);
+		setActiveTab(tab);
+		if (previousIntegrationId !== integrationIdFromTab(tab)) {
+			integrationFilterGeneration++;
+			integrationUrlFilterPendingFor = null;
+			integrationMetaFilterDraft = [];
+			integrationMetaFilterApplied = [];
+			integrationHistoricalFields = [];
+			integrationFilterError = '';
+			reconciledIntegrationSchemaIdentity = '';
+			activeIntegrationSchema = null;
+			activeIntegrationSchemaLoading = false;
+			activeIntegrationSchemaError = false;
+		}
+		selectedCallerId = tab === 'Callers' || !!integrationIdFromTab(tab) ? id : null;
 		selectedChannelIds = tab === 'Telegram' ? new Set([id]) : new Set();
 		selectedListIds = tab === 'Lists' ? new Set([id]) : new Set();
 		selectedWalletIds = tab === 'Wallets' ? new Set([id]) : new Set();
 		feedSourceId = null;
-		fetchCalls();
-		fetchSourceRanking();
+		if (!tabChanged) {
+			fetchCalls();
+			fetchSourceRanking();
+		}
 	}
 
 	function openCallerView(call: WatchlistCallItem) {
 		const m = call.caller;
 		const id = 'id' in m ? String(m.id) : '';
 		if (!id) return;
-		applyCallerSelection(id, m.type);
+		applyCallerSelection(id, m.type, isIntegrationSource(m) ? m.integrationId : undefined);
+	}
+
+	function selectAllCallerSources() {
+		selectedCallerId = null;
+		feedSourceId = null;
+		sourceRanking = null;
+		fetchCalls();
+		refreshActiveRanking();
+	}
+
+	function toggleCallerSource(callerId: string) {
+		selectedCallerId = selectedCallerId === callerId ? null : callerId;
+		feedSourceId = null;
+		sourceRanking = null;
+		fetchCalls();
+		refreshActiveRanking();
+	}
+
+	function selectIntegrationRankingCaller(item: WatchlistRankItem) {
+		const callerId = String(item.source.id);
+		rankTimeframe = integrationRankingAppliedState.timeframe;
+		selectedCallerId = callerId;
+		feedSourceId = null;
+		cleanupIntegrationRankingWs();
+		fetchCalls();
+		fetchSourceRanking();
+	}
+
+	function closeSourceRanking() {
+		selectedCallerId = null;
+		selectedChannelIds = new Set();
+		selectedListIds = new Set();
+		selectedWalletIds = new Set();
+		sourceRanking = null;
+		fetchCalls();
+		refreshActiveRanking();
 	}
 
 
 
 	function requiresAuth(tab: WatchlistTab): boolean {
-		return tab !== 'Callers';
+		return tab !== 'Callers' && !integrationIdFromTab(tab);
 	}
 
 	function getSelectedSourceId(): { source: string; id: string } | null {
 		if (activeTab === 'Callers' && selectedCallerId) return { source: 'callers', id: selectedCallerId };
+		if (activeIntegrationId() && selectedCallerId) return { source: 'integrations', id: selectedCallerId };
 		if (activeTab === 'Telegram' && selectedChannelIds.size === 1) {
 			return { source: 'tg', id: [...selectedChannelIds][0] };
 		}
@@ -744,9 +1369,13 @@
 		if (feedMaxMultiplier) q.maxMultiplier = feedMaxMultiplier;
 		if (feedMinPrice) q.minPrice = feedMinPrice;
 		if (feedMaxPrice) q.maxPrice = feedMaxPrice;
-		if (feedChains.length > 0) q.chains = feedChains;
+		if (feedChains.length > 0) q.chains = feedChains as WatchlistFeedQuery['chains'];
 		if (activeTab === 'Wallets' && feedSwapType) q.swapType = feedSwapType;
 		return q;
+	}
+
+	function buildIntegrationFeedQuery(extra: Pick<IntegrationFeedQuery, 'cursor'> = {}): IntegrationFeedQuery {
+		return integrationFeedRestQuery({ ...buildFeedQuery(), ...extra }, integrationMetaFilterApplied);
 	}
 
 	function callsTriplet(): CursorTriplet {
@@ -764,6 +1393,16 @@
 	}
 
 	async function fetchCalls(opts?: { soft?: boolean }) {
+		const pendingIntegrationId = activeIntegrationId();
+		if (pendingIntegrationId && integrationUrlFilterPendingFor === pendingIntegrationId) {
+			callsRequestId++;
+			loading = true;
+			calls = [];
+			rememberCallsPage(undefined);
+			cleanupCallWs();
+			return;
+		}
+		const requestId = ++callsRequestId;
 		const keepVisible = !!(opts?.soft && calls.length > 0);
 		if (!keepVisible) {
 			loading = true;
@@ -771,65 +1410,97 @@
 		}
 		rememberCallsPage(undefined);
 		try {
-			if (activeTab !== 'Callers' && !getIsLoggedIn()) {
+			if (requiresAuth(activeTab) && !getIsLoggedIn()) {
 				loading = false;
 				cleanupCallWs();
 				return;
 			}
 			const selected = getSelectedSourceId();
 			const query = buildFeedQuery();
-			if (selected) {
+			const integrationId = activeIntegrationId();
+			if (integrationId) {
+				const data = await fetchIntegrationWatchlistFeed(
+					integrationId,
+					selected?.id ?? null,
+					buildIntegrationFeedQuery()
+				);
+				if (requestId !== callsRequestId) return;
+				calls = data.items ?? [];
+				rememberCallsPage(data);
+			} else if (selected) {
 				const { data } = await api.GET('/v2/watchlist/sources/{source}/{id}/feed', {
 					params: { path: { source: selected.source, id: selected.id }, query }
 				});
+				if (requestId !== callsRequestId) return;
 				calls = data?.items ?? [];
 				rememberCallsPage(data);
-			} else {
+			} else if (isBuiltInTab(activeTab)) {
 				const path = watchlistPathMap[activeTab];
 				const { data } = await api.GET(path, {
 					params: { query }
 				});
+				if (requestId !== callsRequestId) return;
 				calls = data?.items ?? [];
 				rememberCallsPage(data);
 			}
 		} catch {
+			if (requestId !== callsRequestId) return;
 			if (!keepVisible) calls = [];
 			rememberCallsPage(undefined);
 		} finally {
-			loading = false;
-			setupCallWs(activeTab);
-			autoFillIfNeeded();
+			if (requestId === callsRequestId) {
+				loading = false;
+				setupCallWs(activeTab);
+				autoFillIfNeeded();
+			}
 		}
 	}
 
 	async function fetchMoreCalls() {
 		if (loadingMore || !hasMore || !callsPagination.nextCursor) return;
+		const requestId = callsRequestId;
 		loadingMore = true;
 		try {
 			const previousCursor = callsPagination.cursor;
 			const selected = getSelectedSourceId();
 			const query = { ...buildFeedQuery(), cursor: callsPagination.nextCursor };
-			if (selected) {
+			const integrationId = activeIntegrationId();
+			if (integrationId) {
+				const data = await fetchIntegrationWatchlistFeed(
+					integrationId,
+					selected?.id ?? null,
+					buildIntegrationFeedQuery({ cursor: callsPagination.nextCursor })
+				);
+				if (requestId !== callsRequestId) return;
+				calls = [...calls, ...(data.items ?? [])];
+				rememberCallsPage(data);
+				if (callsPagination.cursor && callsPagination.cursor !== previousCursor) setupCallWs(activeTab);
+			} else if (selected) {
 				const { data } = await api.GET('/v2/watchlist/sources/{source}/{id}/feed', {
 					params: { path: { source: selected.source, id: selected.id }, query }
 				});
+				if (requestId !== callsRequestId) return;
 				calls = [...calls, ...(data?.items ?? [])];
 				rememberCallsPage(data);
 				if (callsPagination.cursor && callsPagination.cursor !== previousCursor) setupCallWs(activeTab);
-			} else {
+			} else if (isBuiltInTab(activeTab)) {
 				const path = watchlistPathMap[activeTab];
 				const { data } = await api.GET(path, {
 					params: { query }
 				});
+				if (requestId !== callsRequestId) return;
 				calls = [...calls, ...(data?.items ?? [])];
 				rememberCallsPage(data);
 				if (callsPagination.cursor && callsPagination.cursor !== previousCursor) setupCallWs(activeTab);
 			}
 		} catch {
+			if (requestId !== callsRequestId) return;
 			hasMore = false;
 		} finally {
-			loadingMore = false;
-			autoFillIfNeeded();
+			if (requestId === callsRequestId) {
+				loadingMore = false;
+				autoFillIfNeeded();
+			}
 		}
 	}
 
@@ -874,31 +1545,50 @@
 	});
 
 	async function fetchCallerSources() {
-		if (callerSourcesFetched) return;
+		const integrationId = activeIntegrationId();
+		const scope = integrationId ?? 'callers';
+		if (callerSourcesFetched && callerSourcesScope === scope) return;
+		const requestId = ++callerSourcesRequestId;
+		callerSourcesScope = scope;
+		callerSources = [];
+		callerSourcesCursor = undefined;
+		callerSourcesHasMore = false;
 		callerSourcesLoading = true;
 		try {
-			const { data } = await api.GET('/v2/watchlist/sources/callers');
+			const data = integrationId
+				? await fetchIntegrationCallers(integrationId)
+				: (await api.GET('/v2/watchlist/sources/callers')).data;
+			if (callerSourcesRequestId !== requestId || callerSourcesScope !== scope) return;
 			callerSources = data?.sources ?? [];
 			callerSourcesCursor = data?.nextCursor;
 			callerSourcesHasMore = !!data?.nextCursor;
 		} catch {} finally {
-			callerSourcesLoading = false;
-			callerSourcesFetched = true;
+			if (callerSourcesRequestId === requestId) {
+				callerSourcesLoading = false;
+				callerSourcesFetched = true;
+			}
 		}
 	}
 
 	async function fetchMoreCallerSources() {
 		if (!callerSourcesHasMore || callerSourcesLoadingMore || !callerSourcesCursor) return;
+		const integrationId = activeIntegrationId();
+		const scope = integrationId ?? 'callers';
+		if (callerSourcesScope !== scope) return;
+		const requestId = callerSourcesRequestId;
 		callerSourcesLoadingMore = true;
 		try {
-			const { data } = await api.GET('/v2/watchlist/sources/callers', {
-				params: { query: { cursor: callerSourcesCursor } }
-			});
+			const data = integrationId
+				? await fetchIntegrationCallers(integrationId, { cursor: callerSourcesCursor })
+				: (await api.GET('/v2/watchlist/sources/callers', {
+					params: { query: { cursor: callerSourcesCursor } }
+				})).data;
+			if (callerSourcesRequestId !== requestId || callerSourcesScope !== scope) return;
 			callerSources = [...callerSources, ...(data?.sources ?? [])];
 			callerSourcesCursor = data?.nextCursor;
 			callerSourcesHasMore = !!data?.nextCursor;
 		} catch {} finally {
-			callerSourcesLoadingMore = false;
+			if (callerSourcesRequestId === requestId) callerSourcesLoadingMore = false;
 		}
 	}
 
@@ -914,6 +1604,7 @@
 	}
 
 	function clearFeedFilters() {
+		replaceMetaFilterUrl([]);
 		feedMinMcap = '';
 		feedMaxMcap = '';
 		feedMinMultiplier = '';
@@ -928,20 +1619,27 @@
 		selectedChannelIds = new Set();
 		selectedListIds = new Set();
 		selectedWalletIds = new Set();
+		integrationFilterGeneration++;
+		integrationUrlFilterPendingFor = null;
+		integrationMetaFilterDraft = [];
+		integrationMetaFilterApplied = [];
+		integrationHistoricalFields = [];
+		integrationFilterError = '';
 		sourceRanking = null;
 	}
 
 	function applyFeedFilters() {
+		if (activeIntegrationId() && !applyIntegrationMetaFilter()) return;
 		showFeedFilter = false;
 		if (feedSourceId) {
-			if (activeTab === 'Callers') selectedCallerId = feedSourceId;
+			if (activeTab === 'Callers' || activeIntegrationId()) selectedCallerId = feedSourceId;
 			else if (activeTab === 'Telegram') { selectedChannelIds = new Set([feedSourceId]); }
 			else if (activeTab === 'Lists') { selectedListIds = new Set([feedSourceId]); }
 			else if (activeTab === 'Wallets') { selectedWalletIds = new Set([feedSourceId]); }
 			feedSourceId = null;
 		}
 		fetchCalls();
-		fetchSourceRanking();
+		refreshActiveRanking();
 	}
 
 	async function fetchTgStatus() {
@@ -1102,11 +1800,11 @@
 		}
 	}
 
-	function getSourceName(item: WatchlistSourceItem): string {
+	function getSourceName(item: RuntimeSourceItem): string {
 		return (item as { name: string }).name;
 	}
 
-	function getSourceId(item: WatchlistSourceItem): string {
+	function getSourceId(item: RuntimeSourceItem): string {
 		return (item as { id: string }).id;
 	}
 
@@ -1426,7 +2124,7 @@
 
 	function resetCtForm() {
 		ctName = '';
-		ctChain = chains[0];
+		ctChain = DISPLAY_CHAINS[0] ?? 'SOL';
 		ctAddress = '';
 		ctError = '';
 		ctBulk = false;
@@ -1538,12 +2236,16 @@
 
 	$effect(() => {
 		if (!active) {
+			openBotRequestId++;
 			cleanupCallWs();
 			return;
 		}
 		const tab = activeTab;
 		const loggedIn = getIsLoggedIn();
 		untrack(() => {
+			if (!integrationDiscovery && !integrationDiscoveryLoading && !integrationDiscoveryError) {
+				void loadIntegrationDiscovery();
+			}
 			const tabChanged = tab !== prevTab;
 			const loginChanged = loggedIn !== prevLoggedIn;
 			prevTab = tab;
@@ -1561,18 +2263,26 @@
 			if (tab === 'Wallets' && loggedIn && !ctWalletsFetched) {
 				fetchCtWallets();
 			}
-			if (tab === 'Callers' && !callerSourcesFetched) {
+			if ((tab === 'Callers' || !!integrationIdFromTab(tab)) && !callerSourcesFetched) {
 				fetchCallerSources();
 			}
+			const integrationId = integrationIdFromTab(tab);
+			if (integrationId && tabChanged) void loadActiveIntegrationSchema(integrationId);
 			if (loggedIn && !botsFetched) {
 				fetchBots();
 			}
 
 			if (tabChanged || loginChanged) {
 				sourceRanking = null;
+				integrationRankingItems = [];
+				rememberIntegrationRankingPage(undefined);
 				fetchCalls();
+				refreshActiveRanking();
 			} else if (!callWsKey) {
 				setupCallWs(tab);
+			}
+			if (integrationId && !selectedCallerId && !integrationRankingWsKey && !integrationRankingLoading) {
+				void fetchIntegrationRankingPage();
 			}
 		});
 
@@ -1583,12 +2293,17 @@
 		const selection = getPendingWatchlistCaller();
 		if (!selection) return;
 		untrack(() => {
-			applyCallerSelection(selection.id, selection.sourceType);
+			applyCallerSelection(
+				selection.id,
+				selection.sourceType,
+				selection.sourceType === 'INTEGRATION' ? selection.integrationId : undefined
+			);
 			clearPendingWatchlistCaller();
 		});
 	});
 
 	onDestroy(() => {
+		openBotRequestId++;
 		if (feedSourceSearchTimer) clearTimeout(feedSourceSearchTimer);
 		for (const t of arrivedTimers.values()) clearTimeout(t);
 		cleanupAll();
@@ -1602,19 +2317,41 @@
 
 <div class="flex flex-1 flex-col min-h-0 overflow-hidden">
 	<div class="flex border-b border-bd">
-		{#each tabs as tab}
+		<div bind:this={tabListEl} onkeydown={handleTabListKeydown} onwheel={scrollHorizontal} class="flex min-w-0 flex-1 overflow-x-auto scrollbar-none" role="tablist" aria-label="Watchlist sources" tabindex="-1">
+			{#each tabs as tab, tabIndex (tab.key)}
+				<button
+					class="relative min-w-[25%] shrink-0 cursor-pointer px-2 py-1.5 text-xs font-medium transition-colors {activeTab === tab.key
+						? 'text-tx'
+						: 'text-g6 hover:text-g9'}"
+					onclick={() => selectTab(tab.key)}
+					title={tab.label}
+					role="tab"
+					aria-selected={activeTab === tab.key}
+					tabindex={rovingTab === tab.key ? 0 : -1}
+					data-tab-index={tabIndex}
+				>
+					<span class="flex items-center justify-center gap-1 truncate">
+						{#if tab.integration?.photoId && avatarUrl(tab.integration.photoId)}
+							<img src={avatarUrl(tab.integration.photoId) ?? ''} alt="" class="h-4 w-4 shrink-0 rounded-full object-cover" loading="lazy" />
+						{/if}
+						<span class="truncate">{tab.label}</span>
+					</span>
+					{#if activeTab === tab.key}
+						<span class="absolute bottom-0 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-grn"></span>
+					{/if}
+				</button>
+			{/each}
+		</div>
+		{#if integrationDiscoveryError}
 			<button
-				class="relative flex-1 cursor-pointer px-1 py-1.5 text-xs font-medium transition-colors {activeTab === tab
-					? 'text-tx'
-					: 'text-g6 hover:text-g9'}"
-								onclick={() => selectTab(tab)}
+				onclick={loadIntegrationDiscovery}
+				class="flex w-8 shrink-0 cursor-pointer items-center justify-center text-g5 transition-colors hover:text-tx"
+				title="Retry integration tabs"
+				aria-label="Retry integration tabs"
 			>
-				{tab}
-				{#if activeTab === tab}
-					<span class="absolute bottom-0 left-1/2 h-0.5 w-4 -translate-x-1/2 rounded-full bg-grn"></span>
-				{/if}
+				<RefreshCw class="h-3.5 w-3.5" strokeWidth={1.75} />
 			</button>
-		{/each}
+		{/if}
 	</div>
 
 	{#if requiresAuth(activeTab) && !getIsLoggedIn()}
@@ -1703,15 +2440,20 @@
 				<button onclick={() => { showChannelModal = true; }} class="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md bg-s7 text-g7 transition-colors hover:bg-s6 hover:text-tx" title="Add channels"><Plus class="h-3.5 w-3.5" strokeWidth={2} /></button>
 			{/if}
 
-			<div class="flex flex-1 items-center gap-1 overflow-x-auto scrollbar-none" onwheel={(e) => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); e.currentTarget.scrollLeft += e.deltaY; } }}>
-				{#if activeTab === 'Callers'}
-					<button onclick={() => { selectedCallerId = null; feedSourceId = null; sourceRanking = null; fetchCalls(); }} class="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors {selectedCallerId === null ? 'bg-grn/20 text-grn' : 'text-g6 hover:text-g9'}">All</button>
+			<div class="flex flex-1 items-center gap-1 overflow-x-auto scrollbar-none" onwheel={scrollHorizontal}>
+				{#if activeTab === 'Callers' || activeIntegrationId()}
+					<button onclick={selectAllCallerSources} class="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors {selectedCallerId === null ? 'bg-grn/20 text-grn' : 'text-g6 hover:text-g9'}">All</button>
 					{#each callerSources as caller (getSourceId(caller))}
 						<button
-							onclick={() => { const id = getSourceId(caller); selectedCallerId = selectedCallerId === id ? null : id; feedSourceId = null; if (!selectedCallerId) sourceRanking = null; fetchCalls(); if (selectedCallerId) fetchSourceRanking(); }}
+							onclick={() => toggleCallerSource(getSourceId(caller))}
 							class="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors {selectedCallerId === getSourceId(caller) ? 'bg-grn/20 text-grn' : 'text-g6 hover:text-g9'}"
 						>
-							<span class="max-w-[80px] truncate">{getSourceName(caller)}</span>
+							<span class="flex max-w-[96px] items-center gap-1 truncate">
+								{#if 'photoId' in caller && caller.photoId && avatarUrl(caller.photoId)}
+									<img src={avatarUrl(caller.photoId) ?? ''} alt="" class="h-3.5 w-3.5 shrink-0 rounded-full object-cover" loading="lazy" />
+								{/if}
+								<span class="truncate">{getSourceName(caller)}</span>
+							</span>
 						</button>
 					{/each}
 					{#if callerSourcesHasMore}
@@ -1761,7 +2503,7 @@
 			{/if}
 
 			<button
-				onclick={() => { if (!showFeedFilter) fetchFeedSources(); showFeedFilter = !showFeedFilter; }}
+				onclick={toggleFeedFilter}
 				class="relative flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors {showFeedFilter ? 'bg-tx/20 text-tx' : feedFilterCount > 0 ? 'bg-grn/10 text-grn' : 'bg-s7 text-g7 hover:bg-s6 hover:text-tx'}"
 				title="Filter calls"
 			>
@@ -1772,7 +2514,7 @@
 			</button>
 
 		{#if showFeedFilter}
-			<button class="fixed inset-0 z-30 cursor-default" onclick={() => { showFeedFilter = false; }} aria-label="Close filter"></button>
+			<button class="fixed inset-0 z-30 cursor-default" onclick={closeFeedFilter} aria-label="Close filter"></button>
 			{@const pillSelected = getSelectedSourceId()}
 				<div class="absolute right-1 top-full z-40 mt-1 w-72 rounded-xl border border-bd bg-s5 shadow-2xl shadow-s0/60">
 					<div class="border-b border-s7 px-4 py-2.5 flex items-center justify-between">
@@ -1820,6 +2562,9 @@
 												? 'bg-grn/10 text-grn ring-1 ring-grn/20'
 												: 'text-g6 hover:bg-wh/5 hover:text-g9'}"
 										>
+											{#if src.photoId && avatarUrl(src.photoId)}
+												<img src={avatarUrl(src.photoId) ?? ''} alt="" class="h-4 w-4 shrink-0 rounded-full object-cover" loading="lazy" />
+											{/if}
 											<span class="truncate">{src.name}</span>
 											{#if active}<Check class="h-3 w-3 shrink-0" strokeWidth={2.5} />{/if}
 										</button>
@@ -1828,6 +2573,29 @@
 										<div class="py-1.5 text-center text-[10px] text-g4">Loading...</div>
 									{/if}
 								</div>
+							</div>
+							<div class="h-px bg-bd"></div>
+						{/if}
+						{#if activeIntegrationId()}
+							<div class="space-y-2">
+								<span class="block text-xs font-medium text-g8">Metadata</span>
+								{#if activeIntegrationSchema}
+									<GeneratedFilterControls
+										fields={activeIntegrationSchema.fields}
+										revision={activeIntegrationSchema.revision}
+										historicalFields={integrationHistoricalFields}
+										value={integrationMetaFilterDraft}
+										disabled={activeIntegrationSchemaLoading}
+										onchange={setIntegrationMetaFilter}
+									/>
+								{:else if activeIntegrationSchemaLoading}
+									<p class="text-xs text-g5">Loading metadata fields…</p>
+								{:else if activeIntegrationSchemaError}
+									<button type="button" class="cursor-pointer text-xs text-red hover:text-red-light" onclick={() => { const id = activeIntegrationId(); if (id) void loadActiveIntegrationSchema(id); }}>Retry metadata fields</button>
+								{:else}
+									<p class="text-xs text-g5">Metadata fields are not available.</p>
+								{/if}
+								{#if integrationFilterError}<p role="alert" class="text-xs text-red">{integrationFilterError}</p>{/if}
 							</div>
 							<div class="h-px bg-bd"></div>
 						{/if}
@@ -1883,14 +2651,14 @@
 						<div>
 							<span class="text-xs font-medium text-g8 mb-1.5 block">Chains</span>
 							<div class="flex gap-1.5">
-								{#each chains as c}
+								{#each DISPLAY_CHAINS as c}
 									{@const active = feedChains.includes(c)}
 									<button
 										onclick={() => { feedChains = active ? feedChains.filter(ch => ch !== c) : [...feedChains, c]; }}
-										class="cursor-pointer flex-1 rounded-lg py-1.5 text-[11px] font-semibold transition-all {active
+										class="cursor-pointer flex flex-1 items-center justify-center gap-1 rounded-lg py-1.5 text-[11px] font-semibold transition-all {active
 											? 'bg-grn/10 text-grn ring-1 ring-grn/20'
 											: 'bg-s7 text-g4 ring-1 ring-bd hover:text-g7'}"
-									>{c}</button>
+									><ChainIcon chain={c} class="h-3 w-3" />{c}</button>
 								{/each}
 							</div>
 						</div>
@@ -1908,6 +2676,68 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="flex flex-1 flex-col overflow-hidden transition-all {showFeedFilter ? 'blur-[2px] opacity-60 pointer-events-none' : ''}">
+		{#if activeIntegrationId() && !selectedCallerId}
+			<div class="border-b border-bd bg-s2 px-3 py-2.5">
+				<div class="flex items-center justify-between gap-2">
+					<div class="min-w-0">
+						<div class="text-[10px] font-medium uppercase tracking-wider text-g5">Caller ranking</div>
+						<div class="truncate text-xs text-g7">{tabs.find((tab) => tab.key === activeTab)?.label ?? 'Integration'}</div>
+					</div>
+					<div class="flex items-center gap-1">
+						<button type="button" onclick={() => void fetchIntegrationRankingPage(integrationRankingPagination.prevCursor ?? undefined)} disabled={!integrationRankingPagination.prevCursor || integrationRankingLoading} class="cursor-pointer rounded bg-s7 px-2 py-1 text-[10px] text-g6 hover:text-tx disabled:cursor-default disabled:opacity-40">Previous</button>
+						<button type="button" onclick={() => void fetchIntegrationRankingPage(integrationRankingPagination.nextCursor ?? undefined)} disabled={!integrationRankingPagination.nextCursor || integrationRankingLoading} class="cursor-pointer rounded bg-s7 px-2 py-1 text-[10px] text-g6 hover:text-tx disabled:cursor-default disabled:opacity-40">Next</button>
+					</div>
+				</div>
+				<details class="mt-2 rounded-lg border border-bd bg-s1 px-2.5 py-2">
+					<summary class="cursor-pointer text-[10px] font-medium uppercase tracking-wider text-g5">Ranking filters</summary>
+					<div class="mt-2 grid grid-cols-2 gap-2">
+						<label class="space-y-1"><span class="block text-[10px] text-g5">Timeframe</span><select bind:value={rankTimeframe} class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx">{#each RANK_TIMEFRAMES as timeframe}<option value={timeframe}>{timeframe}</option>{/each}</select></label>
+						<label class="space-y-1"><span class="block text-[10px] text-g5">Rank by</span><select bind:value={integrationRankBy} class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx">{#each integrationRankOptions as option}<option value={option.value}>{option.label}</option>{/each}</select></label>
+						<label class="space-y-1"><span class="block text-[10px] text-g5">Order</span><select bind:value={integrationOrderBy} class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx"><option value="desc">Descending</option><option value="asc">Ascending</option></select></label>
+						<div></div>
+						<label class="space-y-1"><span class="block text-[10px] text-g5">Win rate min</span><input bind:value={integrationWinRateMin} type="number" min="0" max="100" aria-label="Minimum win rate" class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx" /></label>
+						<label class="space-y-1"><span class="block text-[10px] text-g5">Win rate max</span><input bind:value={integrationWinRateMax} type="number" min="0" max="100" aria-label="Maximum win rate" class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx" /></label>
+						<label class="space-y-1"><span class="block text-[10px] text-g5">Calls min</span><input bind:value={integrationCallsMin} type="number" min="0" max="2147483647" step="1" aria-label="Minimum total calls" class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx" /></label>
+						<label class="space-y-1"><span class="block text-[10px] text-g5">Calls max</span><input bind:value={integrationCallsMax} type="number" min="0" max="2147483647" step="1" aria-label="Maximum total calls" class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx" /></label>
+						<label class="space-y-1"><span class="block text-[10px] text-g5">Score min</span><input bind:value={integrationScoreMin} type="number" min="0" max="30" step="1" aria-label="Minimum performance score" class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx" /></label>
+						<label class="space-y-1"><span class="block text-[10px] text-g5">Score max</span><input bind:value={integrationScoreMax} type="number" min="0" max="30" step="1" aria-label="Maximum performance score" class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx" /></label>
+					</div>
+					<button type="button" onclick={applyIntegrationRankingFilters} disabled={integrationRankingLoading} class="btn-secondary mt-2 px-3 py-1.5 text-xs disabled:opacity-40">Apply ranking filters</button>
+					{#if integrationRankingError}<p role="alert" class="mt-2 text-xs text-red">{integrationRankingError}</p>{/if}
+				</details>
+				{#if integrationRankingLoading && integrationRankingItems.length === 0}
+					<div class="mt-2 h-10 animate-pulse rounded-lg bg-s7"></div>
+				{:else if integrationRankingItems.length === 0}
+					<p class="mt-2 text-xs text-g5">No ranked callers.</p>
+				{:else}
+					<div class="mt-2 flex gap-1.5 overflow-x-auto scrollbar-none" aria-label="Integration caller ranking">
+						{#each integrationRankingItems as item, index (item.source.id)}
+							<button
+								type="button"
+								onclick={() => selectIntegrationRankingCaller(item)}
+								class="flex min-w-[170px] cursor-pointer items-center gap-2 rounded-lg border border-bd bg-s1 px-2.5 py-2 text-left transition-colors hover:border-bd3"
+							>
+								<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-s7 text-[10px] font-bold text-g6">
+									{#if 'photoId' in item.source && item.source.photoId && avatarUrl(item.source.photoId)}
+										<img src={avatarUrl(item.source.photoId) ?? ''} alt="" class="h-6 w-6 rounded-full object-cover" loading="lazy" />
+									{:else}
+										{index + 1}
+									{/if}
+								</span>
+								<span class="min-w-0 flex-1">
+									<span class="block truncate text-xs font-semibold text-tx">{item.source.name}</span>
+									<span class="mt-0.5 flex items-center gap-1.5 text-[10px] text-g5">
+										<span>{item.totalCalls} calls</span>
+										<span class={item.winRatePct >= 50 ? 'text-grn' : item.winRatePct > 0 ? 'text-yel' : 'text-red'}>{item.winRatePct.toFixed(0)}%</span>
+										<StarRating score={item.performanceScore} size={9} />
+									</span>
+								</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
 		{#if sourceRanking}
 			{@const r = sourceRanking}
 			{@const topCall = r.topCall ?? r.topCalls[0]}
@@ -1940,7 +2770,7 @@
 						>
 							<ChevronDown class="h-3.5 w-3.5 transition-transform duration-200 {rankingCollapsed ? 'rotate-180' : ''}" />
 						</button>
-						<button onclick={() => { selectedCallerId = null; selectedChannelIds = new Set(); selectedListIds = new Set(); selectedWalletIds = new Set(); sourceRanking = null; fetchCalls(); }} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
+						<button onclick={closeSourceRanking} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 							<X class="h-3.5 w-3.5" />
 						</button>
 					</div>
@@ -2036,7 +2866,7 @@
 					<div class="flex shrink-0 items-center gap-1.5">
 						<StarRating score={r.performanceScore} size={8} />
 						<span class="text-[9px] text-g5">{r.performanceScore}/30</span>
-						<button onclick={() => { selectedCallerId = null; selectedChannelIds = new Set(); selectedListIds = new Set(); selectedWalletIds = new Set(); sourceRanking = null; fetchCalls(); }} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
+						<button onclick={closeSourceRanking} class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx">
 							<X class="h-3 w-3" />
 						</button>
 					</div>
@@ -2092,6 +2922,8 @@
 				<span class="text-xs text-g6">
 					{#if activeTab === 'Callers'}
 						Caller watchlist is empty
+					{:else if activeIntegrationId()}
+						No calls from this integration yet
 					{:else if activeTab === 'Telegram'}
 						No calls from your channels yet
 					{:else if activeTab === 'Lists'}
@@ -2650,7 +3482,7 @@
 				<fieldset>
 					<legend class="mb-1 block text-xs text-g7">Chain</legend>
 					<div class="flex gap-1">
-						{#each chains as c}
+						{#each DISPLAY_CHAINS as c}
 							<label class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors {ctChain === c ? 'border-tx text-tx' : 'border-bd text-g6 hover:text-g9'}">
 								<input type="radio" name="ct-chain" value={c} bind:group={ctChain} class="sr-only" />
 								<ChainIcon chain={c} class="h-3.5 w-3.5" />

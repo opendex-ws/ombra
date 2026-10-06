@@ -67,6 +67,26 @@ describe('swap feed filters', () => {
 	});
 });
 
+describe('chart market cap', () => {
+	beforeEach(() => localStorage.clear());
+
+	it('defaults to price', async () => {
+		const s = await loadStore();
+		s.initFeSettings();
+		expect(s.getShowMarketCap()).toBe(false);
+	});
+
+	it('keeps market cap across a reload', async () => {
+		let s = await loadStore();
+		s.initFeSettings();
+		s.setShowMarketCap(true);
+
+		s = await loadStore();
+		s.initFeSettings();
+		expect(s.getShowMarketCap()).toBe(true);
+	});
+});
+
 describe('swap feed row density', () => {
 	beforeEach(() => localStorage.clear());
 

@@ -2,15 +2,26 @@
 	import { untrack } from 'svelte';
 	import { portal } from '$lib/actions/portal';
 	import { api } from '$lib/api/client';
-	import type { WatchlistSourceItem, TokenFilter, TokenMarketFilter, TokenSecurityFilter, TokenSocialFilter, TokenSourceFilter, TokenSourceGroup, TokenTaxFilter, Chain, TokenActivityFilter, TokenActivityWindowFilter, TokenHolderFilter, ScannerGraduation } from '$lib/api/types';
+	import type { WatchlistSourceItem, TokenFilter, TokenMarketFilter, TokenSecurityFilter, TokenSocialFilter, TokenSourceFilter, TokenSourceGroup, TokenTaxFilter, Chain, TokenActivityFilter, TokenActivityWindowFilter, TokenHolderFilter, ScannerGraduation, ErrorResponse } from '$lib/api/types';
 	import type { PlatformType } from '$lib/api/types';
 	import { getRouterInfo } from '$lib/utils/routers';
+	import { DISPLAY_CHAINS } from '$lib/utils/chains';
 	import X from 'lucide-svelte/icons/x';
 	import Trash2 from 'lucide-svelte/icons/trash-2';
 	import Camera from 'lucide-svelte/icons/camera';
 	import { avatarUrl } from '$lib/utils/format';
 	import SourcePicker from './SourcePicker.svelte';
-	import { buildSourceFilter, normalizeGroups, readSourceSelection } from '$lib/utils/list-sources';
+	import IntegrationSourceControls from './IntegrationSourceControls.svelte';
+	import {
+		buildSourceFilter,
+		editableIntegrationClause,
+		normalizeGroups,
+		readSourceSelection,
+		type EditableSavedListIntegrationClause
+	} from '$lib/utils/list-sources';
+	import type { CustomSignalIntegrationDescriptor } from '$lib/custom-signals/contracts';
+	import { CustomSignalSchemaCache } from '$lib/custom-signals/schema-cache';
+	import { fetchIntegrationDiscovery, fetchIntegrationSchema } from '$lib/watchlist/custom-integrations';
 	import ImageCropper from './ImageCropper.svelte';
 
 	type ListSource = WatchlistSourceItem & { type: 'LIST' };
@@ -50,6 +61,13 @@
 	let ulSelectedTgConns = $state<string[]>([]);
 	let ulSelectedWallets = $state<string[]>([]);
 	let ulSelectedTheses = $state<string[]>([]);
+	let ulIntegrationClauses = $state<EditableSavedListIntegrationClause[]>([]);
+	let integrationDescriptors = $state<CustomSignalIntegrationDescriptor[]>([]);
+	let customSignalsEnabled = $state(false);
+	let integrationsLoading = $state(false);
+	let integrationsError = $state('');
+	let integrationLoadGeneration = 0;
+	const integrationSchemaCache = new CustomSignalSchemaCache(fetchIntegrationSchema);
 	// Source grouping: source id -> group index (0 = A, 1 = B, …); absent = ungrouped.
 	// A list triggers only when EVERY group is satisfied (≥1 member called) AND the
 	// call-count range is met. Ungrouped sources only add to the call count.
@@ -94,8 +112,9 @@
 		delete copy[id];
 		ulSourceGroups = normalizeGroups(copy);
 	}
-	const totalSelectedSources = $derived(ulSelectedCallers.length + ulSelectedTgConns.length + ulSelectedWallets.length + ulSelectedTheses.length);
+	const totalSelectedSources = $derived(ulSelectedCallers.length + ulSelectedTgConns.length + ulSelectedWallets.length + ulSelectedTheses.length + ulIntegrationClauses.length);
 	let ulSaving = $state(false);
+	let ulSaveError = $state('');
 	let ulImageData = $state<string | null>(null);
 	let ulImagePreview = $state<string | null>(null);
 	let showImageCropper = $state(false);
@@ -135,7 +154,6 @@
 		{ key: 'sixHours' as const, label: '6h' },
 		{ key: 'twentyFourHours' as const, label: '24h' },
 	];
-	const chains: Chain[] = ['SOL'];
 
 	type UlTab = 'market' | 'safety' | 'activity' | 'sources';
 	const ulTabs: { key: UlTab; label: string }[] = [
@@ -216,8 +234,10 @@
 		ulPriceChangeMax = '';
 		ulImageData = null;
 		ulImagePreview = null;
+		ulSaveError = '';
 		editingListId = null;
 		sourceNameMap = {};
+		ulIntegrationClauses = [];
 	}
 
 	function populateForm(list: ListSource) {
@@ -231,6 +251,7 @@
 		ulSelectedTgConns = sel.ids.tgConnections;
 		ulSelectedWallets = sel.ids.wallets;
 		ulSelectedTheses = sel.ids.theses;
+		ulIntegrationClauses = sel.integrations;
 		ulSourceGroups = sel.groups;
 		ulChain = (f.scope?.chain?.[0] as Chain) ?? '';
 		ulMcapMin = f.market?.marketCapUsd?.min?.toString() ?? '';
@@ -341,7 +362,8 @@
 				wallets: ulSelectedWallets,
 				theses: ulSelectedTheses
 			},
-			ulSourceGroups
+			ulSourceGroups,
+			ulIntegrationClauses
 		);
 		if (Object.keys(sources).length > 0) filter.sources = sources;
 		if (ulCallCountMin || ulCallCountMax) {
@@ -427,23 +449,73 @@
 		return id.length > 12 ? id.slice(0, 6) + '...' + id.slice(-4) : id;
 	}
 
+	async function loadIntegrationDescriptors(): Promise<void> {
+		const generation = ++integrationLoadGeneration;
+		integrationsLoading = true;
+		integrationsError = '';
+		integrationDescriptors = [];
+		customSignalsEnabled = false;
+		try {
+			const discovery = await fetchIntegrationDiscovery();
+			if (generation !== integrationLoadGeneration || !show) return;
+			customSignalsEnabled = discovery.enabled;
+			integrationDescriptors = discovery.integrations;
+		} catch (cause) {
+			if (generation !== integrationLoadGeneration || !show) return;
+			integrationsError = cause instanceof Error ? cause.message : 'Failed to load integrations';
+		} finally {
+			if (generation === integrationLoadGeneration && show) integrationsLoading = false;
+		}
+	}
+
+	function addIntegrationClause(): void {
+		const integration = customSignalsEnabled ? integrationDescriptors.find((item) => item.enabled) : undefined;
+		if (!integration) return;
+		ulIntegrationClauses = [
+			...ulIntegrationClauses,
+			editableIntegrationClause(
+				{ integrationId: integration.id, callerIds: [], metaFilter: [] },
+				{ integration: { id: integration.id, name: integration.name, photoId: integration.photoId } }
+			)
+		];
+	}
+
+	function updateIntegrationClause(
+		uiId: string,
+		update: Partial<Pick<EditableSavedListIntegrationClause, 'integrationId' | 'callerIds' | 'metaFilter' | 'integration' | 'callers'>>
+	): void {
+		ulIntegrationClauses = ulIntegrationClauses.map((clause) =>
+			clause.uiId === uiId ? { ...clause, ...update } : clause
+		);
+	}
+
+	function removeIntegrationClause(uiId: string): void {
+		ulIntegrationClauses = ulIntegrationClauses.filter((clause) => clause.uiId !== uiId);
+		removeFromGroups(uiId);
+	}
+
 	async function save() {
 		if (!ulName.trim()) return;
 		ulSaving = true;
+		ulSaveError = '';
 		try {
-		const body = { name: ulName.trim(), tokenFilter: buildTokenFilter(), imageData: ulImageData } as never;
-		if (editingListId) {
-			await api.PUT('/v2/watchlist/manage/lists/{listId}/update', {
-				params: { path: { listId: editingListId } },
-				body
-			});
-		} else {
-			await api.POST('/v2/watchlist/manage/lists/create', { body });
-		}
+			const body = { name: ulName.trim(), tokenFilter: buildTokenFilter(), imageData: ulImageData } as never;
+			if (editingListId) {
+				const { error: apiError } = await api.PUT('/v2/watchlist/manage/lists/{listId}/update', {
+					params: { path: { listId: editingListId } },
+					body
+				});
+				if (apiError) throw new Error((apiError as ErrorResponse)?.message ?? 'Failed to update list');
+			} else {
+				const { error: apiError } = await api.POST('/v2/watchlist/manage/lists/create', { body });
+				if (apiError) throw new Error((apiError as ErrorResponse)?.message ?? 'Failed to create list');
+			}
 			show = false;
 			resetForm();
 			onsaved();
-		} catch {} finally {
+		} catch (cause) {
+			ulSaveError = cause instanceof Error ? cause.message : 'Failed to save list';
+		} finally {
 			ulSaving = false;
 		}
 	}
@@ -459,6 +531,7 @@
 	}
 
 	function close() {
+		integrationLoadGeneration += 1;
 		show = false;
 		resetForm();
 		onclose();
@@ -468,6 +541,7 @@
 		const list = editList;
 		if (show) {
 			untrack(() => {
+				void loadIntegrationDescriptors();
 				ulTab = 'market';
 				if (list) {
 					editingListId = list.id;
@@ -527,7 +601,7 @@
 							<label class="mb-1 block text-[10px] font-medium uppercase tracking-wider text-g5" for="ul-chain-modal">Chain</label>
 							<select id="ul-chain-modal" bind:value={ulChain} class="w-full rounded-lg border border-bd bg-s4 px-3 py-1.5 text-sm text-tx outline-none transition-all focus:border-grn/40">
 								<option value="">All Chains</option>
-								{#each chains as c}<option value={c}>{c}</option>{/each}
+								{#each DISPLAY_CHAINS as c}<option value={c}>{c}</option>{/each}
 							</select>
 						</div>
 						<div class="flex-1">
@@ -702,6 +776,63 @@
 								{/if}
 							</div>
 						{/each}
+						<div class="rounded-lg border border-bd bg-s4">
+							<div class="flex items-center justify-between px-2.5 py-1.5">
+								<span class="text-xs font-medium text-g8">Custom integrations{#if ulIntegrationClauses.length > 0} <span class="text-g5">({ulIntegrationClauses.length})</span>{/if}</span>
+								<button type="button" onclick={addIntegrationClause} disabled={integrationsLoading || !customSignalsEnabled || !integrationDescriptors.some((item) => item.enabled)} class="btn-secondary px-2 py-0.5 text-[11px] disabled:cursor-default disabled:opacity-40">Add clause</button>
+							</div>
+							{#if integrationsLoading}
+								<p class="border-t border-bd px-2.5 py-2 text-[10px] text-g5">Loading integrations…</p>
+							{:else if integrationsError}
+								<div class="flex items-center justify-between gap-2 border-t border-bd px-2.5 py-2">
+									<p role="alert" class="text-[10px] text-red">{integrationsError}</p>
+									<button type="button" onclick={() => void loadIntegrationDescriptors()} class="btn-secondary px-2 py-1 text-[10px]">Retry</button>
+								</div>
+							{:else if (!customSignalsEnabled || integrationDescriptors.every((item) => !item.enabled)) && ulIntegrationClauses.length === 0}
+								<p class="border-t border-bd px-2.5 py-2 text-[10px] text-g5">No enabled custom integrations.</p>
+							{/if}
+						</div>
+
+						{#each ulIntegrationClauses as clause (clause.uiId)}
+							{@const gi = ulSourceGroups[clause.uiId]}
+							{@const grouped = gi !== undefined && gi >= 0}
+							{@const gc = grouped ? groupColor(gi) : ''}
+							<div class="rounded-lg border border-bd bg-s4 p-2.5">
+								<div class="mb-2 flex items-center justify-between gap-2">
+									<button
+										type="button"
+										onclick={() => cycleSourceGroup(clause.uiId)}
+										class="flex cursor-pointer items-center gap-1.5 text-[11px] text-g7 hover:text-tx"
+										title={grouped ? `Group ${groupLetter(gi)} — click to change` : 'Click to add to a group'}
+									>
+										{#if grouped}<span class="flex h-4 w-4 items-center justify-center rounded text-[9px] font-bold text-s0" style={`background:${gc}`}>{groupLetter(gi)}</span>{:else}<span class="text-g4">＋</span>{/if}
+										Integration clause
+									</button>
+									<button type="button" onclick={() => removeIntegrationClause(clause.uiId)} aria-label="Remove integration clause" class="cursor-pointer text-g5 hover:text-red"><X class="h-3.5 w-3.5" /></button>
+								</div>
+								<IntegrationSourceControls
+									integrations={integrationDescriptors}
+									integrationId={clause.integrationId}
+									callerIds={clause.callerIds}
+									metaFilter={clause.metaFilter}
+									initialIntegration={clause.integration}
+									initialCallers={clause.callers}
+									schemaCache={integrationSchemaCache}
+									onintegrationchange={(integrationId) => {
+										const integration = integrationDescriptors.find((item) => item.id === integrationId);
+										updateIntegrationClause(clause.uiId, {
+											integrationId,
+											callerIds: [],
+											metaFilter: [],
+											callers: [],
+											...(integration ? { integration: { id: integration.id, name: integration.name, photoId: integration.photoId } } : {})
+										});
+									}}
+									oncalleridschange={(callerIds, callers) => updateIntegrationClause(clause.uiId, { callerIds, callers })}
+									onfilterchange={(metaFilter) => updateIntegrationClause(clause.uiId, { metaFilter })}
+								/>
+							</div>
+						{/each}
 					</div>
 					{@render rangeInput('Call Count', ulCallCountMin, ulCallCountMax, (a: string, b: string) => { ulCallCountMin = a; ulCallCountMax = b; })}
 					{@render rangeInput('Thesis Count', ulThesisCountMin, ulThesisCountMax, (a: string, b: string) => { ulThesisCountMin = a; ulThesisCountMax = b; })}
@@ -709,6 +840,7 @@
 				</div>
 				{/if}
 
+				{#if ulSaveError}<p role="alert" class="text-xs text-red">{ulSaveError}</p>{/if}
 				<div class="flex items-center gap-2 pt-1">
 					{#if editingListId}
 						<button onclick={deleteList} class="btn-danger-outline flex items-center justify-center gap-1.5 px-3 py-2 text-xs">

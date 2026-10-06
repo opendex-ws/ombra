@@ -5,7 +5,8 @@
 	import { portal } from '$lib/actions/portal';
 	import { api } from '$lib/api/client';
 	import type { Chain, TokenSnapshot, TokenHoldersResponse, TokenSafetyResponse, TokenSwap, TokenTopTrader, TokenCallsResponse, DevTokensResponse, DevTokenItem, WatchlistCallItem, TokenMarketHolderInfo, TokenMarketStats, TokenMarketTimeframeStats, TokenPairMarket, components } from '$lib/api/types';
-	import { formatPrice, formatUsd, formatPercent, formatNumber, formatMarketCap, timeAgo, fullDateTime, shortAddress, liveAge, explorerTxUrl, explorerAddressUrl, formatMultiplier, fmtVal, fmtPrice, fmtPriceHtml, formatPriceText, avatarUrl, formatCompactNumber, formatCompactCount } from '$lib/utils/format';
+	import type { CustomSignalCallerMeta, IntegrationSourceIdentity } from '$lib/custom-signals/contracts';
+	import { formatPrice, formatUsd, formatPercent, formatNumber, formatMarketCap, timeAgo, fullDateTime, shortAddress, liveAge, explorerTxUrl, explorerAddressUrl, formatMultiplier, fmtVal, fmtPrice, fmtPriceHtml, formatPriceText, avatarUrl, formatCompactNumber, formatCompactCount, callerMetaDisplayEntries, isIntegrationSource, tokenCallSourceBadge } from '$lib/utils/format';
 	import { feeShareLabel, feeShareName, feeSharePctLabel, feeShareSocialUrl, feeShareholders } from '$lib/utils/fee-sharing';
 	import { getWalletIconUrl, getWalletAddress } from '$lib/utils/walleticon';
 
@@ -49,6 +50,8 @@
 	import { setCandleMcap } from '$lib/stores/candleCache.svelte';
 
 	import ChainIcon from './ChainIcon.svelte';
+	import ChainBrandIcon from './ChainBrandIcon.svelte';
+	import TokenChainBadge from './TokenChainBadge.svelte';
 	import CurrencyValue from './CurrencyValue.svelte';
 	import FundingSourcePreview from './FundingSourcePreview.svelte';
 	import VirtualSwapList from './VirtualSwapList.svelte';
@@ -60,6 +63,10 @@
 	type TokenMarketLiveSnapshot = components['schemas']['TokenMarketLiveSnapshot'];
 	type TokenTopTradersSnapshot = components['schemas']['TokenTopTradersSnapshot'];
 	type TokenMigrationUpdate = components['schemas']['TokenMigrationUpdate'];
+	type RuntimeWatchlistCallItem = Omit<WatchlistCallItem, 'caller'> & {
+		caller: WatchlistCallItem['caller'] | IntegrationSourceIdentity;
+		callerMeta?: CustomSignalCallerMeta;
+	};
 
 	let { chain, address, tokenData = $bindable(null), active = true }: { chain: Chain | string; address: string; tokenData?: TokenSnapshot | null; active?: boolean } = $props();
 
@@ -301,7 +308,7 @@
 	let devTokensInFlightCursor: string | undefined;
 	let lastLoadedDevTokensCursor: string | undefined;
 	let devTokensLoadedKey: string = $state('');
-	let calls: WatchlistCallItem[] = $state([]);
+	let calls: RuntimeWatchlistCallItem[] = $state([]);
 	let callsPagination = $state<CursorTriplet>({});
 	let callsHasMore: boolean = $state(false);
 	let callsLoadingMore: boolean = $state(false);
@@ -621,7 +628,7 @@
 		if (token) token = { ...token, holders: patchHolderInfo(token.holders, update) };
 	}
 
-	function applyTokenFeedCall(call: WatchlistCallItem) {
+	function applyTokenFeedCall(call: RuntimeWatchlistCallItem) {
 		const index = calls.findIndex((item) => item.id === call.id);
 		if (index >= 0) {
 			calls = calls.map((item, itemIndex) => itemIndex === index ? call : item);
@@ -631,7 +638,7 @@
 		calls = [call, ...calls].slice(0, windowSize);
 	}
 
-	function applyTokenFeedUpdate(call: WatchlistCallItem) {
+	function applyTokenFeedUpdate(call: RuntimeWatchlistCallItem) {
 		if (!calls.some((item) => item.id === call.id)) return;
 		calls = calls.map((item) => item.id === call.id ? call : item);
 	}
@@ -758,9 +765,9 @@
 					rememberCallsPage(snapshot);
 				}
 			} else if (event === 'TOKEN_FEED_CALL') {
-				applyTokenFeedCall(data as WatchlistCallItem);
+				applyTokenFeedCall(data as RuntimeWatchlistCallItem);
 			} else if (event === 'TOKEN_FEED_UPDATE') {
-				applyTokenFeedUpdate(data as WatchlistCallItem);
+				applyTokenFeedUpdate(data as RuntimeWatchlistCallItem);
 			}
 		}, params, {
 			onError: handleTokenFeedWsError,
@@ -1038,11 +1045,12 @@
 		}
 	}
 
-	function openCallerView(call: WatchlistCallItem) {
+	function openCallerView(call: RuntimeWatchlistCallItem) {
 		const caller = call.caller;
 		const id = 'id' in caller ? String(caller.id) : '';
 		if (!id) return;
-		selectWatchlistCaller(id, caller.type);
+		if (isIntegrationSource(caller)) selectWatchlistCaller(id, 'INTEGRATION', caller.integrationId);
+		else selectWatchlistCaller(id, caller.type);
 		if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('watchlist-open-caller'));
 		callsPopoverOpen = false;
 	}
@@ -1506,6 +1514,7 @@
 					{:else}
 						<div class="flex h-full w-full items-center justify-center rounded-[6px] bg-s7 text-sm font-bold text-tx">{(token.tokenSymbol ?? '?').slice(0, 2)}</div>
 					{/if}
+					<TokenChainBadge chain={chain} class="h-3 w-3" />
 					{#if isGraduated}
 						<span class="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-s6 px-1 text-[8px] font-bold text-yel ring-1 ring-yel/20">GRAD</span>
 					{/if}
@@ -1515,8 +1524,8 @@
 						<span class="truncate text-sm font-bold text-tx">{token.tokenSymbol ?? '???'}</span>
 						<span class="text-xs text-g6">/</span>
 						<span class="text-xs text-g7">{token.quoteTokenSymbol ?? ''}</span>
-						<span class="relative inline-flex items-center ml-0.5" title={chain}>
-							<img src="/icons/{chain.toLowerCase()}.png" alt={chain} class="h-4 w-4 rounded-full" />
+						<span class="relative inline-flex items-center ml-0.5 text-tx" title={chain}>
+							<ChainBrandIcon chain={chain} class="h-4 w-4" />
 							{#if routerIconUrl}
 								<img src={routerIconUrl} alt={displayRouter.name} class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" />
 							{/if}
@@ -1675,7 +1684,8 @@
 								<div class="flex h-full w-full items-center justify-center rounded-[9px] bg-s7">
 									<span class="text-lg font-bold text-tx">{(token.tokenSymbol ?? '?').slice(0, 2)}</span>
 								</div>
-							{/if}
+								{/if}
+							<TokenChainBadge chain={chain} class="h-3.5 w-3.5" />
 							{#if isGraduated}
 								<span class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 rounded-md bg-s6 px-1.5 py-0.5 text-[10px] font-bold leading-none text-yel ring-1 ring-yel/20">GRAD</span>
 							{:else if migPct > 0}
@@ -1739,8 +1749,8 @@
 										{/if}
 									</div>
 								{/if}
-								<span class="relative inline-flex items-center" title={chain}>
-									<img src="/icons/{chain.toLowerCase()}.png" alt={chain} class="h-5 w-5 rounded-full" />
+								<span class="relative inline-flex items-center text-tx" title={chain}>
+									<ChainBrandIcon chain={chain} class="h-5 w-5" />
 									{#if routerIconUrl}
 										<img src={routerIconUrl} alt={displayRouter.name} class="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-s6 ring-1 ring-s6" title={displayRouter.name} />
 									{/if}
@@ -2695,11 +2705,11 @@
 												>
 													<img src={tokenImage(dt.chain, dt.tokenAddress)} alt="" class="h-full w-full rounded-[6px] object-cover" onerror={(e: Event) => { const el = e.currentTarget as HTMLElement; el.style.display = 'none'; if (el.nextElementSibling) (el.nextElementSibling as HTMLElement).style.display = 'flex'; }} />
 													<div class="hidden h-full w-full items-center justify-center rounded-[6px] bg-s7 text-[10px] font-bold text-g6">{dt.tokenSymbol.slice(0, 2)}</div>
+													<TokenChainBadge chain={dt.chain} class="h-2.5 w-2.5" />
 												</div>
 												<div class="min-w-0 flex-1">
 													<div class="flex items-center gap-1.5">
 														<span class="text-xs font-bold text-tx">{dt.tokenSymbol}</span>
-														<ChainIcon chain={dt.chain} class="h-3 w-3 text-g6" />
 														{#if dt.migrated}
 															<span class="rounded bg-yel/10 px-1 py-px text-[9px] font-medium text-yel">GRAD</span>
 														{:else if mPct > 0}
@@ -2817,6 +2827,8 @@
 				{@const curMult = call.callDetails.currentMultiplier ?? 0}
 				{@const callerName = 'name' in call.caller ? call.caller.name : 'Unknown'}
 				{@const callerPhotoId = 'photoId' in call.caller ? call.caller.photoId : undefined}
+				{@const integrationSource = isIntegrationSource(call.caller) ? call.caller : null}
+				{@const metaEntries = callerMetaDisplayEntries(call.callerMeta)}
 				{@const detailWalletAddr = getWalletAddress(call.caller as Record<string, unknown>)}
 				<div class="border-b border-bd/40 px-4 py-3 last:border-0">
 					<div class="flex items-start justify-between gap-2">
@@ -2836,9 +2848,19 @@
 									role="link"
 									tabindex="0"
 								>{callerName}</span>
-								<span class="shrink-0 rounded bg-wh/10 px-1 py-px text-[9px] font-medium text-g6">{call.caller.type}</span>
+								<span class="shrink-0 rounded px-1 py-px text-[9px] font-medium {tokenCallSourceBadge(call.caller.type)}">{call.caller.type}</span>
 								{#if call.callDetails.rugged}<span class="shrink-0 rounded bg-red/20 px-1 py-px text-[9px] font-bold text-red">RUGGED</span>{/if}
 							</div>
+							{#if integrationSource}
+								<div class="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] text-g6">
+									{#if avatarUrl(integrationSource.integrationPhotoId)}
+										<img src={avatarUrl(integrationSource.integrationPhotoId)} alt="" class="h-3.5 w-3.5 shrink-0 rounded object-cover" />
+									{:else}
+										<div class="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded bg-s7 text-[8px] font-bold text-g9">{integrationSource.integrationName[0]?.toUpperCase() ?? '?'}</div>
+									{/if}
+									<span class="truncate">{integrationSource.integrationName}</span>
+								</div>
+							{/if}
 							<div class="mt-1 text-xs text-g5">
 								Called at <span class="text-g9">{formatUsd(call.callDetails.marketCapAtCallUsdStr)}</span>
 								<span class="text-g3 mx-1">&middot;</span>
@@ -2847,6 +2869,14 @@
 								ATH <span class="text-g9">{formatMarketCap(call.callDetails.athMarketCapUsdStr)}</span>
 							</div>
 							<div class="mt-0.5 text-[11px] text-g5 cursor-help" title={fullDateTime(call.callDetails.calledAtTimestampStr)}>{timeAgo(call.callDetails.calledAtTimestampStr)}</div>
+							{#if metaEntries.length > 0}
+								<dl class="mt-2 grid grid-cols-[minmax(0,auto)_minmax(0,1fr)] gap-x-2 gap-y-1 border-t border-bd/40 pt-2 text-[10px]">
+									{#each metaEntries as entry (entry.key)}
+										<dt class="max-w-28 truncate text-g5" title={entry.key}>{entry.key}</dt>
+										<dd class="min-w-0 break-words text-g9">{entry.value}</dd>
+									{/each}
+								</dl>
+							{/if}
 						</div>
 						<div class="flex shrink-0 flex-col items-end">
 							<span class="text-base font-bold {athMult >= 1 ? 'text-grn' : 'text-red'}">{formatMultiplier(String(athMult))}</span>

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { siRobinhood } from 'simple-icons';
+
 	let { chain, class: cls = 'h-3.5 w-3.5' }: { chain: string; class?: string } = $props();
 
 	const c = $derived((chain ?? '').toUpperCase());
@@ -39,6 +41,10 @@
 		<path d="M6.3 9.4 4.5 11.2 6.3 13 8.1 11.2 6.3 9.4Z" />
 		<path d="M17.7 9.4 15.9 11.2 17.7 13 19.5 11.2 17.7 9.4Z" />
 		<path d="M12 9 9.2 11.8 12 14.6 14.8 11.8 12 9Z" />
+	</svg>
+{:else if c === 'RH'}
+	<svg class={cls} viewBox="0 0 24 24" fill="currentColor" aria-label="Robinhood">
+		<path d={siRobinhood.path} />
 	</svg>
 {:else}
 	<span class={cls} style="display:inline-flex;align-items:center;font-size:0.7em;font-weight:600;">{c}</span>

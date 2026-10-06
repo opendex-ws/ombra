@@ -7,6 +7,7 @@
 	import { feeShareholders, feeShareTitle } from '$lib/utils/fee-sharing';
 	import { getRouterInfo } from '$lib/utils/routers';
 	import Users from 'lucide-svelte/icons/users';
+	import TokenChainBadge from './TokenChainBadge.svelte';
 
 	let { token, isSelected = false, rowFlash = undefined, onselect }: {
 		token: ScannerItem;
@@ -98,6 +99,7 @@
 				{token.tokenSymbol?.[0] ?? '?'}
 			</div>
 		{/if}
+		<TokenChainBadge chain={token.chain} class="h-3 w-3" />
 		{#if isGraduated}
 			<span class="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-s6 px-0.5 py-px text-[7px] font-bold leading-none text-yel ring-1 ring-yel/20">GRAD</span>
 		{:else if migPct > 0}

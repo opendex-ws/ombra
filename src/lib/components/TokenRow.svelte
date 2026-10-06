@@ -15,6 +15,7 @@
 	import Coins from 'lucide-svelte/icons/coins';
 	import Users from 'lucide-svelte/icons/users';
 	import DexPaidIcon from './DexPaidIcon.svelte';
+	import TokenChainBadge from './TokenChainBadge.svelte';
 	import MessageSquareQuote from 'lucide-svelte/icons/message-square-quote';
 	import Megaphone from 'lucide-svelte/icons/megaphone';
 	import { buildSparkline } from '$lib/utils/sparkline';
@@ -214,15 +215,14 @@
 					{token.tokenSymbol?.[0] ?? '?'}
 				</div>
 			{/if}
-			<span class="absolute -right-1.5 -top-1.5 inline-flex items-center" title={token.chain}>
-				<img src="/icons/{token.chain?.toLowerCase()}.png" alt={token.chain} class="h-4 w-4 rounded-full ring-1 ring-s6" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+			<TokenChainBadge chain={token.chain} class="h-3.5 w-3.5">
 				{#if routerIcon}
 					<img src={routerIcon} alt={router.name} title={router.name} class="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" />
 				{/if}
 				{#if migratedFromIcon}
 					<img src={migratedFromIcon} alt="Migrated from" class="absolute -top-1 left-0 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" title="Migrated from {(token.launchPad?.bondingCurve as any)?.migratedFromPlatformName ?? ''}" />
 				{/if}
-			</span>
+			</TokenChainBadge>
 			{#if isGraduated}
 				<span class="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-s6 px-1 py-px text-[8px] font-bold leading-none text-yel ring-1 ring-yel/20">GRAD</span>
 			{:else if migPct > 0}

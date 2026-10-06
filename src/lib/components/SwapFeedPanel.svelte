@@ -13,6 +13,7 @@
 	import LoaderCircle from 'lucide-svelte/icons/loader-circle';
 	import { api, type QueryOf } from '$lib/api/client';
 	import { tokenImage } from '$lib/api/config';
+	import TokenChainBadge from './TokenChainBadge.svelte';
 	import { subscribe, unsubscribe } from '$lib/ws/client';
 	import type {
 		Chain,
@@ -337,6 +338,17 @@
 			seen.clear();
 			await loadSeed();
 		}
+	}
+
+	/**
+	 * The whole row opens the token. Any `button`/`a` inside keeps its own
+	 * behaviour — the wallet name, the follow toggle, the token link — so this
+	 * only catches clicks on the dead space between them.
+	 */
+	function openTokenFromRow(event: MouseEvent, swap: LabeledWalletSwap) {
+		if ((event.target as HTMLElement | null)?.closest('button, a')) return;
+		onnavigate();
+		goto(`/?chain=${swap.chain}&token=${swap.token.address}`);
 	}
 
 	function matchesSources(swap: LabeledWalletSwap): boolean {
@@ -733,7 +745,9 @@
 					{@const extraTag = swap.labels[1]?.label}
 					{#if compactRows}
 						<div
-							class="absolute inset-x-0 flex items-center gap-1 truncate px-2.5 text-[11px] leading-6 transition-colors hover:bg-wh/5 [contain:layout_paint_style]"
+							role="presentation"
+							onclick={(e) => openTokenFromRow(e, swap)}
+							class="absolute inset-x-0 flex cursor-pointer items-center gap-1 truncate px-2.5 text-[11px] leading-6 transition-colors hover:bg-wh/5 [contain:layout_paint_style]"
 							style="top: {(vl.start + i) * vl.stride}px; height: {vl.stride}px"
 							title={fullDateTime(swap.timestamp)}
 						>
@@ -753,7 +767,11 @@
 						</div>
 					{:else}
 					<div class="absolute inset-x-0 border-b border-b-bd/40 [contain:layout_paint_style]" style="top: {(vl.start + i) * vl.stride}px">
-						<div class="flex items-center gap-2 px-2.5 py-2 transition-colors hover:bg-wh/5">
+						<div
+							role="presentation"
+							onclick={(e) => openTokenFromRow(e, swap)}
+							class="flex cursor-pointer items-center gap-2 px-2.5 py-2 transition-colors hover:bg-wh/5"
+						>
 							<div class="group/av relative h-7 w-7 shrink-0 self-start">
 								<button
 									onclick={() => openWallet(swap)}
@@ -811,7 +829,7 @@
 							<a
 								href="/?chain={swap.chain}&token={swap.token.address}"
 								onclick={onnavigate}
-								class="shrink-0"
+								class="relative shrink-0"
 								title={swap.token.symbol ?? shortAddress(swap.token.address)}
 							>
 								<img
@@ -820,6 +838,7 @@
 									class="h-6 w-6 rounded-md ring-1 ring-bd"
 									onerror={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
 								/>
+								<TokenChainBadge chain={swap.chain} class="h-2.5 w-2.5" />
 							</a>
 						</div>
 					</div>

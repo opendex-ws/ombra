@@ -2,6 +2,8 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import type { ScannerItem, Chain, TimeFrame, ScannerTokensRequest, components } from '$lib/api/types';
+	import { SCANNER_CHAIN_FILTERS } from '$lib/utils/chains';
+	import { getFeedChain, setFeedChain, type FeedChain } from '$lib/stores/feSettings.svelte';
 	import { api } from '$lib/api/client';
 	import TokenTable from '$lib/components/TokenTable.svelte';
 	import MemescopeCard from '$lib/components/MemescopeCard.svelte';
@@ -15,15 +17,24 @@
 	import ChevronDown from 'lucide-svelte/icons/chevron-down';
 	import ChevronUp from 'lucide-svelte/icons/chevron-up';
 	import { getRouterInfo } from '$lib/utils/routers';
+	import ChainIcon from '$lib/components/ChainIcon.svelte';
+	import ScannerCustomSignalFilters from '$lib/components/ScannerCustomSignalFilters.svelte';
+	import {
+		SCANNER_CUSTOM_SIGNALS_QUERY_KEY,
+		decodeScannerIntegrationClauses,
+		encodeScannerIntegrationClauses,
+		withScannerIntegrationSources,
+		type ScannerIntegrationClause
+	} from '$lib/scanner-custom-signals';
 
 	let { routeActive = true }: { routeActive?: boolean } = $props();
 
-	const chains: Array<'All' | Chain> = ['All', 'SOL'];
 	const timeFrames: TimeFrame[] = ['5M', '1H', '6H', '24H'];
 	const allPlatforms = [
 		'PUMPFUN', 'PUMPSWAP', 'RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'RAYDIUM_LAUNCH',
-		'METEORA_BONDING_CURVE', 'METEORA_DYN', 'METEORA_DYN_V2', 'METEORA_DLMM',
+		'METEORA_BONDING_CURVE', 'METEORA_DYN', 'METEORA_DYN_V2', 'METEORA_DLMM', 'WHIRLPOOL',
 		'MOONSHOT', 'HEAVEN', 'BELIEVE', 'LETS_BONK', 'BAGS', 'PRINTR', 'STONKFUN', 'OTCDESKS', 'PURPS', 'EMBERCURVE',
+		'UNISWAP_V2', 'UNISWAP_V3', 'UNISWAP_V4', 'PONS', 'FLAP',
 	] as const;
 	const scannerViews = [
 		{ value: 'new', label: 'New' },
@@ -58,9 +69,13 @@
 	}
 
 	type Filters = Record<string, string>;
+	type FetchTokensResult = 'success' | 'stale' | 'failure';
 	let filters: Filters = $state({});
 	let platforms: Set<string> = $state(new Set());
-	let chain: 'All' | Chain = $state('All');
+	let draftIntegrationClauses: ScannerIntegrationClause[] = $state([]);
+	let appliedIntegrationClauses: ScannerIntegrationClause[] = $state([]);
+	let chain: 'All' | Chain = $state(getFeedChain());
+	let seenFeedChain: FeedChain = getFeedChain();
 	let timeFrame: TimeFrame = $state('1H');
 	let view: ScannerView = $state('trending');
 	let customRankBy: ScannerRankBy | null = $state(null);
@@ -114,11 +129,18 @@
 		'mintAuthorityDisabled', 'dexPaid',
 		'notProxy', 'hasWebsite', 'hasTwitter', 'hasTelegram', 'hasDiscord', 'hasAnySocial'
 	];
-	const coreKeys = ['chain', 'timeFrame', 'view', 'rankBy', 'orderBy'];
+	const coreKeys = ['chain', 'timeFrame', 'view', 'rankBy', 'orderBy', SCANNER_CUSTOM_SIGNALS_QUERY_KEY];
 
 	function loadFromUrl() {
 		const sp = new URL(window.location.href).searchParams;
-		chain = (sp.get('chain') ?? 'All') as typeof chain;
+		const rawChain = sp.get('chain');
+		const urlChain = rawChain === 'All' || rawChain === 'SOL' || rawChain === 'RH' ? rawChain : null;
+		// A bare /scanner link has no chain param. Keep the chain picked on
+		// Memescope instead of treating the missing param as All.
+		const next = urlChain ?? getFeedChain();
+		seenFeedChain = next;
+		chain = next;
+		setFeedChain(next);
 		timeFrame = (sp.get('timeFrame') as TimeFrame) || '1H';
 		const requestedView = sp.get('view');
 		view = scannerViews.some((option) => option.value === requestedView)
@@ -132,6 +154,9 @@
 			: null;
 		orderBy = sp.get('orderBy') === 'asc' ? 'asc' : 'desc';
 		platforms = new Set(sp.getAll('platforms'));
+		const restoredIntegrationClauses = decodeScannerIntegrationClauses(sp.get(SCANNER_CUSTOM_SIGNALS_QUERY_KEY));
+		draftIntegrationClauses = restoredIntegrationClauses;
+		appliedIntegrationClauses = restoredIntegrationClauses;
 		const nf: Filters = {};
 		sp.forEach((v, k) => { if (!coreKeys.includes(k) && k !== 'platforms' && v) nf[k] = v; });
 		filters = nf;
@@ -145,6 +170,8 @@
 		if (customRankBy) sp.set('rankBy', customRankBy);
 		if (orderBy !== 'desc') sp.set('orderBy', orderBy);
 		for (const p of platforms) sp.append('platforms', p);
+		const encodedIntegrationClauses = encodeScannerIntegrationClauses(appliedIntegrationClauses);
+		if (encodedIntegrationClauses) sp.set(SCANNER_CUSTOM_SIGNALS_QUERY_KEY, encodedIntegrationClauses);
 		for (const [k, v] of Object.entries(filters)) { if (v) sp.set(k, v); }
 		return sp;
 	}
@@ -255,7 +282,8 @@
 		if (filters['dexPaid'] === 'true') socials.dexScreenerPaid = true;
 		if (Object.keys(socials).length > 0) tf.socials = socials;
 
-		return Object.keys(tf).length > 0 ? tf : null;
+		const complete = withScannerIntegrationSources(tf, appliedIntegrationClauses);
+		return Object.keys(complete).length > 0 ? complete : null;
 	}
 
 	function cleanupWs() { if (scannerWsKey) { unsubscribe(scannerWsKey); scannerWsKey = null; } }
@@ -263,6 +291,7 @@
 	function resetCursors() {
 		tailCursor = null;
 		hasMore = false;
+		loadingMore = false;
 		loadedCursors = new Set();
 	}
 
@@ -363,7 +392,7 @@
 		return out;
 	}
 
-	async function fetchTokens(opts?: { soft?: boolean }): Promise<boolean> {
+	async function fetchTokens(opts?: { soft?: boolean }): Promise<FetchTokensResult> {
 		const seq = ++fetchSeq;
 		const requestedView = view;
 		const requestedTimeFrame = timeFrame;
@@ -383,18 +412,18 @@
 				tokenFilter: tokenFilter as ScannerTokensRequest['tokenFilter']
 			};
 			const { data: res } = await postScannerView(requestedView, requestedTimeFrame, body);
-			if (seq !== fetchSeq) return false;
+			if (seq !== fetchSeq) return 'stale';
 			tokens = dedupByPair(res?.tokens ?? []);
 			feedStats = res?.stats ?? null;
 			hasMore = !!res?.nextCursor;
 			tailCursor = res?.cursor ? { cursor: res.cursor, prevCursor: res.prevCursor, nextCursor: res.nextCursor } : null;
-			return true;
+			return 'success';
 		} catch {
-			if (seq !== fetchSeq) return false;
+			if (seq !== fetchSeq) return 'stale';
 			if (!keepVisible) tokens = [];
 			hasMore = false;
 			tailCursor = null;
-			return false; // genuine fetch failure — signal caller to retry, don't try to subscribe
+			return 'failure';
 		} finally {
 			if (seq === fetchSeq) loading = false;
 		}
@@ -448,11 +477,12 @@
 	async function fetchAndSubscribe(opts?: { soft?: boolean }) {
 		clearResubscribeTimer();
 		cleanupWs();
-		const ok = await fetchTokens(opts);
-		// fetchTokens returns false on a genuine failure (network/error). Retry so a
+		const result = await fetchTokens(opts);
+		if (result === 'stale') return;
+		// Retry a genuine failure so a
 		// transient failure on tab-return (which would otherwise leave the WS dead
 		// with no reactive retrigger) recovers instead of getting stuck.
-		if (!ok) {
+		if (result === 'failure') {
 			if (routeActive) resubscribeTimer = setTimeout(() => { void fetchAndSubscribe(opts); }, 2000);
 			return;
 		}
@@ -464,6 +494,12 @@
 		resetCursors();
 		applyAndPush();
 		fetchAndSubscribe({ soft: true });
+	}
+
+	function applyFilters() {
+		appliedIntegrationClauses = draftIntegrationClauses;
+		refresh();
+		filtersOpen = false;
 	}
 
 
@@ -482,7 +518,8 @@
 		orderBy = 'desc';
 		filters = {};
 		platforms = new Set();
-		chain = 'All';
+		draftIntegrationClauses = [];
+		appliedIntegrationClauses = [];
 		timeFrame = '1H';
 		filterTimeFrame = '1H';
 		resetCursors();
@@ -494,15 +531,24 @@
 		openSections = next;
 	}
 
+	function selectChain(next: 'All' | Chain) {
+		const feed: FeedChain = next === 'SOL' || next === 'RH' ? next : 'All';
+		seenFeedChain = feed;
+		setFeedChain(feed);
+		chain = feed;
+	}
+
 	function clearFilters() {
 		filters = {};
 		platforms = new Set();
-		chain = 'All';
+		draftIntegrationClauses = [];
+		appliedIntegrationClauses = [];
+		selectChain('All');
 		timeFrame = '1H';
 		refresh();
 	}
 
-	let activeFilterCount = $derived(Object.values(filters).filter(v => !!v).length + (platforms.size > 0 ? 1 : 0));
+	let activeFilterCount = $derived(Object.values(filters).filter(v => !!v).length + (platforms.size > 0 ? 1 : 0) + draftIntegrationClauses.length);
 
 	function tfHasFilters(tf: TimeFrame): boolean {
 		const s = tfSuffix[tf];
@@ -512,6 +558,7 @@
 	function countSectionFilters(section: string): number {
 		const keys = Object.keys(filters).filter(k => !!filters[k]);
 		if (section === 'platform') return platforms.size > 0 ? platforms.size : 0;
+		if (section === 'customSignals') return draftIntegrationClauses.length;
 		if (section === 'market') return keys.filter(k => /MarketCap|Liquidity|AgeHours|CallCount|BuyTax|SellTax|TransferTax|TxPercent/i.test(k)).length;
 		if (section === 'activity') return keys.filter(k => /Volume|Fees|Buys\d|Sells\d|Txns|PriceChange|Traders/i.test(k)).length;
 		if (section === 'safety') return keys.filter(k => ['notHoneypot','lpLocked','isRenounced','isVerified','freezeAuthorityDisabled','mintAuthorityDisabled','hideBondingCurve','hideBondingCurveGraduated','dexPaid','notProxy'].includes(k)).length;
@@ -529,6 +576,13 @@
 		initialized = true;
 		// The $effect below owns the initial fetch+subscribe (it runs right after
 		// mount). Doing it here too would double the REST call on first visit.
+	});
+
+	$effect(() => {
+		const shared = getFeedChain();
+		if (shared === seenFeedChain) return;
+		seenFeedChain = shared;
+		if (chain !== shared) chain = shared;
 	});
 
 	$effect(() => {
@@ -577,9 +631,9 @@
 					{/if}
 				</button>
 				{#if filtersOpen}
-					<!-- Outside-click catcher (desktop). Mobile uses the full-screen panel's ✕. -->
 					<button class="fixed inset-0 z-40 hidden md:block cursor-default" onclick={() => (filtersOpen = false)} aria-label="Close filters"></button>
-					<div class="fixed inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] top-0 z-50 flex flex-col rounded-none border-0 border-b border-bd bg-s5 shadow-2xl md:absolute md:inset-auto md:bottom-auto md:left-0 md:top-full md:mt-1 md:block md:w-80 md:rounded-xl md:border md:border-bd">
+				{/if}
+				<div class="fixed inset-x-0 bottom-[calc(6rem+env(safe-area-inset-bottom,0px))] top-0 z-50 flex flex-col rounded-none border-0 border-b border-bd bg-s5 shadow-2xl md:absolute md:inset-auto md:bottom-auto md:left-0 md:top-full md:mt-1 md:block md:w-80 md:rounded-xl md:border md:border-bd {!filtersOpen ? '!hidden' : ''}">
 						<div class="flex shrink-0 items-center justify-between border-b border-bd px-5 py-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] md:pt-3">
 							<div class="flex items-center gap-2.5">
 								<Filter class="h-4 w-4 text-grn" strokeWidth={1.5} />
@@ -602,17 +656,17 @@
 							{@render accordionSection('safety', 'Safety')}
 							{@render accordionSection('holders', 'Holders')}
 							{@render accordionSection('social', 'Social')}
+							{@render accordionSection('customSignals', 'Custom Signals')}
 							<div class="p-4">
-								<button
-									class="btn-primary w-full py-2.5 text-sm uppercase tracking-wider active:scale-[0.98]"
-									onclick={() => { refresh(); filtersOpen = false; }}
+							<button
+								class="btn-primary w-full py-2.5 text-sm uppercase tracking-wider active:scale-[0.98]"
+								onclick={applyFilters}
 								>
 									Apply Filters
 								</button>
 							</div>
 						</div>
 					</div>
-				{/if}
 			</div>
 
 			<div class="flex w-fit shrink-0 gap-0.5 rounded-xl border border-bd bg-s4 p-0.5">
@@ -628,12 +682,15 @@
 			</div>
 
 			<div class="flex gap-0.5 rounded-xl border border-bd bg-s4 p-0.5">
-				{#each chains as c}
+				{#each SCANNER_CHAIN_FILTERS as c}
 					<button
-						class="rounded-lg px-2 md:px-3 py-1.5 text-[11px] md:text-xs font-medium transition-all cursor-pointer {chain === c ? 'bg-wh/10 text-tx' : 'text-g5 hover:text-g9'}"
-						onclick={() => (chain = c)}
+						class="inline-flex items-center gap-1 rounded-lg px-2 md:px-3 py-1.5 text-[11px] md:text-xs font-medium transition-all cursor-pointer {chain === c ? 'bg-wh/10 text-tx' : 'text-g5 hover:text-g9'}"
+						onclick={() => selectChain(c)}
 					>
-						{c === 'All' ? 'All' : c}
+						{#if c !== 'All'}
+							<ChainIcon chain={c} class="h-3 w-3" />
+						{/if}
+						{c}
 					</button>
 				{/each}
 			</div>
@@ -743,8 +800,8 @@
 				{/if}
 			</div>
 		</button>
-		{#if isOpen}
-			<div class="px-4 pb-4 space-y-3">
+		{#if isOpen || key === 'customSignals'}
+			<div class="px-4 pb-4 space-y-3" class:hidden={!isOpen}>
 				{#if key === 'platform'}
 					{#if platforms.size > 0}
 						<button onclick={() => { platforms = new Set(); }} class="cursor-pointer text-[10px] font-medium text-red hover:text-red-light transition-colors">Show All</button>
@@ -882,6 +939,12 @@
 						{@render chip('Telegram', 'hasTelegram')}
 						{@render chip('Discord', 'hasDiscord')}
 					</div>
+
+				{:else if key === 'customSignals'}
+					<ScannerCustomSignalFilters
+						clauses={draftIntegrationClauses}
+						onchange={(clauses) => (draftIntegrationClauses = clauses)}
+					/>
 				{/if}
 			</div>
 		{/if}

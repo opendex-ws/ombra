@@ -1,4 +1,6 @@
 import type { TokenSourceFilter, TokenSourceFilterRead, TokenSourceGroup } from '$lib/api/types';
+import type { CustomMetaFilter, SavedListIntegrationClause } from '$lib/custom-signals/contracts';
+import { nativeMetaFilter } from '$lib/custom-signals/transport';
 
 export type SourceKind = 'callers' | 'tgConnections' | 'wallets' | 'theses';
 
@@ -6,15 +8,61 @@ export const SOURCE_KINDS: SourceKind[] = ['callers', 'tgConnections', 'wallets'
 
 export type SourceSelection = {
 	ids: Record<SourceKind, string[]>;
+	integrations: EditableSavedListIntegrationClause[];
 	/** id -> group index. Absent or negative means ungrouped. */
 	groups: Record<string, number>;
 	/** id -> display name, for rendering chips. */
 	names: Record<string, string>;
 };
 
+export type EditableSavedListIntegrationClause = SavedListIntegrationClause & {
+	/** Form-only identity. It keeps duplicate clauses and group membership distinct. */
+	uiId: string;
+	integration: SavedListIntegrationIdentity;
+	callers: SavedListIntegrationCallerIdentity[];
+};
+
+export type SavedListIntegrationIdentity = {
+	id: string;
+	name: string;
+	photoId: string | null;
+};
+
+export type SavedListIntegrationCallerIdentity = {
+	id: string;
+	name: string;
+	photoId: string | null;
+};
+
+let clauseSequence = 0;
+
+export function newIntegrationClauseUiId(): string {
+	clauseSequence += 1;
+	return `integration-clause-${clauseSequence}`;
+}
+
+export function editableIntegrationClause(
+	clause: SavedListIntegrationClause,
+	identities: {
+		uiId?: string;
+		integration?: SavedListIntegrationIdentity;
+		callers?: SavedListIntegrationCallerIdentity[];
+	} = {}
+): EditableSavedListIntegrationClause {
+	return {
+		uiId: identities.uiId ?? newIntegrationClauseUiId(),
+		integrationId: clause.integrationId,
+		callerIds: [...clause.callerIds],
+		metaFilter: nativeMetaFilter(clause.metaFilter),
+		integration: identities.integration ?? { id: clause.integrationId, name: clause.integrationId, photoId: null },
+		callers: [...(identities.callers ?? [])]
+	};
+}
+
 export function emptySelection(): SourceSelection {
 	return {
 		ids: { callers: [], tgConnections: [], wallets: [], theses: [] },
+		integrations: [],
 		groups: {},
 		names: {}
 	};
@@ -30,6 +78,35 @@ export function normalizeGroups(g: Record<string, number>): Record<string, numbe
 }
 
 type Entry = { id?: string | null; name?: string | null };
+
+function readSourceIdentity(value: unknown): SavedListIntegrationIdentity | null {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+	const identity = value as Record<string, unknown>;
+	if (
+		typeof identity.id !== 'string' ||
+		typeof identity.name !== 'string' ||
+		identity.photoId !== null && typeof identity.photoId !== 'string'
+	) return null;
+	return { id: identity.id, name: identity.name, photoId: identity.photoId };
+}
+
+/** The list read DTO is identity-enriched and intentionally differs from the
+ * flat write clause. This parser is the only read-to-edit adapter.
+ */
+function readIntegrationClause(value: unknown): EditableSavedListIntegrationClause | null {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+	const clause = value as Record<string, unknown>;
+	const integration = readSourceIdentity(clause.integration);
+	if (!integration || !Array.isArray(clause.callers) || !Array.isArray(clause.metaFilter)) return null;
+	const callers = clause.callers.map(readSourceIdentity);
+	if (callers.some((caller) => caller === null)) return null;
+	const callerIdentities = callers as SavedListIntegrationCallerIdentity[];
+	return editableIntegrationClause({
+		integrationId: integration.id,
+		callerIds: callerIdentities.map((caller) => caller.id),
+		metaFilter: nativeMetaFilter(clause.metaFilter as CustomMetaFilter)
+	}, { integration, callers: callerIdentities });
+}
 
 /**
  * Membership comes from the enriched read view, which is the only shape that
@@ -51,9 +128,19 @@ export function readSourceSelection(enriched: TokenSourceFilterRead | null | und
 
 	const source = enriched as Record<string, unknown>;
 	for (const kind of SOURCE_KINDS) take(kind, source[kind] as Entry[] | undefined);
+	for (const value of (source.integrations as unknown[] | undefined) ?? []) {
+		const clause = readIntegrationClause(value);
+		if (clause) sel.integrations.push(clause);
+	}
 	(enriched.groups ?? []).forEach((g: unknown, gi: number) => {
 		const group = g as Record<string, unknown>;
 		for (const kind of SOURCE_KINDS) take(kind, group[kind] as Entry[] | undefined, gi);
+		for (const value of (group.integrations as unknown[] | undefined) ?? []) {
+			const clause = readIntegrationClause(value);
+			if (!clause) continue;
+			sel.integrations.push(clause);
+			sel.groups[clause.uiId] = gi;
+		}
 	});
 
 	for (const kind of SOURCE_KINDS) sel.ids[kind] = [...new Set(sel.ids[kind])];
@@ -67,10 +154,20 @@ export function readSourceSelection(enriched: TokenSourceFilterRead | null | und
  */
 export function buildSourceFilter(
 	ids: Record<SourceKind, string[]>,
-	groups: Record<string, number>
+	groups: Record<string, number>,
+	integrations: readonly EditableSavedListIntegrationClause[] = []
 ): TokenSourceFilter {
-	const flat: Record<SourceKind, string[]> = { callers: [], tgConnections: [], wallets: [], theses: [] };
-	const buckets = new Map<number, TokenSourceGroup>();
+	type IntegrationSourceGroup = Omit<TokenSourceGroup, 'integrations'> & {
+		integrations?: SavedListIntegrationClause[];
+	};
+	type IntegrationSourceFilter = Omit<TokenSourceFilter, 'integrations' | 'groups'> & {
+		integrations?: SavedListIntegrationClause[];
+		groups?: IntegrationSourceGroup[];
+	};
+	const flat: Record<SourceKind, string[]> & { integrations: SavedListIntegrationClause[] } = {
+		callers: [], tgConnections: [], wallets: [], theses: [], integrations: []
+	};
+	const buckets = new Map<number, IntegrationSourceGroup>();
 
 	for (const kind of SOURCE_KINDS) {
 		for (const id of ids[kind] ?? []) {
@@ -85,11 +182,28 @@ export function buildSourceFilter(
 		}
 	}
 
-	const sources: TokenSourceFilter = {};
+	for (const clause of integrations) {
+		const stored: SavedListIntegrationClause = {
+			integrationId: clause.integrationId,
+			callerIds: [...clause.callerIds],
+			metaFilter: nativeMetaFilter(clause.metaFilter)
+		};
+		const gi = groups[clause.uiId];
+		if (gi === undefined || gi < 0) {
+			flat.integrations.push(stored);
+		} else {
+			let bucket = buckets.get(gi);
+			if (!bucket) { bucket = {}; buckets.set(gi, bucket); }
+			(bucket.integrations ??= []).push(stored);
+		}
+	}
+
+	const sources: IntegrationSourceFilter = {};
 	for (const kind of SOURCE_KINDS) if (flat[kind].length > 0) sources[kind] = flat[kind];
+	if (flat.integrations.length > 0) sources.integrations = flat.integrations;
 	const groupList = [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([, g]) => g);
 	if (groupList.length > 0) sources.groups = groupList;
-	return sources;
+	return sources as unknown as TokenSourceFilter;
 }
 
 type SourceRow = { id?: string | null; source?: string | null };

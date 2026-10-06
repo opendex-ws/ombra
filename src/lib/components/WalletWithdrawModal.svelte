@@ -1,9 +1,13 @@
 <script lang="ts">
 	import X from 'lucide-svelte/icons/x';
 	import { portal } from '$lib/actions/portal';
-	import type { Chain, WalletAsset } from '$lib/api/types';
+	import type { Chain, WalletAsset, components } from '$lib/api/types';
 	import { getAuthToken, signConnectedWalletMessageHex } from '$lib/stores/auth.svelte';
 	import { apiUrl } from '$lib/api/config';
+
+	type WalletWithdrawResponse = components['schemas']['WalletWithdrawResponse'];
+	type WalletWithdrawConfirmRequest = components['schemas']['WalletWithdrawConfirmRequest'];
+	type WalletWithdrawConfirmResponse = components['schemas']['WalletWithdrawConfirmResponse'];
 
 	let {
 		chain,
@@ -14,7 +18,7 @@
 		chain: Chain;
 		asset: WalletAsset;
 		onclose: () => void;
-		oncomplete: (result: { signature: string; status: string }) => void;
+		oncomplete: (result: WalletWithdrawConfirmResponse) => void;
 	} = $props();
 
 	let amount = $state('');
@@ -64,15 +68,16 @@
 			const request = asset.isNative
 				? `{"chain":${withdrawalChain},"withdrawNative":true,"amount":${exactAmount},"destinationAddress":${destination}}`
 				: `{"chain":${withdrawalChain},"tokenAddress":${JSON.stringify(asset.token.address)},"amount":${exactAmount},"destinationAddress":${destination}}`;
-			const prepared = await post<{
-				transactionToSign: string;
-				sourceAddress: string;
-				lastValidBlockHeight: number;
-			}>('/v2/user/wallets/withdraw', request);
-			const signature = await signConnectedWalletMessageHex(prepared.transactionToSign);
-			const result = await post<{ signature: string; status: string }>(
+			const prepared = await post<WalletWithdrawResponse>('/v2/user/wallets/withdraw', request);
+			const confirmation: WalletWithdrawConfirmRequest = prepared.signatureModel === 'client'
+				? {
+					transactionToSign: prepared.transactionToSign,
+					signature: await signConnectedWalletMessageHex(prepared.transactionToSign)
+				}
+				: { transactionToSign: prepared.transactionToSign };
+			const result = await post<WalletWithdrawConfirmResponse>(
 				'/v2/user/wallets/withdraw/confirm',
-				{ transactionToSign: prepared.transactionToSign, signature }
+				confirmation
 			);
 			oncomplete(result);
 		} catch (cause) {
@@ -151,7 +156,7 @@
 					disabled={submitting || !amount || !destinationAddress.trim()}
 					class="btn-primary flex-1 px-4 py-2 text-sm disabled:opacity-50"
 				>
-					{submitting ? 'Confirm in Phantom...' : 'Withdraw'}
+					{submitting ? 'Withdrawing...' : 'Withdraw'}
 				</button>
 			</div>
 		</div>

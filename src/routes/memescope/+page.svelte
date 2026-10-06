@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { onMount, onDestroy, untrack } from 'svelte';
-	import { getMemescopeFilters, setMemescopeFilters } from '$lib/stores/feSettings.svelte';
+	import { getFeedChain, getMemescopeFilters, setFeedChain, setMemescopeFilters, type FeedChain } from '$lib/stores/feSettings.svelte';
 	import { api } from '$lib/api/client';
 	import type { Chain, ScannerItem, TimeFrame, TrenchesPhase, ScannerTokensRequest, components } from '$lib/api/types';
+	import { SCANNER_CHAIN_FILTERS } from '$lib/utils/chains';
 	import { isCursorRecoveryReason, subscribe, unsubscribe } from '$lib/ws/client';
 	import { applyScannerWsEvent } from '$lib/utils/scanner-ws';
 	import { createCoalescer } from '$lib/utils/coalesce';
@@ -11,6 +12,7 @@
 	import MemescopeCard from '$lib/components/MemescopeCard.svelte';
 	import { formatMarketCap } from '$lib/utils/format';
 	import { getRouterInfo } from '$lib/utils/routers';
+	import ChainIcon from '$lib/components/ChainIcon.svelte';
 	import Inbox from 'lucide-svelte/icons/inbox';
 	import TrendingUp from 'lucide-svelte/icons/trending-up';
 	import BadgeCheck from 'lucide-svelte/icons/badge-check';
@@ -19,7 +21,6 @@
 
 	let { routeActive = true }: { routeActive?: boolean } = $props();
 
-	const chains: Array<'All' | Chain> = ['All', 'SOL'];
 	const timeFrames: TimeFrame[] = ['5M', '1H', '6H', '24H'];
 	const tfSuffix: Record<TimeFrame, string> = { '5M': '5m', '1H': '1h', '6H': '6h', '24H': '24h' };
 	// Launchpads: where a token lives before it graduates. PumpSwap is pump.fun's
@@ -27,10 +28,12 @@
 	const memePlatforms = [
 		'PUMPFUN', 'RAYDIUM_LAUNCH', 'METEORA_BONDING_CURVE',
 		'MOONSHOT', 'HEAVEN', 'BELIEVE', 'LETS_BONK', 'BAGS', 'PRINTR', 'STONKFUN', 'OTCDESKS', 'PURPS', 'EMBERCURVE',
+		'PONS', 'FLAP',
 	] as const;
 	const dexPlatforms = [
 		'PUMPSWAP', 'RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'METEORA_DYN',
-		'METEORA_DYN_V2', 'METEORA_DLMM',
+		'METEORA_DYN_V2', 'METEORA_DLMM', 'WHIRLPOOL',
+		'UNISWAP_V2', 'UNISWAP_V3', 'UNISWAP_V4',
 	] as const;
 	// A graduated token keeps its launchpad, so Graduated filters on both: the AMM
 	// it trades on now, and the platform it was launched from.
@@ -223,6 +226,51 @@
 			chain: getChain(phase)
 		});
 	}
+
+	const phases = ['new', 'graduating', 'graduated'] as const;
+
+	let scopeChain = $derived.by(() => {
+		const selected = phases.map(getChain);
+		return selected.every((c) => c === selected[0]) ? selected[0] : null;
+	});
+
+	function selectScopeChain(next: 'All' | Chain) {
+		for (const phase of phases) {
+			setChain(phase, next);
+			persistPhaseFilters(phase);
+		}
+		setFeedChain(next);
+		fetchAndSubscribeAll();
+	}
+
+	// Scanner writes the same feedChain. Push it onto every column so the
+	// toggle matches, including while this page is hidden. The route effect
+	// refetches when the page is shown again.
+	let appliedFeedChain: FeedChain | null = null;
+	$effect(() => {
+		const shared = getFeedChain();
+		if (shared === appliedFeedChain) return;
+		const first = appliedFeedChain === null;
+		appliedFeedChain = shared;
+		// All is the stored default. Opening Memescope must not flatten a
+		// per-column chain until someone explicitly picks All. If every
+		// column already agrees on Solana or Robinhood, that is the selection.
+		if (first && shared === 'All') {
+			untrack(() => {
+				const selected = phases.map((phase) => getChain(phase));
+				const agreed = selected.every((c) => c === selected[0]) ? selected[0] : null;
+				if (agreed && agreed !== 'All') setFeedChain(agreed);
+			});
+			return;
+		}
+		untrack(() => {
+			if (phases.every((phase) => getChain(phase) === shared)) return;
+			for (const phase of phases) {
+				setChain(phase, shared);
+				persistPhaseFilters(phase);
+			}
+		});
+	});
 
 	function resetPhaseFilters(phase: TrenchesPhase) {
 		setFilters(phase, {});
@@ -513,6 +561,22 @@
 </script>
 
 <div class="flex flex-col pb-24 md:pb-0 h-[calc(100dvh-48px)] md:h-[calc(100dvh-48px-28px)]">
+	<div class="flex shrink-0 items-center border-b border-bd bg-s0 px-3 py-2">
+		<div class="flex gap-0.5 rounded-xl border border-bd bg-s4 p-0.5">
+			{#each SCANNER_CHAIN_FILTERS as c}
+				<button
+					class="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-all md:px-3 md:text-xs {scopeChain === c ? 'bg-wh/10 text-tx' : 'text-g5 hover:text-g9'}"
+					aria-pressed={scopeChain === c}
+					onclick={() => selectScopeChain(c)}
+				>
+					{#if c !== 'All'}
+						<ChainIcon chain={c} class="h-3 w-3" />
+					{/if}
+					{c === 'SOL' ? 'Solana' : c}
+				</button>
+			{/each}
+		</div>
+	</div>
 	{#if getIsDesktop()}
 	<div class="grid flex-1 grid-cols-3 gap-0 overflow-hidden">
 		{@render column('new', 'New', 'var(--t-g11)', newTokens, loadingNew, Inbox)}
@@ -623,13 +687,16 @@
 					<div>
 						<span class="text-[10px] font-bold uppercase tracking-widest text-g7">Chain</span>
 						<div class="mt-2 flex flex-wrap gap-1">
-							{#each chains as chain}
+							{#each SCANNER_CHAIN_FILTERS as chain}
 								<button
-									class="cursor-pointer rounded-md px-2.5 py-1 text-[10px] font-semibold transition-all {draftChain === chain
+									class="cursor-pointer inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[10px] font-semibold transition-all {draftChain === chain
 										? 'bg-grn/10 text-grn ring-1 ring-grn/20'
 										: 'bg-s7 text-g5 ring-1 ring-bd hover:text-g8'}"
 									onclick={() => (draftChain = chain)}
 								>
+									{#if chain !== 'All'}
+										<ChainIcon chain={chain} class="h-3 w-3" />
+									{/if}
 									{chain}
 								</button>
 							{/each}

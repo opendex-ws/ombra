@@ -3,8 +3,9 @@
 	import { dev } from '$app/environment';
 	import { api, type QueryOf, type TokenChartMarkersFilterParams } from '$lib/api/client';
 	import type { Chain, CandleFrame, WatchlistCallItem } from '$lib/api/types';
+	import type { CustomSignalCallerMeta, IntegrationSourceIdentity } from '$lib/custom-signals/contracts';
 	import { subscribe, unsubscribe } from '$lib/ws/client';
-	import { formatPriceText, formatUsd, avatarUrl, shortAddress, formatCompactCount, ageFromSeconds } from '$lib/utils/format';
+	import { formatPriceText, formatUsd, avatarUrl, avatarInitial, shortAddress, formatCompactCount, ageFromSeconds, integrationCallerMarkerKey, integrationSourcePresentation, tokenCallSourceBadge } from '$lib/utils/format';
 	import { getWalletIconUrl, getWalletIconImage, getWalletAddress } from '$lib/utils/walleticon';
 	import { SwapPrimitive, MigrationPrimitive, drawChefHat, type SwapIndicatorData, type SwapInfo } from '$lib/utils/chart-primitives';
 	import type { ChartMarker, ChartMarkerSwap } from '$lib/api/types';
@@ -84,12 +85,22 @@
 		ChartMarker,
 		{ kind: 'KOL' | 'DEV' | 'USER_SWAP' }
 	>;
+	type RuntimeWatchlistCallItem = Omit<WatchlistCallItem, 'caller'> & {
+		caller: WatchlistCallItem['caller'] | IntegrationSourceIdentity;
+		callerMeta?: CustomSignalCallerMeta;
+	};
 
 	let { chain, address, chartHeight = 450, athPrice = null, athMcap = null, onopentrader, tokenSymbol = '', active = true, compact = false }: Props = $props();
 
 	let chartContainer: HTMLDivElement;
 	let selectedFrame: string = $derived(getSelectedFrame());
 	let showMarketCap: boolean = $derived(getShowMarketCap());
+
+	/** Price mode keeps tiny-price decimals. Market cap is a dollar figure, so the axis uses K / M / B. */
+	function formatChartAxis(price: number): string {
+		const text = showMarketCap ? formatUsd(price) : formatPriceText(price);
+		return text.replace('$', '');
+	}
 
 	const MARKER_VIS_KEY = 'ombra_chart_markers';
 	/** Marker prefs are set-and-forget: visibility plus the size filter live together. */
@@ -393,7 +404,7 @@
 	let kolMarkers: ChartMarkerSwap[] = [];
 	let devMarkers: ChartMarkerSwap[] = [];
 	let userSwapMarkers: UserSwapMarker[] = [];
-	let callMarkers: WatchlistCallItem[] = [];
+	let callMarkers: RuntimeWatchlistCallItem[] = [];
 	type ThesisMarker = Extract<ChartMarker, { kind: 'THESIS' }>;
 	type TweetMarker = Extract<ChartMarker, { kind: 'TWEET' }>;
 	let thesisMarkers: ThesisMarker[] = [];
@@ -434,7 +445,7 @@
 	}, { maxBatch: 200 });
 	type KolRow = { name: string; walletAddress: string; photoUrl: string | null; buys: number; sells: number; buyUsd: number; sellUsd: number; isDev?: boolean };
 	type KolSummary = { time: number; rows: KolRow[]; totalBuyUsd: number; totalSellUsd: number; buyCount: number; sellCount: number };
-	let chartTooltip: { x: number; y: number; lines?: string[]; kol?: KolSummary; posts?: PostSummary } | null = $state(null);
+	let chartTooltip: { x: number; y: number; lines?: string[]; kol?: KolSummary; posts?: PostSummary; call?: CallAvatarCaller } | null = $state(null);
 	let chartTooltipTimer: ReturnType<typeof setTimeout> | null = null;
 
 	/**
@@ -615,6 +626,14 @@
 		// hit-test as hover so click matches what the user sees highlighted.
 		const avatarHit = hitTestAvatar(clickX, clickY);
 		if (avatarHit) {
+			const cluster = (callAvatarPrimitive._data as CallAvatarData[]).find((item) => item.time === avatarHit.time);
+			const caller = cluster?.callers[avatarHit.idx];
+			if (caller?.sourceKind === 'call' && caller.integrationName) {
+				const vp = toViewport(Math.round(avatarHit.x), Math.round(avatarHit.cy - sz / 2 - 4));
+				chartTooltip = { ...vp, call: caller };
+				if (chartTooltipTimer) clearTimeout(chartTooltipTimer);
+				return;
+			}
 			const summary = buildKolSummary(avatarHit.time);
 			const posts = buildPostSummary(avatarHit.time);
 			if (summary || posts) {
@@ -675,7 +694,17 @@
 	}
 
 	type MarkerSourceKind = 'call' | 'thesis' | 'tweet' | 'kol' | 'dev';
-	type CallAvatarCaller = { photoUrl: string | null; walletAddress?: string; name: string; count?: number; isBuy?: boolean; isDev?: boolean; sourceKind?: MarkerSourceKind };
+	type CallAvatarCaller = {
+		photoUrl: string | null;
+		walletAddress?: string;
+		name: string;
+		count?: number;
+		isBuy?: boolean;
+		isDev?: boolean;
+		sourceKind?: MarkerSourceKind;
+		integrationName?: string;
+		integrationPhotoUrl?: string | null;
+	};
 
 	/**
 	 * Ring colour identifies what the marker IS, matching its header badge.
@@ -798,7 +827,7 @@
 				ctx.font = `bold ${Math.round(b * 0.5)}px sans-serif`;
 				ctx.textAlign = 'center';
 				ctx.textBaseline = 'middle';
-				ctx.fillText(c.name[0]?.toUpperCase() ?? '?', cx, cy);
+				ctx.fillText(avatarInitial(c.name), cx, cy);
 			}
 			const ringColor = markerRingColor(c.sourceKind, c.isBuy);
 			ctx.strokeStyle = ringColor;
@@ -868,7 +897,8 @@
 					this._drawAvatar(ctx, hovered.c, hovered.cx, hovered.cy, b2, ratio);
 					const sideStr = hovered.c.isBuy === undefined ? '' : hovered.c.isBuy ? ' · bought' : ' · sold';
 					const countStr = (hovered.c.count ?? 1) > 1 ? ` ×${hovered.c.count}` : '';
-					const label = `${hovered.c.name}${sideStr}${countStr}`;
+					const integrationStr = hovered.c.integrationName ? ` · ${hovered.c.integrationName}` : '';
+					const label = `${hovered.c.name}${integrationStr}${sideStr}${countStr}`;
 					const fontPx = Math.round(10 * ratio);
 					ctx.font = `600 ${fontPx}px sans-serif`;
 					const tw = ctx.measureText(label).width;
@@ -990,7 +1020,7 @@
 			if (m.kind === 'KOL') kolMarkers.push(m as ChartMarkerSwap);
 			else if (m.kind === 'DEV') devMarkers.push(m as ChartMarkerSwap);
 			else if (m.kind === 'USER_SWAP') userSwapMarkers.push(m as UserSwapMarker);
-			else if (m.kind === 'CALL') callMarkers.push(m as unknown as WatchlistCallItem);
+			else if (m.kind === 'CALL') callMarkers.push(m as unknown as RuntimeWatchlistCallItem);
 			else if (m.kind === 'THESIS') thesisMarkers.push(m);
 			else if (m.kind === 'TWEET') tweetMarkers.push(m);
 		}
@@ -1134,8 +1164,8 @@
 			tweetByCandle = new Map();
 			return [];
 		}
-		// Group by candle, then dedupe by wallet/name within the candle so the same
-		// caller/KOL hitting one candle collapses into a single avatar with a count.
+		// Group by candle, then dedupe by stable identity within the candle so the
+		// same caller/KOL hitting one candle collapses into one avatar with a count.
 		const grouped = new Map<number, Map<string, CallAvatarCaller>>();
 		const pushAt = (ts: number, key: string, caller: CallAvatarCaller) => {
 			const candle = nearestCandle(ts);
@@ -1150,7 +1180,16 @@
 			const name = 'name' in call.caller ? call.caller.name ?? '?' : '?';
 			const pid = 'photoId' in call.caller ? call.caller.photoId : undefined;
 			const wa = getWalletAddress(call.caller as Record<string, unknown>);
-			pushAt(Math.floor(call.callDetails.calledAtTimestamp / 1000), wa ?? `n:${name}`, { photoUrl: avatarUrl(pid), walletAddress: wa, name, sourceKind: 'call' });
+			const integration = integrationSourcePresentation(call.caller);
+			const identityKey = integrationCallerMarkerKey(call.caller) ?? wa ?? `n:${name}`;
+			pushAt(Math.floor(call.callDetails.calledAtTimestamp / 1000), identityKey, {
+				photoUrl: integration?.callerPhotoUrl ?? avatarUrl(pid),
+				walletAddress: wa,
+				name,
+				sourceKind: 'call',
+				integrationName: integration?.integrationName,
+				integrationPhotoUrl: integration?.integrationPhotoUrl
+			});
 		}
 		// A thesis author is a wallet, so identity resolves through the same label
 		// cache as KOL markers; a Fomo author with no wallet bind has neither.
@@ -1783,7 +1822,7 @@
 				mode: 0
 			},
 			localization: {
-				priceFormatter: (price: number) => formatPriceText(price).replace('$', ''),
+				priceFormatter: (price: number) => formatChartAxis(price),
 				timeFormatter: (time: number) =>
 					new Date(time * 1000).toLocaleString([], {
 						month: 'short', day: 'numeric',
@@ -1801,7 +1840,7 @@
 			wickDownColor: cRed,
 			priceFormat: {
 				type: 'custom',
-				formatter: (price: number) => formatPriceText(price).replace('$', ''),
+				formatter: (price: number) => formatChartAxis(price),
 				minMove: 1e-20
 			}
 		});
@@ -1827,7 +1866,7 @@
 			lastValueVisible: false,
 			priceLineVisible: false,
 			crosshairMarkerVisible: false,
-			priceFormat: { type: 'custom', formatter: (p: number) => formatPriceText(p).replace('$', ''), minMove: 1e-20 }
+			priceFormat: { type: 'custom', formatter: (p: number) => formatChartAxis(p), minMove: 1e-20 }
 		});
 
 		markerPlugin = createSeriesMarkersFn(candleSeries, []);
@@ -2132,7 +2171,42 @@
 				style="left: {tooltipLeft}px; top: {chartTooltip.y}px; transform: translate(-50%, {tooltipBelow ? '10px' : '-100%'});"
 				onwheel={(e) => e.stopPropagation()}
 			>
-			{#if chartTooltip?.posts && !chartTooltip.kol}
+			{#if chartTooltip?.call}
+				{@const call = chartTooltip.call}
+				<div class="w-[19rem] overflow-hidden rounded-xl border border-bd bg-s5 shadow-2xl">
+					<div class="flex items-center gap-2 border-b border-bd px-3 py-2">
+						{#if call.photoUrl}
+							<img src={call.photoUrl} alt="" class="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-bd" loading="lazy" />
+						{:else}
+							<div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-s7 text-[10px] font-bold text-g11 ring-1 ring-bd">
+								{avatarInitial(call.name)}
+							</div>
+						{/if}
+						<div class="min-w-0 flex-1">
+							<div class="flex items-center gap-1.5">
+								<span class="truncate text-xs font-semibold text-tx">{call.name}</span>
+								<span class="shrink-0 rounded px-1 py-px text-[9px] font-medium {tokenCallSourceBadge('INTEGRATION')}">INTEGRATION</span>
+							</div>
+							{#if (call.count ?? 1) > 1}
+								<span class="text-[10px] text-g5">{call.count} calls on this candle</span>
+							{/if}
+						</div>
+						<button type="button" class="-m-1.5 cursor-pointer rounded p-1.5 text-g4 transition-colors hover:text-tx" onclick={() => (chartTooltip = null)} aria-label="Close">
+							<XIcon class="h-3.5 w-3.5" />
+						</button>
+					</div>
+					<div class="flex items-center gap-2 px-3 py-2 text-[11px] text-g7">
+						{#if call.integrationPhotoUrl}
+							<img src={call.integrationPhotoUrl} alt="" class="h-5 w-5 shrink-0 rounded object-cover ring-1 ring-bd" loading="lazy" />
+						{:else}
+							<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-s7 text-[9px] font-bold text-g9 ring-1 ring-bd">
+								{avatarInitial(call.integrationName)}
+							</div>
+						{/if}
+						<span class="truncate">{call.integrationName}</span>
+					</div>
+				</div>
+			{:else if chartTooltip?.posts && !chartTooltip.kol}
 				{@const p = chartTooltip.posts}
 				<div class="w-[19rem] overflow-hidden rounded-xl border border-bd bg-s5 shadow-2xl backdrop-blur-md">
 					<div class="flex items-center gap-2 border-b border-bd bg-s1/60 px-3 py-2">

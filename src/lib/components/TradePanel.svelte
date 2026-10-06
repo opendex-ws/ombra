@@ -190,7 +190,7 @@
 		setTimeout(() => (copied = false), 500);
 	}
 
-	const nativeSymbol = $derived(chain === 'SOL' ? 'SOL' : chain === 'ETH' ? 'ETH' : chain === 'BASE' ? 'ETH' : chain === 'BSC' ? 'BNB' : 'ETH');
+	const nativeSymbol = $derived(chain === 'SOL' ? 'SOL' : 'ETH');
 	const existingTrade = $derived(getTradeForToken(chain, tokenAddress));
 	const existingNetPnlUsd = $derived(existingTrade ? netPnlUsd(existingTrade) : 0);
 	const existingNetPnlPct = $derived(existingTrade ? netPnlPct(existingTrade) : 0);

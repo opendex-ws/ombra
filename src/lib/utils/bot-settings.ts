@@ -1,16 +1,25 @@
 import type { components } from '$lib/api/v2.d.ts';
+import type { Chain } from '$lib/api/client';
 import type { SellTargetKind, SellTargetRow } from '$lib/stores/trade.svelte';
+import type { CustomMetaFilter } from '$lib/custom-signals/contracts';
+import { nativeMetaFilter } from '$lib/custom-signals/transport';
 import { formatUsd } from './format';
 
-export type Bot = components['schemas']['Bot'];
+type GeneratedBot = components['schemas']['Bot'];
+type GeneratedBotIntegrationSource = Extract<GeneratedBot['source'], { type: 'INTEGRATION' }>;
+export type BotIntegrationSourceIdentity = Omit<GeneratedBotIntegrationSource, 'metaFilter'> & {
+	metaFilter: CustomMetaFilter;
+};
+type BotSourceIdentity = GeneratedBot['source'] | BotIntegrationSourceIdentity;
+export type Bot = GeneratedBot;
 export type BotChainConfig = components['schemas']['BotChainConfig'];
 export type BotChainConfigDiff = components['schemas']['BotChainConfigDiff'];
 export type BotChainConfigRequest = components['schemas']['BotChainConfigRequest'];
 export type BotLimits = components['schemas']['BotLimits'];
 export type BuyWith = components['schemas']['BuyWith'];
 export type BotSourceStrategy = components['schemas']['BotSourceStrategy'];
-export type CallerSource = components['schemas']['CallerSource'];
-export type Chain = components['schemas']['Chain'];
+export type CallerSource = components['schemas']['CallerSource'] | 'INTEGRATION';
+export type { Chain };
 export type GasPreset = components['schemas']['GasPreset'];
 export type TradeTargetConfig = components['schemas']['TradeTargetConfig'];
 
@@ -20,12 +29,90 @@ export type SellSizingMode = 'proportion' | 'position_pct';
 export type BuyAtMode = 'market' | 'dip' | 'limit';
 export type AmountType = 'USD' | 'NATIVE';
 
-export type BotSourceDescriptor = {
-	id: string;
-	type: CallerSource;
-	name: string;
-	chain?: Chain;
-};
+export type BotSourceDescriptor =
+	| {
+		id: string;
+		type: Exclude<CallerSource, 'INTEGRATION'>;
+		name: string;
+		chain?: Chain;
+	}
+	| {
+		type: 'INTEGRATION';
+		integrationId: string;
+		integrationName: string;
+		integrationPhotoId: string | null;
+		integrationEnabled: boolean;
+		callerId?: string;
+		callerName?: string;
+		callerPhotoId?: string | null;
+		metaFilter: CustomMetaFilter;
+		name: string;
+	};
+
+export type BotSourceRef =
+	| { id: string; type: Exclude<CallerSource, 'INTEGRATION'> }
+	| { type: 'INTEGRATION'; integrationId: string; callerId?: string; metaFilter: CustomMetaFilter };
+
+export function botSourceDisplayName(source: BotSourceIdentity): string {
+	return source.type === 'INTEGRATION'
+		? source.caller ? `${source.integration.name} · ${source.caller.name}` : source.integration.name
+		: source.name;
+}
+
+export function botSourceIdentityKey(source: BotSourceIdentity): string {
+	return source.type === 'INTEGRATION'
+		? `INTEGRATION:${source.integration.id}:${source.caller?.id ?? '*'}`
+		: `${source.type}:${source.id}`;
+}
+
+export function runtimeSourceBotKeys(source: unknown): string[] {
+	if (!source || typeof source !== 'object' || Array.isArray(source)) return [];
+	const item = source as Record<string, unknown>;
+	if (item.type === 'INTEGRATION' && typeof item.integrationId === 'string' && typeof item.id === 'string') {
+		return [
+			`INTEGRATION:${item.integrationId}:${item.id}`,
+			`INTEGRATION:${item.integrationId}:*`
+		];
+	}
+	return typeof item.type === 'string' && typeof item.id === 'string'
+		? [`${item.type}:${item.id}`]
+		: [];
+}
+
+export function descriptorFromBotSource(source: BotSourceIdentity): BotSourceDescriptor {
+	if (source.type !== 'INTEGRATION') {
+		return {
+			id: source.id,
+			type: source.type,
+			name: source.name,
+			...('chain' in source ? { chain: source.chain } : {})
+		};
+	}
+	return {
+		type: 'INTEGRATION',
+		integrationId: source.integration.id,
+		integrationName: source.integration.name,
+		integrationPhotoId: source.integration.photoId,
+		integrationEnabled: true,
+		...(source.caller ? {
+			callerId: source.caller.id,
+			callerName: source.caller.name,
+			callerPhotoId: source.caller.photoId
+		} : {}),
+		metaFilter: nativeMetaFilter(source.metaFilter as CustomMetaFilter),
+		name: botSourceDisplayName(source)
+	};
+}
+
+export function buildBotSourceRef(source: BotSourceDescriptor): BotSourceRef {
+	if (source.type !== 'INTEGRATION') return { id: source.id, type: source.type };
+	return {
+		type: 'INTEGRATION',
+		integrationId: source.integrationId,
+		...(source.callerId ? { callerId: source.callerId } : {}),
+		metaFilter: nativeMetaFilter(source.metaFilter)
+	};
+}
 
 export type BotConfigForm = {
 	chain: Chain;

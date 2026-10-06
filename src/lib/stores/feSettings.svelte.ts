@@ -41,12 +41,19 @@ interface FeSettings {
 		{ filters: Record<string, string>; platforms: string[]; chain: string }
 	>;
 	/**
+	 * Chain toggle shared by Scanner and Memescope. Each page used to keep its
+	 * own, so opening the other one fell back to All.
+	 */
+	feedChain: FeedChain;
+	/**
 	 * What manual buys are funded with. A preference, not a per-trade choice, so
 	 * it lives here rather than in the trade form. `amount` is unaffected — it
 	 * still sizes the trade; this only picks the currency that pays for it.
 	 * Bots carry their own `buyWith` in their config.
 	 */
 	buyWith: 'NATIVE' | 'FIAT';
+	/** Chart axis: market cap instead of price. Kept across refresh. */
+	showMarketCap: boolean;
 	/** FE-only: watchlist source ids that fire a call toast (per-individual-source). */
 	callToastSourceIds: string[];
 	/** FE-only: trade ids hidden from the positions list (long-term holds). */
@@ -60,6 +67,12 @@ interface FeSettings {
  * forever. Bump this and add a migration when a new default has to win.
  */
 const SETTINGS_VERSION = 2;
+
+export type FeedChain = 'All' | 'SOL' | 'RH';
+
+function isFeedChain(value: unknown): value is FeedChain {
+	return value === 'All' || value === 'SOL' || value === 'RH';
+}
 
 const defaults: FeSettings = {
 	expandPositions: false,
@@ -86,7 +99,9 @@ const defaults: FeSettings = {
 		graduating: { filters: {}, platforms: [], chain: 'All' },
 		graduated: { filters: {}, platforms: [], chain: 'All' }
 	},
+	feedChain: 'All',
 	buyWith: 'NATIVE',
+	showMarketCap: false,
 	callToastSourceIds: [],
 	hiddenTradeIds: [],
 	settingsVersion: SETTINGS_VERSION,
@@ -119,8 +134,19 @@ function hydrate() {
 		// v2: swaps became the default social tab; drop the value persisted under
 		// the old default so the new one applies (an explicit pick re-persists).
 		if (from < 2) delete parsed.socialFeedTab;
+		const hadFeedChain = Object.prototype.hasOwnProperty.call(parsed, 'feedChain');
 		settings = { ...defaults, ...parsed, settingsVersion: SETTINGS_VERSION };
-		if (from < SETTINGS_VERSION) persist();
+		if (!isFeedChain(settings.feedChain)) settings.feedChain = 'All';
+		// Older blobs only stored a chain per Memescope column. When those
+		// columns agree, that choice is the shared Scanner/Memescope toggle.
+		if (!hadFeedChain) {
+			const cols = (['new', 'graduating', 'graduated'] as const).map(
+				(phase) => settings.memescopeFilters?.[phase]?.chain ?? 'All'
+			);
+			const agreed = cols.every((chain) => chain === cols[0]) ? cols[0] : 'All';
+			if (isFeedChain(agreed)) settings.feedChain = agreed;
+		}
+		if (from < SETTINGS_VERSION || !hadFeedChain) persist();
 	} catch {}
 }
 
@@ -168,6 +194,26 @@ export function setMemescopeFilters(
 	next: FeSettings['memescopeFilters']['new']
 ) {
 	settings.memescopeFilters = { ...settings.memescopeFilters, [phase]: next };
+	persist();
+}
+
+export function getFeedChain(): FeedChain {
+	return isFeedChain(settings.feedChain) ? settings.feedChain : 'All';
+}
+
+export function setFeedChain(next: string) {
+	if (!isFeedChain(next) || settings.feedChain === next) return;
+	settings.feedChain = next;
+	persist();
+}
+
+export function getShowMarketCap(): boolean {
+	return settings.showMarketCap === true;
+}
+
+export function setShowMarketCap(next: boolean) {
+	if (settings.showMarketCap === next) return;
+	settings.showMarketCap = next;
 	persist();
 }
 

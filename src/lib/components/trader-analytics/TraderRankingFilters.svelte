@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Chain, WalletTimeRange } from '$lib/api/types';
+	import { DISPLAY_CHAINS } from '$lib/utils/chains';
+	import ChainIcon from '../ChainIcon.svelte';
 	import {
 		TRADER_RANKING_SOURCE_OPTIONS,
 		WALLET_TIME_RANGE_OPTIONS,
@@ -41,7 +43,6 @@
 	} = $props();
 
 	let open = $state(false);
-	const chains: Chain[] = ['SOL'];
 
 	function numberValue(value: string): number | undefined {
 		if (value.trim() === '') return undefined;
@@ -52,12 +53,13 @@
 
 <div class="flex flex-wrap items-center gap-2">
 	<div class="flex gap-0.5 rounded-xl border border-bd bg-s4 p-0.5">
-		{#each chains as option}
+		{#each DISPLAY_CHAINS as option}
 			<button
 				type="button"
-				class="cursor-pointer rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors {chain === option ? 'bg-wh/10 text-tx' : 'text-g5 hover:text-g9'}"
+				class="cursor-pointer inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors {chain === option ? 'bg-wh/10 text-tx' : 'text-g5 hover:text-g9'}"
 				onclick={() => onchainchange(option)}
 			>
+				<ChainIcon chain={option} class="h-3 w-3" />
 				{option}
 			</button>
 		{/each}

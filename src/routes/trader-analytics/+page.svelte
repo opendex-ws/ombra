@@ -2,6 +2,7 @@
 	import { onMount, untrack } from 'svelte';
 	import { api } from '$lib/api/client';
 	import type { Chain, TraderRankItem, TraderRankingResponse, WalletLabelSource, WalletTimeRange } from '$lib/api/types';
+	import { isDisplayChain } from '$lib/utils/chains';
 	import { openTraderPortfolio } from '$lib/stores/traderAnalytics.svelte';
 	import { getIsDesktop } from '$lib/stores/viewport.svelte';
 	import { getSubscriptionWindows, subscribe, unsubscribe } from '$lib/ws/client';
@@ -27,7 +28,6 @@
 
 	let { routeActive = true }: { routeActive?: boolean } = $props();
 
-	const validChains: Chain[] = ['SOL'];
 	const validTimeRanges: WalletTimeRange[] = ['ONE_DAY', 'SEVEN_DAY', 'THIRTY_DAY', 'NINETY_DAY'];
 	const validSources: WalletLabelSource[] = ['FOMO', 'PUMPFUN', 'KOL'];
 
@@ -57,7 +57,7 @@
 		const params = new URL(window.location.href).searchParams;
 		const nextChain = params.get('chain') as Chain | null;
 		const nextTimeRange = params.get('timeRange') as WalletTimeRange | null;
-		if (nextChain && validChains.includes(nextChain)) chain = nextChain;
+		if (nextChain && isDisplayChain(nextChain)) chain = nextChain;
 		if (nextTimeRange && validTimeRanges.includes(nextTimeRange)) timeRange = nextTimeRange;
 		const nextSource = params.get('sources')?.trim().toUpperCase() ?? '';
 		source = validSources.includes(nextSource as WalletLabelSource) ? (nextSource as WalletLabelSource) : '';

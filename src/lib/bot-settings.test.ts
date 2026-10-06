@@ -1,11 +1,15 @@
 import { describe, expect, it, test } from 'vitest';
 import {
 	buildBotConfig,
+	buildBotSourceRef,
+	botSourceIdentityKey,
 	createBotConfigForm,
 	hydrateBotConfig,
 	hydrateBotLimits,
 	summarizeBotConfig,
 	summarizeBotLimits,
+	descriptorFromBotSource,
+	runtimeSourceBotKeys,
 	type BotChainConfig,
 	type BotChainConfigDiff,
 	type BotChainConfigRequest
@@ -32,6 +36,41 @@ function responseConfig(overrides: Partial<BotChainConfig> = {}): BotChainConfig
 }
 
 describe('bot settings adapter', () => {
+	test('round-trips an integration source with its native metadata filter', () => {
+		const source = {
+			type: 'INTEGRATION' as const,
+			integration: { id: 'integration-id', name: 'Signals desk', photoId: 'integration.webp' },
+			caller: { id: 'caller-id', name: 'Caller one', photoId: 'caller.webp' },
+			metaFilter: [{ field: 'followers', op: 'gte' as const, value: 1000 }]
+		};
+		const descriptor = descriptorFromBotSource(source);
+		expect(descriptor).toMatchObject({
+			type: 'INTEGRATION',
+			integrationId: 'integration-id',
+			callerId: 'caller-id',
+			name: 'Signals desk · Caller one'
+		});
+		expect(buildBotSourceRef(descriptor)).toEqual({
+			type: 'INTEGRATION',
+			integrationId: 'integration-id',
+			callerId: 'caller-id',
+			metaFilter: [{ field: 'followers', op: 'gte', value: 1000 }]
+		});
+		expect(botSourceIdentityKey(source)).toBe('INTEGRATION:integration-id:caller-id');
+		expect(runtimeSourceBotKeys({
+			type: 'INTEGRATION',
+			id: 'caller-id',
+			integrationId: 'integration-id'
+		})).toEqual([
+			'INTEGRATION:integration-id:caller-id',
+			'INTEGRATION:integration-id:*'
+		]);
+		expect(botSourceIdentityKey({
+			type: 'INTEGRATION',
+			integration: source.integration,
+			metaFilter: []
+		})).toBe('INTEGRATION:integration-id:*');
+	});
 	test('serializes fixed buys with a sell-only position strategy', () => {
 		const form = validWalletForm();
 		form.copySells = true;

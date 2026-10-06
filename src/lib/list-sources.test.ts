@@ -93,6 +93,44 @@ describe('buildSourceFilter', () => {
 		expect(out.callers).toEqual(['c1']);
 		expect(out.wallets).toEqual(['w1']);
 	});
+
+	it('keeps duplicate integration clauses distinct and preserves their groups', () => {
+		const sourceDetails = {
+			integrations: [{
+				integration: { id: 'integration-a', name: 'Signals desk', photoId: 'integration.webp' },
+				callers: [],
+				metaFilter: []
+			}],
+			groups: [{
+				integrations: [{
+					integration: { id: 'integration-a', name: 'Signals desk', photoId: 'integration.webp' },
+					callers: [{ id: 'caller-a', name: 'Caller one', photoId: 'caller.webp' }],
+					metaFilter: [{ field: 'followers', op: 'gte', value: 1000 }]
+				}]
+			}]
+		} as unknown as TokenSourceFilterRead;
+		const selection = readSourceSelection(sourceDetails);
+		expect(selection.integrations).toHaveLength(2);
+		expect(selection.integrations[0].uiId).not.toBe(selection.integrations[1].uiId);
+		expect(selection.groups).toEqual({ [selection.integrations[1].uiId]: 0 });
+		expect(selection.integrations[0].integration).toEqual({ id: 'integration-a', name: 'Signals desk', photoId: 'integration.webp' });
+		expect(selection.integrations[1].callers).toEqual([{ id: 'caller-a', name: 'Caller one', photoId: 'caller.webp' }]);
+
+		const result = buildSourceFilter(selection.ids, selection.groups, selection.integrations) as unknown as {
+			integrations: unknown[];
+			groups: { integrations: unknown[] }[];
+		};
+		expect(result.integrations).toEqual([{
+			integrationId: 'integration-a',
+			callerIds: [],
+			metaFilter: []
+		}]);
+		expect(result.groups[0].integrations).toEqual([{
+			integrationId: 'integration-a',
+			callerIds: ['caller-a'],
+			metaFilter: [{ field: 'followers', op: 'gte', value: 1000 }]
+		}]);
+	});
 });
 
 describe('normalizeGroups', () => {

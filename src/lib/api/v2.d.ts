@@ -195,7 +195,7 @@ export interface paths {
         put?: never;
         /**
          * Create or update a bot
-         * @description Creates or updates the authenticated user's bot identified by the submitted source. Use source types CALLER, TG, LIST, or WALLET and `chainConfigs` keyed by SOL. Returns the resulting bot. Bearer authentication is required.
+         * @description Creates or updates the authenticated user's bot identified by the submitted source. Use source types CALLER, TG, LIST, or WALLET and `chainConfigs` keyed by SOL and RH. Returns the resulting bot. Bearer authentication is required.
          */
         post: operations["bots_create"];
         delete?: never;
@@ -422,6 +422,63 @@ export interface paths {
          * @description Applies chain-specific configuration patches to an autobuy or copytrade bot identified by `id` and returns the updated bot. Authentication is required.
          */
         post: operations["bots_update"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/custom-signals/{integrationId}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a custom-signal call
+         * @description Send this request to the owning organization's host. Protected integrations
+         *     require an `X-API-Key` Platform key with the exact `custom-signals:write`
+         *     scope and a grant to this integration. The `*` scope does not include this
+         *     permission. Public integrations ignore supplied credentials. Public mode
+         *     permits caller creation and caller avatar changes. Calls still belong to
+         *     the host organization. Webhook protection controls submission, not read access.
+         *
+         *     Custom metadata fields belong at the JSON root and must match the active
+         *     integration schema. Do not send a nested `callerMeta` object or a schema
+         *     revision. Numbers are numeric values, with at most 20 integer digits and 18
+         *     fractional digits. The request must be uncompressed `application/json`
+         *     and must not exceed 1 MiB.
+         *
+         *     A 201 response confirms that the call and its delivery event are stored.
+         *     Feed delivery is asynchronous. `acceptedAt` is the server acceptance time
+         *     associated with the resolved price snapshot. There is no producer
+         *     idempotency key: repeating a request can create another call, including
+         *     after a lost response. An avatar warning does not reject the accepted call.
+         */
+        post: operations["create_custom_signal_call"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/history/downloads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download swaps and 1s/5s candles older than 30 days
+         * @description Short-lived download links for swaps and for 1-second and 5-second candles older than 30 days. GET /v2/token/{chain}/{address}/candles and GET /v2/token/{chain}/{address}/swaps serve the last 30 days. A 1s or 5s candle request older than 30 days, or a swaps request with from older than 30 days, returns 422 HISTORY_DOWNLOAD_REQUIRED. Use this route for that older range. 15-second candles and coarser stay on the candles route, including bars older than 30 days. `coverageStart` is the earliest unix second this chain serves here, or `null` when the chain has nothing here yet. Each file covers `windowStart` to `windowEnd` and every pair on the chain. Keep the rows whose pair_address you want. A swaps file has one row per swap: id, timestamp (microseconds, UTC), address_to, address_from, pair_address, router_address, deploy_block, token0_address, token1_address, amount_token0, amount_token1, price_token0, price_token1, price_token0_usd, price_token1_usd, transaction_hash, token_in_address, log_place_in_block, is_outlier, transaction_signer, program_id, amount_token0_unformatted, amount_token1_unformatted, usd_balance, trade_type, transaction_fee_usd, tx_place_percent, is_builder, since_first_swap_blocks, gas_fee_usd, mev_fee_usd, platform_fee_usd, creator_fee_usd, cashback_usd. Amounts and prices are decimal strings. A candle file has bucket (microseconds, UTC), pair_address, open, high, low, close, and volume as decimal strings. url is an HTTPS GET. Send no Authorization header. The link stops working at `expiresAt`, 15 minutes after this response. Check the downloaded body against sha256. from and to are unix seconds. The span is at most 24 hours, and to must be at or before now minus 30 days. A range that includes the last 30 days returns 422 LIVE_DATA_WINDOW. Use the token routes for the recent part and this route for the older part. A from before `coverageStart` returns 400. Parts of the span that are not available yet are listed in missing.
+         */
+        get: operations["history_downloads"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -772,6 +829,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/profiles/{source}/{handle}/card": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Trader card for a handle
+         * @description Linked wallets on Solana and Robinhood, the tokens they traded in the flow cube, and their largest 24h net buys. Rank is filled only when that token's top-traders snapshot is already in memory. Launched-token count is omitted because Pair.deployer_address is not indexed. Does not read SwapChain.
+         */
+        get: operations["profiles_card"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/profiles/{source}/{handle}/receipts": {
         parameters: {
             query?: never;
@@ -803,7 +880,7 @@ export interface paths {
         put?: never;
         /**
          * Withdraw cashback earnings
-         * @description Requires a bearer JWT. Requests withdrawal of the authenticated user's cashback on SOL to an authorized wallet. On success, returns a signed coupon for separate on-chain redemption; it does not submit the transfer itself.
+         * @description Requires a bearer JWT. Requests withdrawal of the authenticated user's cashback on SOL or RH to an authorized wallet. On success, returns a signed coupon for separate on-chain redemption; it does not submit the transfer itself.
          */
         post: operations["referral_cashback"];
         delete?: never;
@@ -999,6 +1076,28 @@ export interface paths {
         };
         /** Get a managed affiliate fee withdrawal by idempotency key */
         get: operations["referral_get_withdrawal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/scanner/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Market statistics
+         * @description Returns market totals and breakdowns by chain, launchpad, DEX, and trading platform
+         *     for 5m, 1h, 6h, and 24h. Percentage changes compare the preceding equal period.
+         *     Returns 503 while the required history is unavailable.
+         */
+        get: operations["stats"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1236,7 +1335,7 @@ export interface paths {
         };
         /**
          * Batch lookup multiple tokens
-         * @description Batch-resolves token or pair addresses across SOL. Submit zero or more repeated `lookup=CHAIN:ADDRESS` query values; authentication is optional.
+         * @description Batch-resolves token or pair addresses across SOL and RH. Submit zero or more repeated `lookup=CHAIN:ADDRESS` query values; authentication is optional.
          */
         get: operations["token_multi"];
         put?: never;
@@ -1256,7 +1355,7 @@ export interface paths {
         };
         /**
          * Get native token USD prices
-         * @description Returns the latest available USD prices for supported native tokens. The `prices` object is keyed by `SOL`; chains without an available price are omitted.
+         * @description Returns the latest available USD prices for supported native tokens. The `prices` object is keyed by `SOL` and `RH`; chains without an available price are omitted.
          */
         get: operations["token_native_prices"];
         put?: never;
@@ -1892,7 +1991,7 @@ export interface paths {
         };
         /**
          * Get trader swaps
-         * @description Returns the selected wallet’s swap history on `SOL`, ordered newest first in pages of up to 20 records.
+         * @description Returns the selected wallet’s swap history on `SOL` and `RH`, ordered newest first in pages of up to 20 records.
          */
         get: operations["traders_swaps"];
         put?: never;
@@ -2171,6 +2270,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/user/pnl": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get your live P&L */
+        get: operations["user_get_pnl"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/user/profile": {
         parameters: {
             query?: never;
@@ -2264,7 +2380,7 @@ export interface paths {
         };
         /**
          * Get your trade statistics by chain
-         * @description Requires bearer authentication. Returns a snapshot of your aggregated trade statistics grouped by chain (`SOL`) and up to 50 of your most recent confirmed swaps.
+         * @description Requires bearer authentication. Returns a snapshot of your aggregated trade statistics grouped by chain (`SOL` and `RH`) and up to 50 of your most recent confirmed swaps.
          */
         get: operations["user_get_stats"];
         put?: never;
@@ -2324,11 +2440,31 @@ export interface paths {
         };
         /**
          * Get authenticated user wallets with assets
-         * @description Requires a Bearer JWT. Returns the authenticated user's application-managed wallets grouped by supported chain (`SOL`), connected wallets, and the combined USD value of all returned assets.
+         * @description Requires a Bearer JWT. Returns the authenticated user's application-managed wallets grouped by supported chain (`SOL` and `RH`), connected wallets, and the combined USD value of all returned assets.
          */
         get: operations["user_get_wallets"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/user/wallets/contract-call": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign and broadcast an allowlisted contract call
+         * @description Validates an unsigned transaction for the authenticated user's managed wallet, rejects contracts or Solana programs that are not on the organization's allowlist, signs the managed-wallet slot, broadcasts the transaction, and returns its network signature and submission status.
+         */
+        post: operations["call_managed_wallet_contract"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2346,7 +2482,7 @@ export interface paths {
         put?: never;
         /**
          * Prepare a wallet withdrawal
-         * @description Requires Bearer authentication. Validates a native SOL or SPL-token withdrawal and returns an unsigned Solana transaction for the user to sign. The transaction is not broadcast, and the wallet balance is unchanged.
+         * @description Requires Bearer authentication. Validates a native or token withdrawal on SOL and returns a prepared transaction. The transaction is not broadcast, and the wallet balance is unchanged.
          */
         post: operations["prepare_wallet_withdrawal"];
         delete?: never;
@@ -2366,7 +2502,7 @@ export interface paths {
         put?: never;
         /**
          * Confirm a wallet withdrawal
-         * @description Confirms and broadcasts a previously prepared managed-wallet Solana withdrawal. Provide the prepared transaction and the linked Solana sign-in wallet’s signature with Bearer authentication; inspect the returned `status` because successful submission may still be `pending`.
+         * @description Validates, signs when required, and broadcasts a prepared withdrawal on SOL. Inspect `status` because a successful submission can still be `pending`.
          */
         post: operations["confirm_wallet_withdrawal"];
         delete?: never;
@@ -2452,6 +2588,26 @@ export interface paths {
          *     list before following `wallets:feed` for live swaps.
          */
         get: operations["wallets_feed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/wallets/flows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Labeled wallet net flows
+         * @description Pre-aggregated labeled FOMO and Pump wallets on Solana and Robinhood. Does not read SwapChain. `window=15m` is the short cluster. `window=24h` is the day board. A stale cube is returned as-is.
+         */
+        get: operations["wallets_flows"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2604,6 +2760,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/watchlist/feed/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get all integration calls
+         * @description Read custom-signal calls for the organization selected by the request host. No user session is required. Supply call filters as separate query parameters, such as `minPrice` and chains. This feed does not support `metaFilter`; any supplied value returns 400. Each caller identifies its integration. `callerMeta` contains `integrationId` and the custom values stored with the call. Pages contain at most 20 calls, newest acceptance time first, then descending call UUID. Omit cursor or send an empty cursor for the first page. Reuse cursors only with the same organization, feed, and filters. Cursor snapshots expire 120 seconds after creation; after an expiry error (400), restart without a cursor.
+         */
+        get: operations["get_all_integrations_feed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/watchlist/feed/integrations/{integrationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get calls from one integration
+         * @description Read custom-signal calls from one integration on the organization host. No user session is required. Supply call filters as separate query parameters. `metaFilter` is a URL-encoded JSON array of predicates on historical filterable metadata fields. All predicates must match. Use the active schema to build new filters and filter-fields to resolve saved field keys. `callerMeta` contains `integrationId` and the values stored when each call was accepted. Pages contain at most 20 calls, newest acceptance time first, then descending call UUID. Omit cursor or send an empty cursor for the first page. Reuse cursors only with the same organization, feed, and filters. Cursor snapshots expire 120 seconds after creation; after an expiry error (400), restart without a cursor.
+         */
+        get: operations["get_integration_feed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/watchlist/feed/lists": {
         parameters: {
             query?: never;
@@ -2656,6 +2852,66 @@ export interface paths {
          * @description Requires a bearer token. Returns up to 20 newest-first token-call rows from wallets tracked by the authenticated user. Optional query parameters filter by caller or source ID, chain, swap direction, current USD price, post-call ATH multiplier, or current USD market capitalization.
          */
         get: operations["get_wallets_feed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/watchlist/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List custom-signal integrations
+         * @description List integrations for the organization selected by the request host. No user session is required. The top-level enabled flag reports the organization feature setting. Each descriptor contains id, name, `photoId`, and enabled. `photoId` is `null` when no avatar is set. Disabled descriptors remain present, and disabled integrations remain readable through the caller and ranking routes.
+         */
+        get: operations["get_integrations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/watchlist/integrations/{integrationId}/filter-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resolve historical metadata filter fields
+         * @description Resolve saved metadata filter keys for one integration on the organization host. No user session is required. The response contains permanent field types for fields that were filterable in any published revision, including removed fields. `everOptional` is `true` if a field was optional in a published revision or was later removed; only those fields support exists. Absence before a field was first added does not set this flag. `knownEnumOptions` is the union of enum options across published revisions and can include options no longer active. It does not show which values occurred in calls. Unknown or never-filterable keys return 400.
+         */
+        get: operations["get_filter_fields"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/watchlist/integrations/{integrationId}/schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the active integration schema
+         * @description Read the published schema for an integration on the organization host. No user session is required. revision identifies the active version; fields defines custom metadata at the webhook request root, and `jsonSchema` is the complete generated JSON Schema for that request. required controls whether a field must be present, and filterable controls whether new filters can use it. Number min and max are canonical decimal strings in field configuration; webhook values, `callerMeta` values, filter operands, and JSON Schema minimum and maximum are numeric values. Use filter-fields to recover definitions for saved filters from older revisions.
+         */
+        get: operations["get_active_schema"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3085,8 +3341,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * `GET /v2/watchlist/ranking/all` — ranking across all visible source families.
-         *     Public callers always; authenticated adds tg/list/wallet.
+         * `GET /v2/watchlist/ranking/all` — one globally ordered ranking across every
+         *     authorized global, organization, and user-private source group.
          * @description Returns a cursor-paginated ranking of watchlist sources visible to the caller. Anonymous callers receive public caller sources; authenticated callers may also receive Telegram, list, and tracked-wallet sources. By default, results cover `30d` and are ranked by `performanceScore` in descending order. Use the filters, `rankBy`, and `orderBy` to customize the ranking, and pass `nextCursor` as `cursor` to continue.
          */
         get: operations["get_ranking_all"];
@@ -3110,6 +3366,46 @@ export interface paths {
          * @description Returns a cursor-paginated performance ranking of public callers for the selected timeframe. No authentication is required; a bearer token is accepted but does not change the result. Optional filters limit results by win rate, total calls, and performance score.
          */
         get: operations["get_caller_ranking"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/watchlist/ranking/integrations/{integrationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Rank callers from one integration
+         * @description Read caller performance for one integration on the organization host. No user session is required. Each item has an INTEGRATION source and the current caller and integration identities. Pages contain at most 15 items; use `nextCursor` or `prevCursor` when present. timeframe defaults to 30d. Ranking defaults to `performanceScore` descending; when both `rankBy` and `orderBy` are omitted, callers associated with the requesting user's bots are placed first. Supplying either sort parameter disables this bot priority. An integration with no callers or no matching ranking results returns an empty items array. The related WebSocket topic sends the complete integration ranking window.
+         */
+        get: operations["get_integration_ranking"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/watchlist/ranking/integrations/{integrationId}/{callerId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get one integration caller's ranking
+         * @description Read performance for one caller in the selected integration on the organization host. No user session is required. Both IDs must belong to this organization, and the caller must belong to the integration. The response contains zero or one item with an INTEGRATION source. All ranking query filters and pagination apply; they can produce an empty items array. timeframe defaults to 30d. The related WebSocket topic sends the complete integration ranking window, which can include other callers.
+         */
+        get: operations["get_integration_caller_ranking"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3231,6 +3527,46 @@ export interface paths {
          * @description Returns the public, cursor-paginated catalog of caller sources. Optionally filter by a case-insensitive literal substring of the source name with `search`, and use `cursor` to retrieve subsequent pages.
          */
         get: operations["get_caller_sources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/watchlist/sources/integrations/{callerId}/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get calls from one integration caller
+         * @description Read custom-signal calls from one caller on the organization host. No user session is required. Use the caller ID from the integration caller catalog. Supply call filters as separate query parameters. `metaFilter` follows the same rules as the integration feed. `callerMeta` contains `integrationId` and the custom values stored with each call. Pages contain at most 20 calls, newest acceptance time first, then descending call UUID. Omit cursor or send an empty cursor for the first page. Reuse cursors only with the same organization, caller, and filters. Cursor snapshots expire 120 seconds after creation; after an expiry error (400), restart without a cursor.
+         */
+        get: operations["get_integration_caller_feed"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/watchlist/sources/integrations/{integrationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List callers from one integration
+         * @description List callers from one integration on the organization host. No user session is required. Every source has type INTEGRATION. Its id is the caller UUID used in caller feed and ranking routes; `integrationId` is the integration UUID. Search is a trimmed Unicode case-insensitive literal substring of the caller name; blank search is unrestricted. Pages contain at most 15 callers, newest creation time first, then descending caller ID. Pass `nextCursor` with the same organization, integration, and normalized search. Without a matching user session, automation has `hasBot` `false` and no bots.
+         */
+        get: operations["get_integration_callers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3449,13 +3785,14 @@ export interface components {
                 usdStr: string;
             };
             /** @description Swaps waiting to be sent or already in flight. Failed swaps are dropped. */
-            pendingSwaps: ((components["schemas"]["PendingTradeSwapRow"] & components["schemas"]["BuyCore"] & {
+            pendingSwaps: ((components["schemas"]["PendingTradeSwapRow"] & components["schemas"]["PendingBuyCore"] & {
                 /**
                  * @description Identifies this pending swap as a buy. The value is always `BUY`.
                  * @enum {string}
                  */
                 side: "BUY";
             }) | (components["schemas"]["PendingTradeSwapRow"] & {
+                origin: components["schemas"]["PendingSellOrigin"];
                 /** @description Percentage of the trade's remaining tokens that the pending `SELL` swap will sell, expressed in percentage units (`25.5` means `25.5%`). Values are non-negative and may exceed 100. */
                 pct: components["schemas"]["Percent"];
             } & {
@@ -3544,10 +3881,19 @@ export interface components {
             trade: components["schemas"]["ActiveTrade"];
         };
         /**
-         * @description Address on the relevant chain: a base58-encoded Solana address of up to 44 characters that decodes to exactly 32 bytes.
+         * @description Address on the relevant chain: a base58-encoded Solana address of up to 44 characters that decodes to exactly 32 bytes, or an EVM address with a lowercase `0x` prefix followed by exactly 40 hexadecimal characters.
          * @example So11111111111111111111111111111111111111112
          */
         Address: string;
+        AddressPnl: components["schemas"]["PnlMetrics"] & {
+            address: string;
+            chain: components["schemas"]["Chain"];
+        };
+        AddressPnlSeries: {
+            address: string;
+            chain: components["schemas"]["Chain"];
+            series: components["schemas"]["PnlSeries"];
+        };
         /** @description One asset's available and reserved affiliate fee balance. */
         AffiliateFeeAssetBalance: {
             /** @description Smallest-unit amount currently withdrawable. */
@@ -3618,15 +3964,23 @@ export interface components {
             usdc: components["schemas"]["AffiliateFeeAssetBalance"];
         };
         /**
+         * @description Native WebSocket parameters for the all-integrations feed. Metadata
+         *     predicates are intentionally absent because the feed spans many schemas.
+         */
+        AllCustomSignalsFeedLivecursorParams: components["schemas"]["CustomSignalWatchlistFiltersCore"] & {
+            endCursor?: string | null;
+            startCursor?: string | null;
+        };
+        /**
          * @description Authentication challenge method. The only supported value is `web3`.
          * @enum {string}
          */
         AuthChallengeMethod: "web3";
         /** @description Response containing the server-generated data needed to complete a Web3 wallet sign-in challenge. */
         AuthChallengeResponse: {
-            /** @description Normalized wallet address associated with the challenge. The signature must authenticate this address; Solana addresses retain their base58 form. */
+            /** @description Normalized wallet address associated with the challenge. The signature must authenticate this address; EVM addresses are lowercase, while Solana addresses retain their base58 form. */
             address: string;
-            /** @description Canonical decimal chain identifier, returned as a string: `900` for Solana. Use the same identifier when completing Web3 sign-in. */
+            /** @description Canonical decimal chain identifier, returned as a string: `900` for Solana or `4663` for RH. Use the same identifier when completing Web3 sign-in. */
             chainId: string;
             /** @description Identifier for the stored, one-time Web3 challenge, when provided. Send it unchanged as `web3.challengeId` when completing the challenge; omission or `null` means no separate identifier was returned. */
             challengeId?: string | null;
@@ -3657,7 +4011,7 @@ export interface components {
         AuthChallengeWeb3OnlyRequest: {
             /** @description Must be `web3` to select wallet-signature challenge authentication. Partner JWT sign-in uses `AuthSigninRequest` instead. */
             method: components["schemas"]["AuthChallengeMethod"];
-            /** @description Wallet details for the Web3 challenge. Provide a valid `address`, a `chain` of `SOL`, and a `signatureProtocol` of `solana_legacy` or `solana_siws`. `chainId` may be omitted; it defaults to `900`. If provided, it must match the selected chain or the request is rejected. `domain` may be omitted. A non-empty request `Origin` takes precedence, followed by the supplied `domain`, then `Host`; the request is rejected if no domain is available. */
+            /** @description Wallet details for the Web3 challenge. Provide a valid `address`, a `chain` of `SOL` or `RH`, and a matching `signatureProtocol`: `evm_personal_sign` for `RH`, or `solana_legacy` or `solana_siws` for `SOL`. `chainId` may be omitted; it defaults to the selected chain's ID (`900` for SOL or `4663` for RH). If provided, it must match the selected chain or the request is rejected. `domain` may be omitted. A non-empty request `Origin` takes precedence, followed by the supplied `domain`, then `Host`; the request is rejected if no domain is available. */
             web3: components["schemas"]["AuthChallengeWeb3Request"];
         };
         /** @description Wallet, network, and signature-protocol information used to request a Web3 authentication challenge. */
@@ -3666,7 +4020,7 @@ export interface components {
             address: string;
             /** @description Chain on which the wallet address exists. */
             chain: components["schemas"]["Chain"];
-            /** @description Optional chain identifier as a string. Omit it or set it to `null` to use the default ID `900`. When supplied, the value is trimmed and must parse to the selected chain's ID. */
+            /** @description Optional chain identifier as a string. Omit it or set it to `null` to use the selected chain's default ID: `900` for `SOL` or `4663` for `RH`. When supplied, the value is trimmed and must parse to the selected chain's ID. */
             chainId?: string | null;
             /** @description Optional domain or host associated with the challenge. A nonblank `Origin` header takes precedence. Otherwise, a nonblank value here is used; if neither is available, the request `Host` is used. The selected value is trimmed, trailing slashes are removed, URL hosts are extracted, and the result is lowercased. The request is rejected if no usable domain is available. */
             domain?: string | null;
@@ -3727,7 +4081,7 @@ export interface components {
             /** @description The bot's configured execution limits. Omitted when no limit is set. */
             limits?: components["schemas"]["BotLimits"];
             /** @description What the bot follows: a caller, a Telegram chat, a list, or a wallet. */
-            source: components["schemas"]["WatchlistSourceIdentity"];
+            source: components["schemas"]["BotSourceIdentity"];
             /** @description Trading performance of this bot. */
             stats: components["schemas"]["BotStats"];
             /**
@@ -4001,6 +4355,23 @@ export interface components {
             };
             limits: components["schemas"]["BotLimits"] | null;
         };
+        BotIntegrationCallerIdentity: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            photoId: string | null;
+        };
+        BotIntegrationIdentity: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            photoId: string | null;
+        };
+        BotIntegrationSourceIdentity: {
+            caller?: components["schemas"]["BotIntegrationCallerIdentity"];
+            integration: components["schemas"]["BotIntegrationIdentity"];
+            metaFilter: (components["schemas"]["CustomMetaStringPredicate"] | components["schemas"]["CustomMetaStringSetPredicate"] | components["schemas"]["CustomMetaNumberPredicate"] | components["schemas"]["CustomMetaBooleanPredicate"] | components["schemas"]["CustomMetaCountPredicate"] | components["schemas"]["CustomMetaNumberRangePredicate"])[];
+        };
         /**
          * @description Per-bot execution limits. Every field is optional; an absent or `null`
          *     field applies no limit for that dimension. A signal fires a buy only when
@@ -4053,13 +4424,18 @@ export interface components {
              * @description Chain the event happened on. Omitted when it has none, such as a configuration change.
              * @enum {string}
              */
-            chain?: "SOL";
+            chain?: "SOL" | "RH";
             /** @description When the entry was recorded. */
             createdAt: components["schemas"]["ReadableTimestamp"];
             /** @description Opaque identifier of the log entry. Treat it as text. */
             id: string;
             /** @description Human-readable description of the event. Display it, but branch on `category` and `status` instead. */
             message: string;
+            /**
+             * @description Current custom-integration source identity for custom signal events.
+             *     Legacy log families omit this field.
+             */
+            source?: components["schemas"]["BotSourceIdentity"];
             /**
              * @description Whether the event succeeded or failed.
              * @enum {string}
@@ -4105,6 +4481,36 @@ export interface components {
              */
             totalCount?: number;
         };
+        /**
+         * @description Bot source identity. Built-in variants keep the existing watchlist source
+         *     wire shapes. The INTEGRATION variant represents the configured integration
+         *     and optional caller scope, not a normal call identity.
+         */
+        BotSourceIdentity: ({
+            /** @enum {string} */
+            type: "INTEGRATION";
+        } & components["schemas"]["BotIntegrationSourceIdentity"]) | {
+            id: string;
+            name: string;
+            photoId: string | null;
+            /** @enum {string} */
+            type: "CALLER";
+        } | ({
+            /** @enum {string} */
+            type: "TG";
+        } & components["schemas"]["TgSourceIdentity"]) | {
+            id: string;
+            name: string;
+            photoId: string | null;
+            /** @enum {string} */
+            type: "LIST";
+        } | ({
+            /** @enum {string} */
+            type: "WALLET";
+        } & components["schemas"]["WalletSourceIdentity"]) | ({
+            /** @enum {string} */
+            type: "THESIS";
+        } & components["schemas"]["ThesisSourceIdentity"]);
         /** @description Independent source-based buy and sell sizing rules for a wallet-source bot. */
         BotSourceStrategy: {
             /** @description How much to buy when the source wallet buys. `SOURCE_TRADE_PROPORTION` scales the source's native input; `WALLET_BALANCE_PERCENT` spends a share of the copying wallet's native balance. */
@@ -4175,19 +4581,19 @@ export interface components {
         /** @description Optional parameters for the authenticated global bot balance-change WebSocket feed, including filters, page size, and cursor controls. */
         BotsBalanceChangesLivecursorParams: {
             /** @description Return only balance changes on this chain. Omit it for every chain. */
-            chain?: "SOL" | null;
+            chain?: ("SOL" | "RH") | null;
             /** @description End of the window. Omit it to start from the newest page. On its own it does not leave live mode. */
             endCursor?: string | null;
             /** @description Maximum balance changes per page. Defaults to 20 and is capped at 100. */
             limit?: number | null;
             /** @description Return only balance changes from bots following this kind of source. Omit it for every kind. */
-            sourceType?: ("CALLER" | "TG" | "LIST" | "WALLET" | "THESIS") | null;
+            sourceType?: ("INTEGRATION" | "CALLER" | "TG" | "LIST" | "WALLET" | "THESIS") | null;
             /** @description Start of the window. Omit it for a live subscription; setting it selects a fixed window and requires `endCursor` too. */
             startCursor?: string | null;
         };
         /** @description Pagination and filter settings for the bots page's balance-changes section. */
         BotsBalanceChangesPageSource: {
-            /** @description Filter balance changes by chain. Use SOL; omit or set to `null` to apply no chain filter. */
+            /** @description Filter balance changes by chain. Use SOL and RH; omit or set to `null` to apply no chain filter. */
             chain?: null | components["schemas"]["Chain"];
             /** @description Page to fetch. Omit it to start at the newest entries. */
             cursor?: string | null;
@@ -4201,7 +4607,7 @@ export interface components {
         };
         /** @description Optional pagination and filter parameters for listing the user's bots. */
         BotsListPageSource: {
-            /** @description Filters bots by chain. Accepted values are SOL; `null` or omission applies no chain filter. */
+            /** @description Filters bots by chain. Accepted values are SOL and RH; `null` or omission applies no chain filter. */
             chain?: null | components["schemas"]["Chain"];
             /** @description Opaque cursor identifying the position after which to continue the bots page. Null or omission starts from the beginning; an invalid cursor is rejected. */
             cursor?: string | null;
@@ -4238,13 +4644,13 @@ export interface components {
             /** @description Return only logs in this category. Omit it for every category. */
             category?: ("CONFIG" | "SOURCE_EVENT" | "EXECUTION" | "SYSTEM") | null;
             /** @description Return only logs from this chain. Omit it for every chain. */
-            chain?: "SOL" | null;
+            chain?: ("SOL" | "RH") | null;
             /** @description End of the window. Omit it to start from the newest logs. */
             endCursor?: string | null;
             /** @description Maximum log entries per page. Defaults to 20 and is capped at 100. */
             limit?: number | null;
             /** @description Return only logs from bots following this kind of source. Omit it for every kind. */
-            sourceType?: ("CALLER" | "TG" | "LIST" | "WALLET" | "THESIS") | null;
+            sourceType?: ("INTEGRATION" | "CALLER" | "TG" | "LIST" | "WALLET" | "THESIS") | null;
             /** @description Start of the window. Omit it for a live subscription; setting it selects a fixed window and requires `endCursor` too. */
             startCursor?: string | null;
             /** @description Return only logs with this outcome. Omit it for both. */
@@ -4463,7 +4869,7 @@ export interface components {
                 targets?: components["schemas"]["TradeTargetConfig"][];
             };
             /** @description The buy intent this result came from. */
-            request: components["schemas"]["BuyIntent"];
+            request: components["schemas"]["PendingBuyIntent"];
             /** @description Swaps created for this buy. These are 64-bit integers, so keep their precision. */
             swapIds: number[];
         };
@@ -4552,7 +4958,7 @@ export interface components {
          * @description Identifies the source family of a token call. Accepted values are CALLER, TG, LIST, and WALLET.
          * @enum {string}
          */
-        CallerSource: "CALLER" | "TG" | "LIST" | "WALLET" | "THESIS";
+        CallerSource: "INTEGRATION" | "CALLER" | "TG" | "LIST" | "WALLET" | "THESIS";
         /** @description Identifies a caller source by its ID and display name, with an optional photo ID. `photoId` is `null` when no photo is available. */
         CallerSourceIdentity: components["schemas"]["WatchlistSourceBase"];
         /** @description Cancels a trade by id: aborts every currently pending or submitted swap on the trade, then removes the trade from the engine. */
@@ -4637,11 +5043,23 @@ export interface components {
              */
             timeframe: "1s" | "5s" | "15s" | "30s" | "1m" | "5m" | "15m" | "30m" | "1h" | "4h" | "6h" | "12h" | "24h";
         };
+        CardMove: {
+            chain: string;
+            /** Format: double */
+            netUsd: number;
+            /** Format: int64 */
+            rank?: number | null;
+            token: string;
+        };
+        CardWallet: {
+            address: string;
+            chain: string;
+        };
         /**
-         * @description Chain associated with the resource. Accepted values are SOL.
+         * @description Chain associated with the resource. Accepted values are SOL and RH.
          * @enum {string}
          */
-        Chain: "SOL";
+        Chain: "SOL" | "RH";
         /** @description Per-chain summary of the authenticated user's affiliate commission revenue. */
         ChainCommissionSummary: {
             /** @description Affiliate commission earned on this chain across all time, in USD. */
@@ -4650,10 +5068,17 @@ export interface components {
              * @description Chain this summary covers.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
         };
         /** @enum {string} */
-        ChainMeta: "SOL";
+        ChainMeta: "SOL" | "RH";
+        ChainPnl: components["schemas"]["PnlMetrics"] & {
+            chain: components["schemas"]["Chain"];
+        };
+        ChainPnlSeries: {
+            chain: components["schemas"]["Chain"];
+            series: components["schemas"]["PnlSeries"];
+        };
         /** @description Signed percentage change relative to a baseline: 50 means a 50% increase, -25 means a 25% decrease, and 0 means no change. */
         ChangePercent: number;
         /** @description A single chart marker, discriminated by `kind`. */
@@ -4884,15 +5309,28 @@ export interface components {
         ConnectedWallet: {
             /** @description Address of the connected wallet. */
             address: components["schemas"]["Address"];
-            /** @description Assets currently held by the wallet. */
+            /** @description Complete current asset holdings with positive balances. Assets with zero balances are omitted. */
             assets: components["schemas"]["WalletAsset"][];
             /**
              * @description Chain the wallet is on.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Combined value of the wallet's assets, in USD. */
             totalValueUsd: number;
+        };
+        ContractCallRequest: {
+            /**
+             * @description The chain for the unsigned transaction. Set this field to `SOL`.
+             * @enum {unknown}
+             */
+            chain: components["schemas"]["Chain"];
+            /** @description Hex-encoded unsigned Solana VersionedTransaction. */
+            unsignedTransaction: string;
+        };
+        ContractCallResponse: {
+            signature: string;
+            status: components["schemas"]["WalletWithdrawConfirmStatus"];
         };
         /** @description Request body for creating a bot that follows a typed source and uses network-specific trading configurations. Creating a bot for an existing source replaces that bot’s submitted configurations. */
         CreateBotRequest: {
@@ -4901,8 +5339,26 @@ export interface components {
                 [key: string]: components["schemas"]["BotChainConfigRequest"];
             };
             limits: components["schemas"]["BotLimits"] | null;
-            /** @description What the bot follows: a caller, a Telegram chat, a list, or a wallet. */
+            /** @description What the bot follows: an integration, a caller, a Telegram chat, a list, or a wallet. */
             source: {
+                /**
+                 * Format: uuid
+                 * @description Optional integration caller UUID. Omit it to follow all callers in the integration.
+                 */
+                callerId?: string | null;
+                /**
+                 * Format: uuid
+                 * @description UUID of the organization integration that the bot follows.
+                 */
+                integrationId: string;
+                /** @description Metadata predicates that calls from the integration must match. */
+                metaFilter: components["schemas"]["CustomMetaPredicate"][];
+                /**
+                 * @description Set to `INTEGRATION` for a custom integration source.
+                 * @enum {string}
+                 */
+                type: "INTEGRATION";
+            } | {
                 /** @description Identifier of the caller source to follow. The source must belong to the authenticated user; an unknown or unauthorized identifier is rejected as not found. */
                 id: string;
                 /**
@@ -4949,13 +5405,13 @@ export interface components {
             /** @description Token criteria saved with the list, in the same shape returned on read. */
             tokenFilter: components["schemas"]["TokenFilter"];
         };
-        /** @description Wallet source to create in a bulk request. Provide a valid `walletAddress` for the selected chain, use SOL for chain, and provide a name containing at least one non-whitespace character. */
+        /** @description Wallet source to create in a bulk request. Provide a valid `walletAddress` for the selected chain, use SOL and RH for chain, and provide a name containing at least one non-whitespace character. */
         CreateWalletSourceBulkItem: {
-            /** @description Chain associated with the wallet address. Accepted values are SOL. */
+            /** @description Chain associated with the wallet address. Accepted values are SOL and RH. */
             chain: components["schemas"]["Chain"];
             /** @description Display name for the wallet source. It cannot be blank. */
             name: string;
-            /** @description Address of the wallet to track. It must be valid for `chain`, or the result is `INVALID`. */
+            /** @description Address of the wallet to track. It must be valid for `chain`, or the result is `INVALID`. EVM addresses are checksummed. */
             walletAddress: string;
         };
         /** @description Request to create 1–50 wallet sources. Each item is processed independently, and the response reports outcomes in input order, so a batch can include both successful and failed items. */
@@ -4997,7 +5453,7 @@ export interface components {
             chain: components["schemas"]["Chain"];
             /** @description Display name for the wallet source. It cannot be blank. */
             name: string;
-            /** @description Address of the wallet to track. It must be valid for `chain`. */
+            /** @description Address of the wallet to track. It must be valid for `chain`. EVM addresses are returned in checksum form. */
             walletAddress: string;
         };
         /** @description Cursor source for an active-trades or completed-trades page. Omit the cursor or set it to `null` for the first page; otherwise provide the opaque cursor returned by the corresponding list response. */
@@ -5023,6 +5479,392 @@ export interface components {
              */
             limit: number;
         };
+        /** @enum {string} */
+        CustomMetaBooleanOperator: "eq" | "exists";
+        /** @description eq applies to boolean fields. exists applies to historically optional fields of any type and compares presence with the boolean value. */
+        CustomMetaBooleanPredicate: {
+            field: string;
+            op: components["schemas"]["CustomMetaBooleanOperator"];
+            value: boolean;
+        };
+        /** @enum {string} */
+        CustomMetaCountOperator: "countEq" | "countGte" | "countLte";
+        /** @description countEq, countGte, and countLte compare the list length with an integer from 0 to 64. Bounds are inclusive. */
+        CustomMetaCountPredicate: {
+            field: string;
+            op: components["schemas"]["CustomMetaCountOperator"];
+            /** Format: int32 */
+            value: number;
+        };
+        /** @enum {string} */
+        CustomMetaNumberOperator: "eq" | "gte" | "lte" | "itemEq" | "itemGte" | "itemLte";
+        /** @description eq compares a scalar number; gte and lte are inclusive scalar bounds. itemEq, itemGte, and itemLte match any one numeric list item. value is a number. */
+        CustomMetaNumberPredicate: {
+            field: string;
+            op: components["schemas"]["CustomMetaNumberOperator"];
+            value: components["schemas"]["ExactDecimal"];
+        };
+        CustomMetaNumberRange: {
+            max: components["schemas"]["ExactDecimal"];
+            min: components["schemas"]["ExactDecimal"];
+        };
+        /** @enum {string} */
+        CustomMetaNumberRangeOperator: "itemBetween";
+        /** @description itemBetween matches any one number-list item in the inclusive interval value.min to value.max. Both bounds are numeric values and min must not exceed max. */
+        CustomMetaNumberRangePredicate: {
+            field: string;
+            op: components["schemas"]["CustomMetaNumberRangeOperator"];
+            value: components["schemas"]["CustomMetaNumberRange"];
+        };
+        /** @description One metadata predicate with field, op, and value. All predicates in a filter must match. Fields must have been filterable in a published revision. String eq and contains use trimmed, NFC-normalized, Unicode case-insensitive comparisons; contains is a literal substring. Enum in accepts a non-empty array of historical enum options. Number eq, gte, and lte compare exact numeric values; boolean eq compares a JSON boolean. Lists support countEq, countGte, and countLte with integer counts from 0 to 64. String and enum lists support containsAny and containsAll for exact item membership; string lists also support itemContains for a literal substring in any item. Number lists support itemEq, itemGte, itemLte, and itemBetween; each matches if any single item meets the condition. itemBetween has a value object with inclusive numeric min and max, where min <= max. Different predicates can match different list items. exists takes a boolean and is available only when `everOptional` is `true`; `true` requires presence and `false` requires absence. A missing field fails all other operators. Duplicate predicates, invalid operands, and contradictory predicates return 400. REST `metaFilter` is JSON text in one query parameter; WebSocket and saved-list `metaFilter` use the predicate array directly. */
+        CustomMetaPredicate: components["schemas"]["CustomMetaStringPredicate"] | components["schemas"]["CustomMetaStringSetPredicate"] | components["schemas"]["CustomMetaNumberPredicate"] | components["schemas"]["CustomMetaBooleanPredicate"] | components["schemas"]["CustomMetaCountPredicate"] | components["schemas"]["CustomMetaNumberRangePredicate"];
+        /** @enum {string} */
+        CustomMetaStringOperator: "eq" | "contains" | "itemContains";
+        /** @description eq compares text and contains matches a literal substring; itemContains matches a substring in any string-list item. */
+        CustomMetaStringPredicate: {
+            field: string;
+            op: components["schemas"]["CustomMetaStringOperator"];
+            value: string;
+        };
+        /** @enum {string} */
+        CustomMetaStringSetOperator: "in" | "containsAny" | "containsAll";
+        /** @description in matches one enum value; containsAny matches at least one list item; containsAll requires every supplied item. Operands are a non-empty array, unique after normalization. */
+        CustomMetaStringSetPredicate: {
+            field: string;
+            op: components["schemas"]["CustomMetaStringSetOperator"];
+            /** @description Non-empty set of text operands. Items must also be unique after trimming, NFC normalization, and Unicode case folding. Enum operands must occur in the field's published history. */
+            value: string[];
+        };
+        CustomSignalBooleanField: {
+            /** @description Whether clients can offer this active field for new metadata filters. Historical filter resolution includes fields that were filterable in any published revision. */
+            filterable: boolean;
+            /** @description Stable custom metadata key at the webhook request root and in `callerMeta`. The key permanently identifies its field type within the integration. */
+            key: string;
+            /** @description Whether new webhook calls must contain this custom field. Optional fields must be omitted when absent; `null` is not a custom field value. */
+            required: boolean;
+            type: components["schemas"]["CustomSignalBooleanFieldType"];
+        };
+        /** @enum {string} */
+        CustomSignalBooleanFieldType: "boolean";
+        CustomSignalBooleanFilterField: {
+            /** @description True if this field was optional in a published revision or was later removed. Only such fields support exists predicates. Absence before the field was first added does not set this flag. Does not state whether the active field is required. */
+            everOptional: boolean;
+            key: string;
+            type: components["schemas"]["CustomSignalBooleanFieldType"];
+        };
+        /** @description The caller and integration that produced this custom-signal call. The type is always INTEGRATION. */
+        CustomSignalCallSource: components["schemas"]["IntegrationSourceIdentity"] & {
+            /** @enum {string} */
+            type: "INTEGRATION";
+        };
+        CustomSignalEnumField: {
+            /** @description Whether clients can offer this active field for new metadata filters. Historical filter resolution includes fields that were filterable in any published revision. */
+            filterable: boolean;
+            /** @description Stable custom metadata key at the webhook request root and in `callerMeta`. The key permanently identifies its field type within the integration. */
+            key: string;
+            /** @description Allowed active enum options. Values are trimmed, NFC-normalized, and matched with Unicode case folding; stored values use the configured spelling. Historical filter options come from `knownEnumOptions`. */
+            options: string[];
+            /** @description Whether new webhook calls must contain this custom field. Optional fields must be omitted when absent; `null` is not a custom field value. */
+            required: boolean;
+            type: components["schemas"]["CustomSignalEnumFieldType"];
+        };
+        /** @enum {string} */
+        CustomSignalEnumFieldType: "enum";
+        CustomSignalEnumFilterField: {
+            /** @description True if this field was optional in a published revision or was later removed. Only such fields support exists predicates. Absence before the field was first added does not set this flag. Does not state whether the active field is required. */
+            everOptional: boolean;
+            key: string;
+            /** @description Union of enum options across published schema revisions, including retired options. Used to validate historical enum filters; does not list observed call values or only active options. */
+            knownEnumOptions: string[];
+            type: components["schemas"]["CustomSignalEnumFieldType"];
+        };
+        CustomSignalEnumListField: {
+            /** @description Whether clients can offer this active field for new metadata filters. Historical filter resolution includes fields that were filterable in any published revision. */
+            filterable: boolean;
+            /** @description Type of each list item. Lists contain at most 64 unique normalized items and can be empty. Lists cannot contain `null`. */
+            itemType: components["schemas"]["CustomSignalEnumListItemType"];
+            /** @description Stable custom metadata key at the webhook request root and in `callerMeta`. The key permanently identifies its field type within the integration. */
+            key: string;
+            /** @description Allowed active enum options. Values are trimmed, NFC-normalized, and matched with Unicode case folding; stored values use the configured spelling. Historical filter options come from `knownEnumOptions`. */
+            options: string[];
+            /** @description Whether new webhook calls must contain this custom field. Optional fields must be omitted when absent; `null` is not a custom field value. */
+            required: boolean;
+            type: components["schemas"]["CustomSignalListFieldType"];
+        };
+        CustomSignalEnumListFilterField: {
+            /** @description True if this field was optional in a published revision or was later removed. Only such fields support exists predicates. Absence before the field was first added does not set this flag. Does not state whether the active field is required. */
+            everOptional: boolean;
+            itemType: components["schemas"]["CustomSignalEnumListItemType"];
+            key: string;
+            /** @description Union of enum options across published schema revisions, including retired options. Used to validate historical enum filters; does not list observed call values or only active options. */
+            knownEnumOptions: string[];
+            type: components["schemas"]["CustomSignalListFieldType"];
+        };
+        /** @enum {string} */
+        CustomSignalEnumListItemType: "enum";
+        /**
+         * @description Native WebSocket parameters for one integration or one integration caller.
+         *     REST carries `metaFilter` as JSON text; WebSocket subscriptions carry the
+         *     same typed predicate array directly.
+         */
+        CustomSignalFeedLivecursorParams: components["schemas"]["CustomSignalWatchlistFiltersCore"] & {
+            endCursor?: string | null;
+            metaFilter?: components["schemas"]["CustomMetaPredicate"][];
+            startCursor?: string | null;
+        };
+        CustomSignalFieldDefinition: components["schemas"]["CustomSignalStringField"] | components["schemas"]["CustomSignalEnumField"] | components["schemas"]["CustomSignalNumberField"] | components["schemas"]["CustomSignalBooleanField"] | components["schemas"]["CustomSignalStringListField"] | components["schemas"]["CustomSignalEnumListField"] | components["schemas"]["CustomSignalNumberListField"];
+        CustomSignalFilterField: components["schemas"]["CustomSignalStringFilterField"] | components["schemas"]["CustomSignalEnumFilterField"] | components["schemas"]["CustomSignalNumberFilterField"] | components["schemas"]["CustomSignalBooleanFilterField"] | components["schemas"]["CustomSignalStringListFilterField"] | components["schemas"]["CustomSignalEnumListFilterField"] | components["schemas"]["CustomSignalNumberListFilterField"];
+        CustomSignalFilterFieldsResponse: {
+            fields: components["schemas"]["CustomSignalFilterField"][];
+        };
+        CustomSignalIntegrationDescriptor: {
+            enabled: boolean;
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @description Integration avatar photo ID. Always present; `null` when no avatar is set. */
+            photoId: string | null;
+        };
+        CustomSignalIntegrationsResponse: {
+            enabled: boolean;
+            integrations: components["schemas"]["CustomSignalIntegrationDescriptor"][];
+        };
+        /** @enum {string} */
+        CustomSignalListFieldType: "list";
+        /** @description Custom value validated against the active field definition. Strings are trimmed and NFC-normalized; enum values use the configured spelling after Unicode case-insensitive matching. Lists contain at most 64 items and may be empty. String-list items must be unique after Unicode case folding; numeric items must have distinct numeric values. */
+        CustomSignalMetadataValue: (string | components["schemas"]["ExactDecimal"] | boolean | string[] | components["schemas"]["ExactDecimal"][]) & (string | components["schemas"]["ExactDecimal"] | boolean | string[] | components["schemas"]["ExactDecimal"][]);
+        CustomSignalNumberField: {
+            /** @description Whether clients can offer this active field for new metadata filters. Historical filter resolution includes fields that were filterable in any published revision. */
+            filterable: boolean;
+            /** @description Requires whole-number metadata values. The generated JSON Schema keeps type number and adds `multipleOf` 1. */
+            integerOnly: boolean;
+            /** @description Stable custom metadata key at the webhook request root and in `callerMeta`. The key permanently identifies its field type within the integration. */
+            key: string;
+            /** @description Optional inclusive maximum as a canonical decimal string in schema configuration. For lists, applies to each item. Omit when unbounded. Actual metadata values and filter operands are numeric values, and generated JSON Schema uses numeric minimum and maximum. */
+            max?: string;
+            /** @description Optional inclusive minimum as a canonical decimal string in schema configuration. For lists, applies to each item. Omit when unbounded. Actual metadata values and filter operands are numeric values, and generated JSON Schema uses numeric minimum and maximum. */
+            min?: string;
+            /** @description Whether new webhook calls must contain this custom field. Optional fields must be omitted when absent; `null` is not a custom field value. */
+            required: boolean;
+            type: components["schemas"]["CustomSignalNumberFieldType"];
+        };
+        /** @enum {string} */
+        CustomSignalNumberFieldType: "number";
+        CustomSignalNumberFilterField: {
+            /** @description True if this field was optional in a published revision or was later removed. Only such fields support exists predicates. Absence before the field was first added does not set this flag. Does not state whether the active field is required. */
+            everOptional: boolean;
+            key: string;
+            type: components["schemas"]["CustomSignalNumberFieldType"];
+        };
+        CustomSignalNumberListField: {
+            /** @description Whether clients can offer this active field for new metadata filters. Historical filter resolution includes fields that were filterable in any published revision. */
+            filterable: boolean;
+            /** @description Requires whole-number metadata values for each list item. The generated JSON Schema keeps type number and adds `multipleOf` 1. */
+            integerOnly: boolean;
+            /** @description Type of each list item. Lists contain at most 64 unique normalized items and can be empty. Lists cannot contain `null`. */
+            itemType: components["schemas"]["CustomSignalNumberListItemType"];
+            /** @description Stable custom metadata key at the webhook request root and in `callerMeta`. The key permanently identifies its field type within the integration. */
+            key: string;
+            /** @description Optional inclusive maximum as a canonical decimal string in schema configuration. For lists, applies to each item. Omit when unbounded. Actual metadata values and filter operands are numeric values, and generated JSON Schema uses numeric minimum and maximum. */
+            max?: string;
+            /** @description Optional inclusive minimum as a canonical decimal string in schema configuration. For lists, applies to each item. Omit when unbounded. Actual metadata values and filter operands are numeric values, and generated JSON Schema uses numeric minimum and maximum. */
+            min?: string;
+            /** @description Whether new webhook calls must contain this custom field. Optional fields must be omitted when absent; `null` is not a custom field value. */
+            required: boolean;
+            type: components["schemas"]["CustomSignalListFieldType"];
+        };
+        CustomSignalNumberListFilterField: {
+            /** @description True if this field was optional in a published revision or was later removed. Only such fields support exists predicates. Absence before the field was first added does not set this flag. Does not state whether the active field is required. */
+            everOptional: boolean;
+            itemType: components["schemas"]["CustomSignalNumberListItemType"];
+            key: string;
+            type: components["schemas"]["CustomSignalListFieldType"];
+        };
+        /** @enum {string} */
+        CustomSignalNumberListItemType: "number";
+        CustomSignalSchemaResponse: {
+            /** @description Active custom fields at the webhook request root. Number bounds are canonical decimal strings in this configuration. */
+            fields: components["schemas"]["CustomSignalFieldDefinition"][];
+            /** @description Complete ingestion JSON Schema, including standard request fields, custom fields, required keys, supported chains, and x-opendex normalization and decimal constraints. Numeric minimum and maximum are numeric values. */
+            jsonSchema: components["schemas"]["CustomSignalGeneratedRequestSchema"];
+            /**
+             * Format: int32
+             * @description Published schema revision used to validate new webhook calls.
+             */
+            revision: number;
+        };
+        CustomSignalStringField: {
+            /** @description Whether clients can offer this active field for new metadata filters. Historical filter resolution includes fields that were filterable in any published revision. */
+            filterable: boolean;
+            /** @description Stable custom metadata key at the webhook request root and in `callerMeta`. The key permanently identifies its field type within the integration. */
+            key: string;
+            /** @description Whether new webhook calls must contain this custom field. Optional fields must be omitted when absent; `null` is not a custom field value. */
+            required: boolean;
+            type: components["schemas"]["CustomSignalStringFieldType"];
+        };
+        /** @enum {string} */
+        CustomSignalStringFieldType: "string";
+        CustomSignalStringFilterField: {
+            /** @description True if this field was optional in a published revision or was later removed. Only such fields support exists predicates. Absence before the field was first added does not set this flag. Does not state whether the active field is required. */
+            everOptional: boolean;
+            key: string;
+            type: components["schemas"]["CustomSignalStringFieldType"];
+        };
+        CustomSignalStringListField: {
+            /** @description Whether clients can offer this active field for new metadata filters. Historical filter resolution includes fields that were filterable in any published revision. */
+            filterable: boolean;
+            /** @description Type of each list item. Lists contain at most 64 unique normalized items and can be empty. Lists cannot contain `null`. */
+            itemType: components["schemas"]["CustomSignalStringListItemType"];
+            /** @description Stable custom metadata key at the webhook request root and in `callerMeta`. The key permanently identifies its field type within the integration. */
+            key: string;
+            /** @description Whether new webhook calls must contain this custom field. Optional fields must be omitted when absent; `null` is not a custom field value. */
+            required: boolean;
+            type: components["schemas"]["CustomSignalListFieldType"];
+        };
+        CustomSignalStringListFilterField: {
+            /** @description True if this field was optional in a published revision or was later removed. Only such fields support exists predicates. Absence before the field was first added does not set this flag. Does not state whether the active field is required. */
+            everOptional: boolean;
+            itemType: components["schemas"]["CustomSignalStringListItemType"];
+            key: string;
+            type: components["schemas"]["CustomSignalListFieldType"];
+        };
+        /** @enum {string} */
+        CustomSignalStringListItemType: "string";
+        /** @description Bots visible to the requesting user for this caller. Anonymous requests have `hasBot` `false` and an empty bots array. */
+        CustomSignalTradeAutomation: {
+            /** @description Bots for this caller or its entire integration, within the requesting user's organization. */
+            bots: components["schemas"]["CustomSignalTradeAutomationBot"][];
+            hasBot: boolean;
+        };
+        /** @description Bot attribution for one custom integration caller. */
+        CustomSignalTradeAutomationBot: {
+            /** Format: uuid */
+            id: string;
+            isEnabled: boolean;
+            source: components["schemas"]["CustomSignalCallSource"];
+        };
+        /** @description A custom-signal call and the typed metadata stored when it was accepted. */
+        CustomSignalWatchlistCallItem: {
+            callDetails: components["schemas"]["WatchlistCallDetails"];
+            caller: components["schemas"]["CustomSignalCallSource"];
+            /**
+             * @description Custom field values stored when this call was accepted, together with `integrationId`. Values retain their original types. Optional fields can be absent. Later schema changes do not rewrite these values.
+             * @example {
+             *       "integrationId": "7a3c6a78-1b2c-4d5e-8f90-123456789abc",
+             *       "followers": 1500,
+             *       "tags": [
+             *         "research",
+             *         "momentum"
+             *       ]
+             *     }
+             */
+            callerMeta: {
+                /**
+                 * Format: uuid
+                 * @description The integration that accepted the call. Matches caller.integrationId.
+                 */
+                integrationId: string;
+            } & {
+                [key: string]: components["schemas"]["CustomSignalMetadataValue"];
+            };
+            /** Format: uuid */
+            id: string;
+        };
+        /** @description A page of at most 20 custom-signal calls, ordered by acceptance time descending, then call UUID descending. Cursor snapshots expire 120 seconds after creation. Restart without a cursor after expiry. */
+        CustomSignalWatchlistFeedResponse: components["schemas"]["CursorPagination"] & {
+            /** @description Custom-signal calls included in this page. */
+            items: components["schemas"]["CustomSignalWatchlistCallItem"][];
+        };
+        /**
+         * @description Filters used by Custom Signal live subscriptions.
+         *     Custom Signal calls have no wallet swap side, so this projection does not
+         *     accept `swapType`.
+         */
+        CustomSignalWatchlistFiltersCore: {
+            chains?: components["schemas"]["Chain"][];
+            maxMarketcap?: string | null;
+            maxMultiplier?: string | null;
+            maxPrice?: string | null;
+            minMarketcap?: string | null;
+            minMultiplier?: string | null;
+            minPrice?: string | null;
+        };
+        /** @description Performance for one caller in the requested custom integration and timeframe. */
+        CustomSignalWatchlistRankItem: {
+            automation: components["schemas"]["CustomSignalTradeAutomation"];
+            /** @description rounded public-unit number token for this relative field. */
+            averageMultiplier: number;
+            /** @description rounded public-unit number token for this relative field. */
+            highestMultiplier: number;
+            /** @description Age in seconds at serialization time. */
+            latestCallAgeSeconds: number;
+            /** @description Unix epoch milliseconds. */
+            latestCallTimestamp: number;
+            /** @description ISO 8601 timestamp string. */
+            latestCallTimestampStr: string;
+            /** Format: int64 */
+            losses: number;
+            multiplierBuckets: {
+                /** Format: int64 */
+                count: number;
+                tier: string;
+            }[];
+            /**
+             * Format: int32
+             * @description Overall performance score derived from win rate, average return, and
+             *     highest return.
+             */
+            performanceScore: number;
+            /** @description Caller identity with type INTEGRATION. Its id is the caller UUID; `integrationId` is the integration UUID. */
+            source: components["schemas"]["CustomSignalCallSource"];
+            /** @enum {string} */
+            timeframe: "1d" | "3d" | "7d" | "30d";
+            topCall: components["schemas"]["WatchlistRankTopCall"] | null;
+            topCalls: components["schemas"]["WatchlistRankTopCall"][];
+            /** Format: int64 */
+            totalCalls: number;
+            /** @description rounded public-unit number token for this relative field. */
+            winRatePct: number;
+            /** Format: int64 */
+            wins: number;
+        };
+        /** @description Up to 15 ranked callers from the requested integration. Empty when no callers match the selected timeframe, filters, and page. */
+        CustomSignalWatchlistRankingResponse: components["schemas"]["CursorPagination"] & {
+            items: components["schemas"]["CustomSignalWatchlistRankItem"][];
+        };
+        /** @description One call with standard request properties and active custom metadata fields. Custom keys and required fields are defined by the integration's active schema. Unknown custom keys return 422. */
+        CustomSignalWebhookRequest: {
+            /** @description Token address on the selected chain. The server resolves a usable tracked pair. */
+            tokenAddress: string;
+            /** @description Chain name enabled in the server configuration. The published integration schema lists the chain names configured at publication. */
+            chain: components["schemas"]["Chain"];
+            /** @description Caller name within this integration. Trimmed and NFC-normalized, with 1 to 256 Unicode scalar values after normalization. U+0000 is rejected. Identity is case-sensitive; a new name creates a caller. */
+            callerName: string;
+            /** @description Optional pair address. Omit it or set it to `null` to let the server resolve the tracked pair. */
+            pairAddress?: string | null;
+            /** @description Omit to preserve the avatar or send `null` to clear it. To replace it, send Base64 image data, optionally with a data-URL prefix. JPEG, PNG, WebP, and GIF are supported, with maximum dimensions of 256 by 256 pixels. The complete request must fit within 1 MiB. Invalid image data or an upload failure preserves the avatar and adds callerAvatarUpdateFailed to the accepted-call warnings. */
+            callerAvatar?: string | null;
+        } & {
+            [key: string]: components["schemas"]["CustomSignalMetadataValue"];
+        };
+        CustomSignalWebhookResponse: {
+            /** @description Server acceptance time in ISO 8601 format, associated with the resolved price snapshot. */
+            acceptedAt: string;
+            /**
+             * Format: uuid
+             * @description Stable ID of the stored call. A repeated producer request creates a separate call.
+             */
+            callId: string;
+            /**
+             * Format: uuid
+             * @description Opaque caller ID assigned by the server within this integration.
+             */
+            callerId: string;
+            /** @description Optional nonfatal avatar update warnings. The call and delivery event are already stored. */
+            warnings?: components["schemas"]["CustomSignalWebhookWarning"][];
+        };
+        /** @enum {string} */
+        CustomSignalWebhookWarning: "callerAvatarUpdateFailed";
         /** @description Daily maximum multiplier for a UTC calendar day, expressed in factor units where 2 means 2×. Includes the day's UTC start timestamp, its ISO 8601 representation, and the timestamp's non-negative age in whole seconds at response time. */
         DailyMaxMultiplier: {
             /** @description Seconds elapsed since `dateTimestamp` when the response was built. */
@@ -5054,10 +5896,10 @@ export interface components {
         /** @description Token associated with a developer address, including its chain, creation time, migration status, current market valuation, and all-time-high market data. */
         DevTokenItem: components["schemas"]["TokenMigrationSummary"] & components["schemas"]["TokenMarketValuation"] & components["schemas"]["TokenMarketAth"] & {
             /**
-             * @description Chain on which the token exists. One of SOL.
+             * @description Chain on which the token exists. One of SOL or RH.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Elapsed age of the token creation time, in whole seconds, measured when the response is serialized. It may differ between otherwise identical responses. */
             createdAtAgeSeconds: number;
             /** @description Token creation time as Unix epoch milliseconds. */
@@ -5118,6 +5960,15 @@ export interface components {
              */
             total: number;
         };
+        DexProtocolPnl: components["schemas"]["PnlMetrics"] & {
+            chain: components["schemas"]["Chain"];
+            platformType: components["schemas"]["PlatformType"];
+        };
+        DexProtocolPnlSeries: {
+            chain: components["schemas"]["Chain"];
+            platformType: components["schemas"]["PlatformType"];
+            series: components["schemas"]["PnlSeries"];
+        };
         /** @description Metadata for a Telegram dialog returned by the chat-discovery flow, including its identity, display name, username, and chat classification. */
         DialogChatSerde: {
             /**
@@ -5176,6 +6027,8 @@ export interface components {
             /** @description Human-readable explanation of the error. Match on `error` instead. */
             message: string;
         };
+        /** @description Exact number with at most 20 integer digits and 18 fractional digits after removal of trailing fractional zeros. Exponent notation is accepted. Decimal strings are not accepted as metadata values or filter operands. */
+        ExactDecimal: number;
         /** @description A confirmed swap execution record with swap identity, wallet and pair addresses, transaction and venue details, timestamp, confirmed fees, and executed value metrics. */
         ExecutedTradeSwapRow: components["schemas"]["TradeSwapBase"] & components["schemas"]["TradeSwapExecution"] & {
             /** @description Amount, token quantity, price, and market capitalization for the swap. */
@@ -5239,6 +6092,36 @@ export interface components {
         };
         /** @description A page source whose topic and query parameters are fixed by the enclosing page operation. Send `{}`; it accepts no client-configurable properties. */
         FixedPageSource: Record<string, never>;
+        FlowBoard: {
+            /** Format: int64 */
+            generatedAtMs: number;
+            rows: components["schemas"]["FlowRow"][];
+            stale: boolean;
+            window: string;
+        };
+        FlowRow: {
+            /** Format: double */
+            buysUsd: number;
+            chain: string;
+            /** Format: double */
+            netUsd: number;
+            /**
+             * Format: int32
+             * @description Solana wallets in the row with a positive published 30-day score.
+             *     Robinhood wallets are counted in `wallets` and never in this number.
+             */
+            profitable: number;
+            /**
+             * Format: int32
+             * @description Solana wallets in the row whose 30-day score we have looked up.
+             */
+            scored: number;
+            /** Format: double */
+            sellsUsd: number;
+            token: string;
+            /** Format: int32 */
+            wallets: number;
+        };
         /** @description An asset moved by a funding transfer. */
         FundingAsset: {
             /**
@@ -5395,9 +6278,9 @@ export interface components {
         GasPreset: "AUTO" | "LOW" | "MEDIUM" | "HIGH";
         /** @description Gas setting as one of the AUTO, LOW, MEDIUM, or HIGH presets, or a non-negative custom priority-fee amount in native-token units. */
         GasSetting: components["schemas"]["GasPreset"] | components["schemas"]["NativePriorityFee"];
-        /** @description Parameters for filtering and cursor-based pagination of an active or completed global bot trade feed. Filter by chain (SOL) and source type (CALLER, TG, LIST, or WALLET). The limit ranges from 1 to 100 and defaults to 20. */
+        /** @description Parameters for filtering and cursor-based pagination of an active or completed global bot trade feed. Filter by chain (SOL and RH) and source type (CALLER, TG, LIST, or WALLET). The limit ranges from 1 to 100 and defaults to 20. */
         GlobalBotTradesPageSource: {
-            /** @description Optional chain filter. Accepted values are SOL. Null or omission applies no chain filter. */
+            /** @description Optional chain filter. Accepted values are SOL and RH. Null or omission applies no chain filter. */
             chain?: null | components["schemas"]["Chain"];
             /** @description Page to fetch. Omit it to start at the newest. Cursors are not interchangeable between the active and completed feeds. */
             cursor?: string | null;
@@ -5409,15 +6292,95 @@ export interface components {
             /** @description Optional source-family filter. Accepted values are CALLER, TG, LIST, and WALLET. Null or omission applies no source-family filter. */
             sourceType?: null | components["schemas"]["CallerSource"];
         };
+        HistoryDownloadObject: {
+            /** Format: int64 */
+            rowCount: number;
+            sha256: string;
+            /** @description HTTPS GET. Send no Authorization header. Stops working at `expiresAt`. */
+            url: string;
+            /** Format: int64 */
+            windowEnd: number;
+            /** Format: int64 */
+            windowStart: number;
+        };
+        HistoryDownloadsQuery: {
+            chain: components["schemas"]["Chain"];
+            /**
+             * Format: int64
+             * @description Inclusive range start, unix seconds.
+             */
+            from: number;
+            kind: components["schemas"]["HistoryKind"];
+            /**
+             * Format: int64
+             * @description Exclusive range end, unix seconds. Must be at or before now minus 30 days.
+             */
+            to: number;
+        };
+        HistoryDownloadsResponse: {
+            chain: components["schemas"]["Chain"];
+            /**
+             * Format: int64
+             * @description Earliest unix second this chain serves on this route. Null when the
+             *     Chain has nothing here yet.
+             */
+            coverageStart?: number | null;
+            /**
+             * Format: int64
+             * @description Unix seconds when every `url` stops working.
+             */
+            expiresAt: number;
+            /** Format: int64 */
+            from: number;
+            kind: components["schemas"]["HistoryKind"];
+            missing: components["schemas"]["HistoryMissingWindow"][];
+            objects: components["schemas"]["HistoryDownloadObject"][];
+            /** Format: int64 */
+            to: number;
+        };
+        /**
+         * @description What to download.
+         *
+         *     `swaps` is raw swaps. `1s` and `5s` are one-second and five-second candles.
+         *     15-second candles and coarser stay on the candles route.
+         * @enum {string}
+         */
+        HistoryKind: "swaps" | "1s" | "5s";
+        HistoryMissingWindow: {
+            /** Format: int64 */
+            windowEnd: number;
+            /** Format: int64 */
+            windowStart: number;
+        };
         /** @description Inline token-buy request combining buy intent fields with optional complete trade settings. Submitting it initiates a buy using an active execution slot authorized for the authenticated user on the selected chain. */
         InlineBuyTradeRequest: components["schemas"]["BuyIntent"] & {
             /** @description Settings for this buy. Omit it for `AUTO` gas on both sides, 12% slippage on both sides, no anti-MEV, and no targets. */
             settings?: components["schemas"]["TradeSettings"];
         };
+        IntegrationSourceIdentity: {
+            /**
+             * Format: uuid
+             * @description UUID of the caller in the custom integration.
+             */
+            id: string;
+            /**
+             * Format: uuid
+             * @description UUID of the custom integration.
+             */
+            integrationId: string;
+            /** @description Current name of the custom integration. */
+            integrationName: string;
+            /** @description Avatar photo ID for the integration, or `null` when it has no avatar. */
+            integrationPhotoId: string | null;
+            /** @description Caller name supplied by the integration. */
+            name: string;
+            /** @description Avatar photo ID for the caller, or `null` when it has no avatar. */
+            photoId: string | null;
+        };
         /** @description A labeled wallet available to curate. */
         LabeledWallet: {
             /** @enum {string} */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Every label on this wallet. */
             labels: components["schemas"]["WalletLabelInfo"][];
             /** @description Whether you curated this wallet. `false` when unauthenticated. */
@@ -5459,7 +6422,7 @@ export interface components {
         /** @description Response of the subscribe and unsubscribe endpoints. */
         LabeledWalletSubscriptionResponse: {
             /** @enum {string} */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description State after the call. Both endpoints are idempotent. */
             subscribed: boolean;
             walletAddress: components["schemas"]["Address"];
@@ -5508,7 +6471,7 @@ export interface components {
              * @description Chain the swap happened on.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Identifier of the swap: `{txHash}:{logPlaceInBlock}`. */
             id: string;
             /** @description Labels carried by that wallet. Never empty. */
@@ -5534,7 +6497,7 @@ export interface components {
         /** @description The token that was traded. */
         LabeledWalletSwapToken: {
             /**
-             * @description address, in Solana base58 format.
+             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
              * @example So11111111111111111111111111111111111111112
              */
             address: string;
@@ -5550,6 +6513,15 @@ export interface components {
         LabeledWalletsResponse: components["schemas"]["CursorPagination"] & {
             totalCount: number | null;
             wallets: components["schemas"]["LabeledWallet"][];
+        };
+        LaunchpadPnl: components["schemas"]["PnlMetrics"] & {
+            chain: components["schemas"]["Chain"];
+            platformType: components["schemas"]["PlatformType"];
+        };
+        LaunchpadPnlSeries: {
+            chain: components["schemas"]["Chain"];
+            platformType: components["schemas"]["PlatformType"];
+            series: components["schemas"]["PnlSeries"];
         };
         /** @description Context for the event that triggered a `LIST` watchlist call. */
         ListCallContext: {
@@ -5578,10 +6550,174 @@ export interface components {
         ManagedWallet: {
             /** @description Address of the managed wallet. */
             address: components["schemas"]["Address"];
-            /** @description Assets currently held by the wallet. */
+            /** @description Complete current asset holdings with positive balances. Assets with zero balances are omitted. */
             assets: components["schemas"]["WalletAsset"][];
             /** @description Combined value of the wallet's assets, in USD. */
             totalValueUsd: number;
+        };
+        MarketOverviewActivity: {
+            buyTransactions: components["schemas"]["MarketOverviewCountSeries"];
+            buyVolumeUsd: components["schemas"]["MarketOverviewDecimalSeries"];
+            buyVolumeUsdChangePct: components["schemas"]["MarketOverviewChangeSeries"];
+            sellTransactions: components["schemas"]["MarketOverviewCountSeries"];
+            sellVolumeUsd: components["schemas"]["MarketOverviewDecimalSeries"];
+            sellVolumeUsdChangePct: components["schemas"]["MarketOverviewChangeSeries"];
+            /** @description Approximate unique-wallet count. The estimator has about 6.5% expected error. */
+            traders: components["schemas"]["MarketOverviewCountSeries"];
+            tradersChangePct: components["schemas"]["MarketOverviewChangeSeries"];
+            /** @description Swap-event counts, split into buys and sells below. */
+            transactions: components["schemas"]["MarketOverviewCountSeries"];
+            transactionsChangePct: components["schemas"]["MarketOverviewChangeSeries"];
+            /** @description Buy volume plus sell volume, in USD. */
+            volumeUsd: components["schemas"]["MarketOverviewDecimalSeries"];
+            volumeUsdChangePct: components["schemas"]["MarketOverviewChangeSeries"];
+        };
+        MarketOverviewAggregate: {
+            activity: components["schemas"]["MarketOverviewActivity"];
+            tokenStats: components["schemas"]["MarketOverviewTokenStats"];
+        };
+        MarketOverviewChainGroup: {
+            activity: components["schemas"]["MarketOverviewActivity"];
+            /** @enum {string} */
+            chain: "SOL" | "RH";
+            tokenStats: components["schemas"]["MarketOverviewTokenStats"];
+        };
+        /** @description Percentage change from the preceding equal-length window. Zero when the previous value is zero. */
+        MarketOverviewChangeSeries: {
+            "1h": {
+                /** @description rounded public-unit number token for this relative field. */
+                changePercent: number;
+            };
+            "24h": {
+                /** @description rounded public-unit number token for this relative field. */
+                changePercent: number;
+            };
+            "5m": {
+                /** @description rounded public-unit number token for this relative field. */
+                changePercent: number;
+            };
+            "6h": {
+                /** @description rounded public-unit number token for this relative field. */
+                changePercent: number;
+            };
+        };
+        MarketOverviewCountSeries: {
+            /** Format: int64 */
+            "1h": number;
+            /** Format: int64 */
+            "24h": number;
+            /** Format: int64 */
+            "5m": number;
+            /** Format: int64 */
+            "6h": number;
+        };
+        MarketOverviewDecimalSeries: {
+            "1h": {
+                /** @description rounded plain number token for this decimal field. */
+                value: number;
+                /** @description Exact unrounded plain decimal string for this decimal field. */
+                valueStr: string;
+            };
+            "24h": {
+                /** @description rounded plain number token for this decimal field. */
+                value: number;
+                /** @description Exact unrounded plain decimal string for this decimal field. */
+                valueStr: string;
+            };
+            "5m": {
+                /** @description rounded plain number token for this decimal field. */
+                value: number;
+                /** @description Exact unrounded plain decimal string for this decimal field. */
+                valueStr: string;
+            };
+            "6h": {
+                /** @description rounded plain number token for this decimal field. */
+                value: number;
+                /** @description Exact unrounded plain decimal string for this decimal field. */
+                valueStr: string;
+            };
+        };
+        MarketOverviewNamedActivity: {
+            activity: components["schemas"]["MarketOverviewActivity"];
+            id: string;
+        };
+        MarketOverviewNamedAggregate: {
+            activity: components["schemas"]["MarketOverviewActivity"];
+            id: string;
+            tokenStats: components["schemas"]["MarketOverviewTokenStats"];
+        };
+        /** @description Market statistics for the 5m, 1h, 6h, and 24h windows. */
+        MarketOverviewResponse: {
+            byChain: components["schemas"]["MarketOverviewChainGroup"][];
+            byDexProtocol: components["schemas"]["MarketOverviewNamedActivity"][];
+            /** @description Activity and token lifecycle counts grouped by launchpad. */
+            byLaunchpad: components["schemas"]["MarketOverviewNamedAggregate"][];
+            /** @description Recognized execution programs only; unattributed activity remains in totals. */
+            byTradingPlatform: components["schemas"]["MarketOverviewNamedActivity"][];
+            /** @description AUTO fees by chain. Null means unavailable, unsupported, or stale; zero tips are valid. */
+            feeEstimates: {
+                [key: string]: null | {
+                    combinedFee: {
+                        /** @description Native/quote-token value. */
+                        native: number;
+                        /** @description Exact string representation of the native/quote-token value. */
+                        nativeStr: string;
+                        /** @description USD value. */
+                        usd: number;
+                        /** @description Exact string representation of the USD value. */
+                        usdStr: string;
+                    };
+                    priorityFee: {
+                        /** @description Native/quote-token value. */
+                        native: number;
+                        /** @description Exact string representation of the native/quote-token value. */
+                        nativeStr: string;
+                        /** @description USD value. */
+                        usd: number;
+                        /** @description Exact string representation of the USD value. */
+                        usdStr: string;
+                    };
+                    /** @description Validator tip, also called a bribe. A valid zero is not missing data. */
+                    validatorTip: {
+                        /**
+                         * @description Validator tip, also called a bribe. A valid zero is not missing data.
+                         *
+                         *     Native/quote-token value.
+                         */
+                        native: number;
+                        /**
+                         * @description Validator tip, also called a bribe. A valid zero is not missing data.
+                         *
+                         *     Exact string representation of the native/quote-token value.
+                         */
+                        nativeStr: string;
+                        /**
+                         * @description Validator tip, also called a bribe. A valid zero is not missing data.
+                         *
+                         *     USD value.
+                         */
+                        usd: number;
+                        /**
+                         * @description Validator tip, also called a bribe. A valid zero is not missing data.
+                         *
+                         *     Exact string representation of the USD value.
+                         */
+                        usdStr: string;
+                    };
+                };
+            };
+            /** @description Rolling 24-hour migration estimates, separate from trading activity. */
+            migrationEstimates: components["schemas"]["ScannerMigrationEstimate"][];
+            /** @description All supported market activity. */
+            total: components["schemas"]["MarketOverviewAggregate"];
+        };
+        MarketOverviewTokenStats: {
+            /** @description Distinct tokens created during each window. */
+            created: components["schemas"]["MarketOverviewCountSeries"];
+            createdChangePct: components["schemas"]["MarketOverviewChangeSeries"];
+            /** @description Distinct migration destinations, attributed to their source launchpad. */
+            migrations: components["schemas"]["MarketOverviewCountSeries"];
+            migrationsChangePct: components["schemas"]["MarketOverviewChangeSeries"];
         };
         /** @enum {string} */
         MarketplaceActivity: "LOW" | "MEDIUM" | "HIGH";
@@ -5899,7 +7035,7 @@ export interface components {
         };
         /** @description Maps each supported native asset or network symbol to its current price in USD. */
         NativePricesResponse: {
-            /** @description Maps `SOL` to that native asset's current price in USD in numeric and exact-string forms. */
+            /** @description Maps `SOL` and `RH` to that native asset's current price in USD in numeric and exact-string forms. */
             prices: {
                 [key: string]: components["schemas"]["NativePriceValue"];
             };
@@ -5914,8 +7050,9 @@ export interface components {
              */
             amount: number;
             /**
-             * @description Chain for the withdrawal. Set this field to `SOL`.
+             * @description The withdrawal chain. Set this field to `SOL`.
              * @example SOL
+             * @enum {unknown}
              */
             chain: components["schemas"]["Chain"];
             /** @description Solana address that receives the SOL. */
@@ -6040,6 +7177,66 @@ export interface components {
         };
         /** @description Request body for partner JWT sign-in. Send an empty object because it has no client-supplied fields. */
         PartnerJwtSigninRequest: Record<string, never>;
+        PendingBuyCore: {
+            amount: {
+                /** @enum {string} */
+                type: "NATIVE";
+                value: components["schemas"]["PositiveDecimalNumber"];
+            } | {
+                /** @enum {string} */
+                type: "USD";
+                value: components["schemas"]["PositiveDecimalNumber"];
+            };
+            /**
+             * @description The currency the user funds a trade with.
+             *
+             *     Defaults to `Native` so every existing client keeps paying with the chain
+             *     peg. `Fiat` is only supported on chains with a known USD stablecoin.
+             * @enum {string}
+             */
+            buyWith: "NATIVE" | "FIAT";
+            strategy: components["schemas"]["PendingBuyStrategy"];
+        };
+        PendingBuyIntent: components["schemas"]["PendingBuyCore"] & {
+            /**
+             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
+             * @example So11111111111111111111111111111111111111112
+             */
+            pairAddress?: string;
+        };
+        PendingBuyStrategy: {
+            /** @enum {string} */
+            type: "MARKET";
+        } | {
+            dipPct: components["schemas"]["ChangePercent"];
+            trigger: components["schemas"]["PendingTradeSwapTrigger"];
+            /** @enum {string} */
+            type: "DIP";
+        } | {
+            priceUsd: components["schemas"]["PositiveDecimalNumber"];
+            trigger: components["schemas"]["PendingTradeSwapTrigger"];
+            /** @enum {string} */
+            type: "LIMIT";
+        };
+        PendingSellOrigin: {
+            /** @enum {string} */
+            type: "UNLINKED";
+        } | (components["schemas"]["TradeSwapTargetSnapshot"] & {
+            trigger: components["schemas"]["PendingTradeSwapTrigger"];
+        } & {
+            /** @enum {string} */
+            type: "TARGET";
+        });
+        PendingTradeSwapBase: {
+            /** Format: int64 */
+            id: number;
+            /**
+             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
+             * @example So11111111111111111111111111111111111111112
+             */
+            pairAddress: string;
+            walletAddress: components["schemas"]["Address"];
+        };
         /** @description Lifecycle state of a pending trade swap. The response shape depends on status: PENDING includes the creation time, while SUBMITTED also includes the submission time and may include a transaction hash. */
         PendingTradeSwapLifecycle: {
             /** @description Time when the pending swap was created, before it is submitted. */
@@ -6063,7 +7260,7 @@ export interface components {
             txHash?: string;
         };
         /** @description A trade swap that is still in its pending lifecycle, including its identifiers, creation time, and current status. */
-        PendingTradeSwapRow: components["schemas"]["TradeSwapBase"] & {
+        PendingTradeSwapRow: components["schemas"]["PendingTradeSwapBase"] & {
             /** @description When the swap was created. */
             createdAt: components["schemas"]["ReadableTimestamp"];
             /**
@@ -6075,6 +7272,36 @@ export interface components {
             submittedAt?: components["schemas"]["ReadableTimestamp"];
             /** @description On-chain transaction hash, once a `SUBMITTED` swap has one. */
             txHash?: null | string;
+        };
+        PendingTradeSwapTrigger: {
+            /** @enum {string} */
+            status: "AVAILABLE";
+            value: components["schemas"]["PendingTradeSwapTriggerValue"];
+        } | {
+            /** @enum {string} */
+            status: "UNAVAILABLE";
+        };
+        PendingTradeSwapTriggerValue: {
+            marketCap: {
+                /** @description Native/quote-token value. */
+                native: number;
+                /** @description Exact string representation of the native/quote-token value. */
+                nativeStr: string;
+                /** @description USD value. */
+                usd: number;
+                /** @description Exact string representation of the USD value. */
+                usdStr: string;
+            };
+            price: {
+                /** @description Native/quote-token value. */
+                native: number;
+                /** @description Exact string representation of the native/quote-token value. */
+                nativeStr: string;
+                /** @description USD value. */
+                usd: number;
+                /** @description Exact string representation of the USD value. */
+                usdStr: string;
+            };
         };
         /** @description Non-negative percentage value in percentage units, where 50 represents 50%. This shared type imposes no universal maximum; nullability, omission, defaults, and field-specific bounds are defined by the field that uses it. */
         Percent: number;
@@ -6091,13 +7318,78 @@ export interface components {
              * @description Where the pair trades. A token launched on a bonding-curve launchpad reports that launchpad rather than the router underneath it: `LETS_BONK` runs on `RAYDIUM_LAUNCH`, and `BELIEVE`, `BAGS`, and `PRINTR` run on `METEORA_BONDING_CURVE`.
              * @enum {string}
              */
-            platformType: "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
+            platformType: "UNISWAP_V2" | "UNISWAP_V3" | "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "WHIRLPOOL" | "UNISWAP_V4" | "FLAP" | "PONS" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
         };
         /**
          * @description Identifies the trading platform or protocol.
          * @enum {string}
          */
-        PlatformType: "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
+        PlatformType: "UNISWAP_V2" | "UNISWAP_V3" | "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "WHIRLPOOL" | "UNISWAP_V4" | "FLAP" | "PONS" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
+        PnlHistory: {
+            /** Format: int64 */
+            bucketSeconds: number;
+            byAddress: components["schemas"]["AddressPnlSeries"][];
+            byChain: components["schemas"]["ChainPnlSeries"][];
+            byDexProtocol: components["schemas"]["DexProtocolPnlSeries"][];
+            byLaunchpad: components["schemas"]["LaunchpadPnlSeries"][];
+            gaps: components["schemas"]["PnlHistoryGap"][];
+            timestamps: string[];
+            totals: components["schemas"]["PnlSeries"];
+            unattributed: components["schemas"]["PnlUnattributedSeries"];
+        };
+        /** @description An interval without a valid historical active valuation. Times are ISO 8601. */
+        PnlHistoryGap: {
+            from: string;
+            to: string;
+        };
+        /** @description USD profit split by whether the position is still open. */
+        PnlMetrics: {
+            /** Format: double */
+            activePnlChgPct?: number | null;
+            /** Format: double */
+            activePnlUsd: number;
+            /** Format: double */
+            closedPnlChgPct?: number | null;
+            /** Format: double */
+            closedPnlUsd: number;
+            /** Format: double */
+            totalPnlChgPct?: number | null;
+            /** Format: double */
+            totalPnlUsd: number;
+        };
+        /**
+         * @description Supported rolling closure ranges. Open positions retain their lifetime P&L.
+         * @enum {string}
+         */
+        PnlRange: "24h" | "7d" | "30d";
+        /** @description Metric arrays aligned with the history timestamps. */
+        PnlSeries: {
+            activePnlUsd: number[];
+            closedPnlUsd: number[];
+            totalPnlUsd: number[];
+        };
+        PnlTotals: {
+            /** Format: double */
+            activePnlChgPct?: number | null;
+            /** Format: double */
+            activePnlUsd: number;
+            /** Format: double */
+            closedPnlChgPct?: number | null;
+            /** Format: double */
+            closedPnlUsd: number;
+            /** Format: double */
+            totalPnlChgPct?: number | null;
+            /** Format: double */
+            totalPnlUsd: number;
+        };
+        PnlUnattributed: {
+            dexProtocol: components["schemas"]["PnlMetrics"];
+            launchpad: components["schemas"]["PnlMetrics"];
+        };
+        PnlUnattributedSeries: {
+            dexProtocol: components["schemas"]["PnlSeries"];
+            launchpad: components["schemas"]["PnlSeries"];
+        };
         /** @description A decimal value strictly greater than 0. The enclosing field defines its unit and display scale. */
         PositiveDecimalNumber: number;
         /** @description Request body for buying the route's token with a saved trade preset. The selected preset supplies omitted buy values and settings; `amount` and `strategy` can override its values. */
@@ -6136,7 +7428,7 @@ export interface components {
              * @description Chain the analytics were read from.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /**
              * @description How sure the API is that the analytics belong to the handle.
              * @enum {string}
@@ -6215,7 +7507,7 @@ export interface components {
              */
             soldAfterPost: "BEFORE_POST" | "UNDER_1H" | "UNDER_24H" | "UNDER_7D" | "LATER" | "NEVER";
             /**
-             * @description address, in Solana base58 format.
+             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
              * @example So11111111111111111111111111111111111111112
              */
             tokenAddress: string;
@@ -6392,7 +7684,7 @@ export interface components {
             pnlPercent?: number;
             symbol: string;
             /**
-             * @description address, in Solana base58 format.
+             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
              * @example So11111111111111111111111111111111111111112
              */
             tokenAddress: string;
@@ -6541,7 +7833,7 @@ export interface components {
              * @description Chain these fee rates apply to.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
         };
         /** @description The authenticated user's referral identifier and whether it is their username or a separate referral code. */
         ReferralCodeResponse: {
@@ -6556,7 +7848,7 @@ export interface components {
              * @description Chain this revenue was earned on.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Commission earned from this referred user across all time, in USD. */
             revenueUsd: number;
             /** @description Username of the referred user, or their user ID when unset. */
@@ -6577,7 +7869,7 @@ export interface components {
              * @description Chain the balance is on.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
         };
         /** @description Information about the user who referred the authenticated user, including their identifier, optional username, and available wallet addresses. */
         ReferrerResponse: {
@@ -6660,7 +7952,7 @@ export interface components {
              * @description Chain the reward was claimed on.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description 32-byte hash of the coupon body, as an array of bytes. */
             couponHash: number[];
             /**
@@ -6678,13 +7970,46 @@ export interface components {
              * @enum {string}
              */
             rewardType: "AFFILIATE" | "CASHBACK";
-            /** @description Coupon signature, as an array of 64 bytes. */
+            /** @description Coupon signature, as an array of bytes. 65 bytes on EVM, 64 on Solana. */
             signature: number[];
             /**
              * @description Address of the token the reward is paid in. Affiliate rewards use the chain's fee-balance token, cashback its peg token.
              * @example So11111111111111111111111111111111111111112
              */
             token: string;
+        };
+        SavedListIntegrationCallerIdentity: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            photoId?: string | null;
+        };
+        SavedListIntegrationClause: {
+            /** @description Allowed callers. An empty list means any caller in the integration. */
+            callerIds: string[];
+            /**
+             * Format: uuid
+             * @description Integration that supplies the calls.
+             */
+            integrationId: string;
+            /** @description Metadata predicates enforced by saved-list and scanner evaluation. */
+            metaFilter: components["schemas"]["CustomMetaPredicate"][];
+        };
+        /**
+         * @description Identity-enriched read form of a saved-list integration clause. Writes use
+         *     [`SavedListIntegrationClause`] so names and photos never become persisted
+         *     configuration.
+         */
+        SavedListIntegrationClauseRead: {
+            callers: components["schemas"]["SavedListIntegrationCallerIdentity"][];
+            integration: components["schemas"]["SavedListIntegrationIdentity"];
+            metaFilter: components["schemas"]["CustomMetaPredicate"][];
+        };
+        SavedListIntegrationIdentity: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            photoId?: string | null;
         };
         /**
          * @description Feed-wide fee totals. These aggregate across every token in the result set,
@@ -6761,9 +8086,9 @@ export interface components {
         ScannerListResponse: components["schemas"]["ScannerTokensSnapshot"] & components["schemas"]["CursorPagination"];
         /** @description Identifies a scanner lookup by selecting a chain and a token or trading-pair address. */
         ScannerLookupKey: {
-            /** @description Chain associated with the lookup address, such as SOL. */
+            /** @description Chain associated with the lookup address, such as SOL or RH. */
             chain: components["schemas"]["Chain"];
-            /** @description address of the token or trading pair to look up on the selected chain. Use a base58 Solana address. An unmatched address produces no lookup item. */
+            /** @description address of the token or trading pair to look up on the selected chain. Use a base58 Solana address for SOL, or a lowercase `0x`-prefixed 40-hex-character address for RH. An unmatched address produces no lookup item. */
             tokenOrPairAddress: components["schemas"]["Address"];
         };
         /** @description Requests scanner items by one or more token or trading-pair addresses. */
@@ -6777,6 +8102,13 @@ export interface components {
             endCursor?: string | null;
             /** @description Opaque cursor identifying the first page in a fixed scanner subscription range. Omitted or `null` means there is no fixed start; when supplied, `endCursor` is required. The cursor must be valid, nonzero, and match the selected search or lookup; its page cannot follow `endCursor`, and the inclusive range may span at most 25 pages. */
             startCursor?: string | null;
+        };
+        ScannerMigrationEstimate: {
+            /** @enum {string} */
+            chain: "SOL" | "RH";
+            estimatedMigrationMarketCapUsd: number | null;
+            estimatedMigrationMarketCapUsdStr: string | null;
+            id: string;
         };
         /** @description Optional settings for the four scanner sections: `new`, `trending`, `topVolume`, and `topGainers`. Omitted or `null` section settings use that section’s defaults; no section is disabled. */
         ScannerPageRequest: {
@@ -6833,7 +8165,7 @@ export interface components {
         };
         /** @description Text-based scanner search criteria with a required query and optional chain and metric-window filters. */
         ScannerQueryMode: {
-            /** @description Optional chain restriction for text search. Accepted values are `SOL`; `null` or omission searches across all supported chains. */
+            /** @description Optional chain restriction for text search. Accepted values are `SOL` and `RH`; `null` or omission searches across all supported chains. */
             chain?: null | components["schemas"]["Chain"];
             /** @description Text used to search for a token name, symbol, token address, or pair address. */
             query: string;
@@ -6844,11 +8176,11 @@ export interface components {
         ScannerSearchMode: components["schemas"]["ScannerQueryMode"] | components["schemas"]["ScannerLookupMode"];
         /** @description Optional parameters for scanner token or pair text searches and direct address lookups, including chain and metrics-timeframe filters and an opaque pagination cursor. */
         ScannerSearchQueryParams: {
-            /** @description Optional chain restriction for text searches. Accepted values are `SOL`; `null` means no chain restriction. Ignored for lookup requests, which use the chain in each lookup key. */
+            /** @description Optional chain restriction for text searches. Accepted values are `SOL` and `RH`; `null` means no chain restriction. Ignored for lookup requests, which use the chain in each lookup key. */
             chain?: null | components["schemas"]["Chain"];
             /** @description Opaque continuation cursor from a prior text-search response. Omit it for the first page; use the returned cursor with the same search parameters to request another page. Cursors are not used for direct lookup results. */
             cursor?: string | null;
-            /** @description Repeatable direct-lookup keys in `CHAIN:ADDRESS` format, using `SOL`; send no more than 50 keys. Do not combine `lookup` with a non-empty `query`. Invalid formats or unsupported chains, and more than 50 keys, return HTTP 400. Lookup mode ignores `chain` and `timeFrame`, always uses `24H` metrics, returns results in one response, and does not paginate or provide a next cursor. */
+            /** @description Repeatable direct-lookup keys in `CHAIN:ADDRESS` format, using `SOL` and `RH`; send no more than 50 keys. Do not combine `lookup` with a non-empty `query`. Invalid formats or unsupported chains, and more than 50 keys, return HTTP 400. Lookup mode ignores `chain` and `timeFrame`, always uses `24H` metrics, returns results in one response, and does not paginate or provide a next cursor. */
             lookup?: string[];
             /** @description Optional token name, symbol, token address, or pair address text query. Leading and trailing whitespace is removed; a missing or whitespace-only value with no `lookup` keys returns an empty page, and a non-empty value cannot be combined with `lookup`. */
             query?: string | null;
@@ -6881,7 +8213,7 @@ export interface components {
         ScannerTokensSubscriptionParams: {
             /** @description Trading activity criteria, per time window. */
             activity?: null | components["schemas"]["TokenActivityFilter"];
-            /** @description Inclusive range for matching call sources. When `sources` has no non-empty selector, it counts unique callers. When sources are selected, it counts the distinct selected callers, Telegram connections, Telegram senders, and wallets that called the token. */
+            /** @description Inclusive range for the request-scoped call count. With source filters, this uses the deduplicated union of calls that match selected built-in and custom integration, caller, and metadata clauses. */
             callCount?: null | {
                 /**
                  * Format: int64
@@ -6942,7 +8274,7 @@ export interface components {
         ScannerTrenchesSubscriptionParams: {
             /** @description Trading activity criteria, per time window. `graduating` adds one-hour minimums for the criteria you leave unset. */
             activity?: null | components["schemas"]["TokenActivityFilter"];
-            /** @description Inclusive range for matching call sources. When `sources` has no non-empty selector, it counts unique callers. When sources are selected, it counts the distinct selected callers, Telegram connections, Telegram senders, and wallets that called the token. */
+            /** @description Inclusive range for the request-scoped call count. With source filters, this uses the deduplicated union of calls that match selected built-in and custom integration, caller, and metadata clauses. */
             callCount?: null | {
                 /**
                  * Format: int64
@@ -7139,10 +8471,10 @@ export interface components {
             request: components["schemas"]["UpdateSettingsRequest"];
         };
         /**
-         * @description Identifies the wallet-signature protocol used for Web3 authentication. Use `solana_siws` or `solana_legacy`.
+         * @description Identifies the wallet-signature protocol used for Web3 authentication. Use `evm_personal_sign` for RH, and `solana_siws` or `solana_legacy` for SOL. Incompatible chain and protocol combinations are rejected.
          * @enum {string}
          */
-        SignatureProtocol: "solana_siws" | "solana_legacy";
+        SignatureProtocol: "evm_personal_sign" | "solana_siws" | "solana_legacy";
         /**
          * @description Method used to sign in. `web3` uses a wallet signature; `partner_jwt` uses a partner-provided JWT.
          * @enum {string}
@@ -7150,7 +8482,7 @@ export interface components {
         SigninMethod: "web3" | "partner_jwt";
         /** @description Identifies the wallet address and chain associated with a successful wallet sign-in. */
         SigninWalletResponse: {
-            /** @description Chain identifier for the sign-in wallet. Web3 sign-ins return a validated supported chain ID as a canonical decimal string (`1`, `56`, `900`, or `8453`); partner-JWT sign-ins return the selected partner wallet's chain ID, or the first partner wallet's chain ID when none is selected, preserving the supplied string. For legacy partner-JWT sign-ins, `signinWallet` is `null`. */
+            /** @description Chain identifier for the sign-in wallet. Web3 sign-ins return a validated supported chain ID as a canonical decimal string (`900` or `4663`); partner-JWT sign-ins return the selected partner wallet's chain ID, or the first partner wallet's chain ID when none is selected, preserving the supplied string. For legacy partner-JWT sign-ins, `signinWallet` is `null`. */
             chainId: string;
             /** @description address of the wallet used for sign-in. */
             walletAddress: string;
@@ -7955,7 +9287,7 @@ export interface components {
              * @description Chain the token trades on.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Age in seconds at serialization time. */
             createdAtAgeSeconds: number;
             /** @description Unix epoch milliseconds. */
@@ -8013,7 +9345,7 @@ export interface components {
          */
         ThesisSourceIdentity: components["schemas"]["WatchlistSourceBase"] & {
             /** @enum {string} */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /**
              * @description The platform the author posts on.
              * @enum {string}
@@ -8024,7 +9356,7 @@ export interface components {
         /** @description The token a thesis is about. */
         ThesisToken: {
             /**
-             * @description address, in Solana base58 format.
+             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
              * @example So11111111111111111111111111111111111111112
              */
             address: string;
@@ -8150,7 +9482,7 @@ export interface components {
              * @description Chain containing the subscribed token or pair.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /**
              * @description Measurement represented by each candle: `price` for token price candles or `marketCap` for token market-capitalization candles.
              * @enum {string}
@@ -8175,7 +9507,7 @@ export interface components {
              * @description Chain containing the token and pair.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Always `false` on live updates, which carry only the current candle. */
             hasMore: boolean;
             /**
@@ -8280,7 +9612,7 @@ export interface components {
         /** @description Identifies a WebSocket event category and the associated chain and address. */
         TokenEventMeta: {
             /**
-             * @description Token address associated with the event: a base58-encoded 32-byte Solana address of up to 44 characters.
+             * @description Token address associated with the event. Its format depends on `chain`: Solana uses a base58-encoded 32-byte address of up to 44 characters; RH uses a `0x`-prefixed address containing 40 hexadecimal digits.
              * @example So11111111111111111111111111111111111111112
              */
             address: string;
@@ -8288,7 +9620,7 @@ export interface components {
              * @description Chain containing the token.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /**
              * @description WebSocket event category associated with this metadata. Accepted values are PEG_PRICES, TOKEN_CANDLE, TOKEN_PRICE, TOKEN_STATS, TOKEN_SWAPS, TOKEN_HOLDER_COUNT, TOKEN_HOLDER_BALANCES, TOKEN_HOLDERS_CHANGE, TOKEN_TOP_TRADERS, TOKEN_MIGRATION, SCANNER_TOKENS, and SCANNER_UPDATE.
              * @enum {string}
@@ -8304,7 +9636,7 @@ export interface components {
         TokenFilter: {
             /** @description Trading activity criteria, per time window. */
             activity?: null | components["schemas"]["TokenActivityFilter"];
-            /** @description Inclusive range for matching call sources. When `sources` has no non-empty selector, it counts unique callers. When sources are selected, it counts the distinct selected callers, Telegram connections, Telegram senders, and wallets that called the token. */
+            /** @description Inclusive range for the request-scoped call count. With source filters, this uses the deduplicated union of calls that match selected built-in and custom integration, caller, and metadata clauses. */
             callCount?: null | {
                 /**
                  * Format: int64
@@ -8578,7 +9910,7 @@ export interface components {
              * @description Chain on which the token exists.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /**
              * Format: int32
              * @description Decimals the token uses on chain.
@@ -8612,7 +9944,7 @@ export interface components {
         };
         /** @description Token contract, trading-risk, promotion, and liquidity audit indicators. Percentage fields use public percent units: 50 means 50%, not 0.5. They reject negative values and are not capped at 100%. Missing audit inputs may be reported as `false` or 0, with no separate availability indicator. */
         TokenMarketAudit: {
-            /** @description Whether the token's source code is verified; `false` only means no verification was reported. */
+            /** @description Whether the token's source code is verified. Applies mainly to EVM contracts, where `false` only means no verification was reported. */
             contractVerified: boolean;
             /** @description Whether DexScreener reports a paid status for the token. */
             dexScreenerPaid: boolean;
@@ -8671,7 +10003,7 @@ export interface components {
              * @description Platform the token migrated from.
              * @enum {string}
              */
-            migratedFromPlatformType: "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
+            migratedFromPlatformType: "UNISWAP_V2" | "UNISWAP_V3" | "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "WHIRLPOOL" | "UNISWAP_V4" | "FLAP" | "PONS" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
             /** @description How far the token has moved along its bonding curve. */
             progressPct: number;
             /**
@@ -8821,10 +10153,10 @@ export interface components {
         /** @description Live market snapshot for a token pair, emitted with TOKEN_PRICE events. It includes pair identity, creation timing, platform and status information, the current quote, and trading statistics. */
         TokenMarketLiveSnapshot: components["schemas"]["PlatformInfo"] & components["schemas"]["TokenStatusFlags"] & {
             /**
-             * @description Chain on which the token and its trading pair exist: SOL.
+             * @description Chain on which the token and its trading pair exist: SOL or RH.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Nonnegative age of the token pair in whole seconds when the response is produced. Fractional seconds are truncated; negative ages are returned as 0. */
             createdAtAgeSeconds: number;
             /** @description Creation time of the token pair as a Unix epoch milliseconds. */
@@ -9083,10 +10415,10 @@ export interface components {
         /** @description Identifies a token’s migration from its previous trading pair to a destination pair and platform. */
         TokenMigrationDelta: {
             /**
-             * @description Chain on which the migration is recorded: SOL (Solana).
+             * @description Chain on which the migration is recorded: SOL (Solana) or RH (Robinhood).
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /**
              * @description Address of the pair the token migrated to.
              * @example So11111111111111111111111111111111111111112
@@ -9100,7 +10432,7 @@ export interface components {
              * @description Type of the destination trading venue for the token migration.
              * @enum {string}
              */
-            migratedToPlatformType: "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
+            migratedToPlatformType: "UNISWAP_V2" | "UNISWAP_V3" | "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "WHIRLPOOL" | "UNISWAP_V4" | "FLAP" | "PONS" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
             /**
              * @description Address of the trading pair from which the token migrated.
              * @example So11111111111111111111111111111111111111112
@@ -9115,7 +10447,7 @@ export interface components {
         /** @description The moment the token graduated from its bonding curve to its AMM pair. */
         TokenMigrationMarker: {
             /**
-             * @description address, in Solana base58 format.
+             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
              * @example So11111111111111111111111111111111111111112
              */
             fromPair: string;
@@ -9126,7 +10458,7 @@ export interface components {
             /** @description ISO 8601 timestamp string. */
             migratedAtTimestampStr: string;
             /**
-             * @description address, in Solana base58 format.
+             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
              * @example So11111111111111111111111111111111111111112
              */
             toPair: string;
@@ -9149,7 +10481,7 @@ export interface components {
         TokenMultiLookupKey: {
             /** @description Contract or mint address of the token on the specified chain. */
             address: components["schemas"]["Address"];
-            /** @description Chain for the token address. Accepted values are SOL. */
+            /** @description Chain for the token address. Accepted values are SOL and RH. */
             chain: components["schemas"]["Chain"];
         };
         /** @description Query parameters for batch lookup of token snapshots by chain-qualified token or pair address. */
@@ -9172,12 +10504,12 @@ export interface components {
             /** @description Token used as the base currency for the pair, including its address, chain, decimals, name, and symbol. */
             baseToken: components["schemas"]["TokenIdentity"];
             /**
-             * @description Chain on which the trading pair exists. Allowed values are SOL. Must match the pair and token addresses.
+             * @description Chain on which the trading pair exists. Allowed values are SOL and RH. Must match the pair and token addresses.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /**
-             * @description Address of the trading pair on its chain: a base58 Solana address of up to 44 characters.
+             * @description Address of the trading pair on its chain. For Solana, this is a base58 address of up to 44 characters; for EVM chains, it is a 42-character, 0x-prefixed hexadecimal address.
              * @example So11111111111111111111111111111111111111112
              */
             pairAddress: string;
@@ -9201,10 +10533,10 @@ export interface components {
             /** @description Ticker symbol of the pair's base token. */
             baseTokenSymbol: string;
             /**
-             * @description Chain containing the trading pair: SOL.
+             * @description Chain containing the trading pair: SOL or RH.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Non-negative age of the pair in whole seconds when the response is generated. A creation timestamp in the future is reported as `0`. */
             createdAtAgeSeconds: number;
             /** @description Pair creation time as a Unix epoch milliseconds. */
@@ -9265,7 +10597,7 @@ export interface components {
         };
         /** @description Optional security criteria for scanner token filters. Omit a property or set it to `null` to leave that criterion unset. */
         TokenSecurityFilter: {
-            /** @description Set `true` to require a verified contract. `false` adds no constraint. */
+            /** @description Set `true` to require a verified contract. `false` adds no constraint, and non-EVM tokens always pass. */
             contractVerified?: boolean | null;
             /** @description Set `false` to require a disabled or renounced freeze authority. `true` adds no constraint, and non-Solana tokens always pass. */
             freezable?: boolean | null;
@@ -9279,7 +10611,7 @@ export interface components {
             mintable?: boolean | null;
             /** @description Set `false` to exclude proxy contracts. `true` is rejected. */
             proxy?: boolean | null;
-            /** @description Set `true` to require renounced contract ownership. `false` adds no constraint. */
+            /** @description Set `true` to require renounced contract ownership. `false` adds no constraint, and non-EVM tokens always pass. */
             renounced?: boolean | null;
         };
         /** @description Complete token snapshot with shared identity, market, status, statistics, holder, social, audit, favourite-state, automatic-slippage, and all-time-high data. */
@@ -9297,10 +10629,10 @@ export interface components {
              */
             calls: number;
             /**
-             * @description Chain for the token and pair: `SOL`.
+             * @description Chain for the token and pair: `SOL` and `RH`.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Elapsed age of the token's creation time, in whole seconds when the response is serialized. */
             createdAtAgeSeconds: number;
             /** @description Token creation time as a Unix epoch milliseconds. */
@@ -9320,7 +10652,7 @@ export interface components {
             pairAddress: string;
             /** @description Price, market cap, liquidity, supply, and pooled amounts for the pair, with their initial baselines and the change since. */
             quote: components["schemas"]["TokenMarketQuote"];
-            /** @description Symbol of the pair's quote token. Falls back to the chain's own quote token, such as `SOL`. */
+            /** @description Symbol of the pair's quote token. Falls back to the chain's own quote token, such as `SOL` or `WETH`. */
             quoteTokenSymbol: string;
             /** @description Social links and scraped social metadata for the token, merged into one set. */
             socials?: components["schemas"]["TokenSocialData"];
@@ -9384,12 +10716,14 @@ export interface components {
             /** @description Set `true` to require a website link. */
             hasWebsite?: boolean | null;
         };
-        /** @description Matches tokens called by the listed sources: caller IDs (decimal strings), Telegram sender IDs (integers), and connection or wallet UUIDs. A `null`, omitted, or empty list does not activate that source family. */
+        /** @description Matches tokens called by listed built-in or custom sources. Custom clauses apply integration, caller, and `metaFilter` conditions. A `null`, omitted, or empty list does not activate that source family. */
         TokenSourceFilter: {
             /** @description Caller IDs, as strings holding 64-bit integers. A value that does not parse never matches. */
             callers?: string[] | null;
-            /** @description Groups a token must satisfy, each matched when any of its members called the token. Saved watchlist lists apply these; the scanner endpoints ignore them. */
+            /** @description Groups a token must satisfy. Any member can satisfy one group, and every group must match. Custom clauses apply integration, caller, and `metaFilter` conditions. Displayed and min/max counts use the deduplicated union of calls that match selected sources. */
             groups?: components["schemas"]["TokenSourceGroup"][] | null;
+            /** @description Custom integration, optional caller, and metadata criteria. An empty `callerIds` list means any caller in the integration. Only matching calls enter the selected-source count. */
+            integrations?: components["schemas"]["SavedListIntegrationClause"][] | null;
             /** @description UUIDs of Telegram connections to match. */
             tgConnections?: string[] | null;
             /** @description Telegram sender IDs to match. Only calls recorded for the requesting user count. */
@@ -9416,6 +10750,7 @@ export interface components {
              *     appear.
              */
             groups?: components["schemas"]["TokenSourceGroupRead"][] | null;
+            integrations?: components["schemas"]["SavedListIntegrationClauseRead"][] | null;
             /** @description Telegram connection entries resolved from the IDs in the list's token filter, in the order configured. IDs with no identity are dropped. */
             tgConnections?: components["schemas"]["SourceTgConnectionEntry"][] | null;
             /** @description Thesis authors named by the list, by wallet address. */
@@ -9430,6 +10765,8 @@ export interface components {
         TokenSourceGroup: {
             /** @description Callers to match, by name. */
             callers?: string[] | null;
+            /** @description Custom integration, caller, and metadata clauses for this group. */
+            integrations?: components["schemas"]["SavedListIntegrationClause"][] | null;
             /** @description Telegram connections to match. */
             tgConnections?: string[] | null;
             /** @description Telegram senders to match. */
@@ -9447,6 +10784,7 @@ export interface components {
         TokenSourceGroupRead: {
             /** @description Callers that called the token. */
             callers?: components["schemas"]["SourceCallerEntry"][] | null;
+            integrations?: components["schemas"]["SavedListIntegrationClauseRead"][] | null;
             /** @description Telegram connections that called the token. */
             tgConnections?: components["schemas"]["SourceTgConnectionEntry"][] | null;
             /** @description Thesis authors that posted about the token. */
@@ -9484,7 +10822,7 @@ export interface components {
              * @description Platform the swap happened on.
              * @enum {string}
              */
-            platformType: "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
+            platformType: "UNISWAP_V2" | "UNISWAP_V3" | "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "WHIRLPOOL" | "UNISWAP_V4" | "FLAP" | "PONS" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE";
             /**
              * Format: int32
              * @description Position of the transaction within its block, when observed by the indexer.
@@ -9630,6 +10968,16 @@ export interface components {
         TokenSwapsQuery: {
             /** @description Page to fetch. Omit it for the first page, then send the returned `nextCursor` or `prevCursor`. */
             cursor?: string | null;
+            /**
+             * Format: int64
+             * @description Oldest swap to include, unix seconds.
+             *
+             *     Omit it and the route keeps returning the latest page, never older
+             *     than 30 days. A cursor that walks past that line returns an empty
+             *     page. A `from` inside the 30 days filters the page. A `from` older
+             *     than 30 days returns `HISTORY_DOWNLOAD_REQUIRED`.
+             */
+            from?: number | null;
             /** @description Set to `true` to include swaps marked as outliers. When omitted or `false`, outlier swaps are excluded. */
             includeOutlier?: boolean;
             /**
@@ -9792,8 +11140,9 @@ export interface components {
              */
             amount: number;
             /**
-             * @description Chain on which the token and destination address are resolved. The accepted value is SOL.
+             * @description The chain for the token and destination address. Set this field to `SOL`.
              * @example SOL
+             * @enum {unknown}
              */
             chain: components["schemas"]["Chain"];
             /** @description Solana address that receives the tokens. Its associated token account is created if needed. */
@@ -9812,7 +11161,7 @@ export interface components {
              * @description Chain for the token-scoped watchlist feed. Use it with `address` to identify the feed's token.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
         };
         /** @description WebSocket lifecycle detail for an abort or cancellation, including the action, affected swap IDs, and whether tracking stopped. */
         TradeAbortCancelDetail: {
@@ -9827,21 +11176,13 @@ export interface components {
             trackingStopped: boolean;
         };
         /** @description Reports resolved bot attribution associated with a trade. `bots` lists the available attribution records, and `hasBot` is `true` exactly when the list is non-empty. */
-        TradeAutomation: {
+        TradeAutomation: components["schemas"]["TradeAutomationBase"] & {
             /** @description Bots that opened this trade. Bots whose source no longer resolves are left out. */
             bots: components["schemas"]["TradeAutomationBot"][];
-            /** @description Whether `bots` has any entries. */
-            hasBot: boolean;
         };
         /** @description Identifies an automation bot associated with a trade by its UUID and source identity. */
-        TradeAutomationBot: {
-            /**
-             * Format: uuid
-             * @description UUID of the autobuy or copy-trade bot.
-             */
-            id: string;
-            isEnabled: boolean;
-            /** @description What the bot follows: a caller, a Telegram chat, a list, or a wallet. */
+        TradeAutomationBot: components["schemas"]["TradeAutomationBotBase"] & {
+            /** @description Resolved identity of the source followed by this bot. The type discriminator identifies the source family and its fields. */
             source: components["schemas"]["WatchlistSourceIdentity"];
         };
         /** @description Common trade data identifying the token and chain, with timestamps, entry metrics, totals, fees, PnL, automation details, confirmed swaps, and met targets. */
@@ -9876,7 +11217,7 @@ export interface components {
              * @description Chain the trade happened on.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Seconds elapsed since `createdAtTimestamp` when the response was built. */
             createdAtAgeSeconds: number;
             /** @description Trade creation time as Unix epoch milliseconds. */
@@ -10484,6 +11825,25 @@ export interface components {
              */
             tradeUpdate: "TRADE_CANCEL_CONFIRMED";
         });
+        TraderCard: {
+            /** Format: int64 */
+            generatedAtMs: number;
+            handle: string;
+            /**
+             * Format: int32
+             * @description Deployer lookup is not indexed on `Pair`. Absent, not zero.
+             */
+            launched?: number | null;
+            source: string;
+            stale: boolean;
+            topMoves: components["schemas"]["CardMove"][];
+            /**
+             * Format: int32
+             * @description Distinct tokens those wallets bought or sold in the cube window.
+             */
+            traded: number;
+            wallets: components["schemas"]["CardWallet"][];
+        };
         /** @description Overview of a trader for a selected time range, including wallet and chain identity, recent swap timing, optional wallet balance, period statistics, and a PnL sparkline. */
         TraderOverview: components["schemas"]["TraderSnapshotBase"] & {
             /** @description Daily cumulative PnL in USD over the last 90 UTC days, whatever `timeRange` is set to. */
@@ -10635,7 +11995,7 @@ export interface components {
              */
             sellCountMin?: number | null;
             /** @description Platforms to include (`FOMO`, `PUMPFUN`, `KOL`), comma separated. Omit it or leave it empty for the global ranking. Labeled-wallet identity is returned on every ranking row, not only when this filter is set. */
-            sources?: string | null;
+            sources?: string[] | null;
             /** @description Window the ranking is based on. */
             timeRange: components["schemas"]["WalletTimeRange"];
             /**
@@ -10660,7 +12020,7 @@ export interface components {
              * @description Chain the trader's wallet is on.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Wallet that funded this one, when it can be attributed. Solana only. */
             fundingSource: components["schemas"]["FundingSourcePreview"] | null;
             /** @description Human labels attached to this wallet (empty when unlabeled). */
@@ -10819,7 +12179,7 @@ export interface components {
              * @description Chain used for this snapshot.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Human labels attached to this wallet (empty when unlabeled). */
             labels?: components["schemas"]["WalletLabelInfo"][];
             /** @description Daily cumulative PnL in USD over the selected range. */
@@ -11294,10 +12654,10 @@ export interface components {
             /** @description Token address on the specified chain. */
             address: string | null;
             /**
-             * @description Chain containing the token: `SOL`.
+             * @description Chain containing the token: `SOL` and `RH`.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Image for the token, or `null` when unavailable. */
             image: string | null;
             /** @description Token market capitalization in USD. Null when unavailable or invalid. */
@@ -11328,6 +12688,35 @@ export interface components {
             } | null;
             limits?: components["schemas"]["BotLimits"] | null;
             resetLifetimeSpend?: boolean | null;
+            source?: ({
+                /** Format: uuid */
+                callerId?: string | null;
+                /** Format: uuid */
+                integrationId: string;
+                metaFilter: components["schemas"]["CustomMetaPredicate"][];
+                /** @enum {string} */
+                type: "INTEGRATION";
+            } | {
+                id: string;
+                /** @enum {string} */
+                type: "CALLER";
+            } | {
+                id: string;
+                /** @enum {string} */
+                type: "TG";
+            } | {
+                id: string;
+                /** @enum {string} */
+                type: "LIST";
+            } | {
+                id: string;
+                /** @enum {string} */
+                type: "WALLET";
+            } | {
+                id: string;
+                /** @enum {string} */
+                type: "THESIS";
+            }) | null;
         };
         /** @description Request body for setting a bot’s status. */
         UpdateBotStatusRequest: {
@@ -11589,6 +12978,30 @@ export interface components {
             /** @description Configuration for the user's wallets and balances source. It has no configurable parameters; `null` or omission is equivalent to `{}` and does not disable the source. */
             wallets?: null | components["schemas"]["FixedPageSource"];
         };
+        UserPnlParams: {
+            range: components["schemas"]["PnlRange"];
+        };
+        /** @description Full private snapshot, shared by REST and USER_PNL WebSocket messages. */
+        UserPnlResponse: {
+            /** @description True only when the full range has recorded or known-zero active history. */
+            activeHistoryComplete: boolean;
+            /** @description Time at which this immutable response was built, in ISO 8601. */
+            asOf: string;
+            byAddress: components["schemas"]["AddressPnl"][];
+            byChain: components["schemas"]["ChainPnl"][];
+            byDexProtocol: components["schemas"]["DexProtocolPnl"][];
+            byLaunchpad: components["schemas"]["LaunchpadPnl"][];
+            /** @description Inclusive start of the selected closure range, in ISO 8601. */
+            from: string;
+            history: components["schemas"]["PnlHistory"];
+            /** @description Start of recorded active valuations, in ISO 8601. */
+            historyCoverageFrom: string;
+            range: components["schemas"]["PnlRange"];
+            /** @description Opaque identity of the accounting, price, and clock cut. */
+            revision: string;
+            totals: components["schemas"]["PnlTotals"];
+            unattributed: components["schemas"]["PnlUnattributed"];
+        };
         /** @description Aggregated trade statistics for supported chains, together with the authenticated user's recent confirmed swaps. */
         UserStats: {
             /** @description Trade statistics for each chain the user has traded on. */
@@ -11611,15 +13024,15 @@ export interface components {
         UserTradesLivecursorResponse: components["schemas"]["ActiveTradesResponse"] | components["schemas"]["CompletedTradesResponse"];
         /** @description Metadata for a user trade-list WebSocket update. It identifies the lifecycle event, affected trade-list scope, updated and removed trade IDs, and when the update was emitted. */
         UserTradesUpdateMeta: components["schemas"]["TradeWsTradesUpdateMeta"];
-        /** @description Identifies the wallet and supported chain for a `USER_BALANCE` WebSocket update and provides that wallet’s asset balance snapshot. */
+        /** @description Identifies the wallet and supported chain for a `USER_BALANCE` WebSocket update and provides the changed asset balances. */
         UserWalletBalanceUpdate: {
-            /** @description Balances for the wallet, each with the block height it was read at. */
+            /** @description Changed asset balances, including zero-balance removal signals, with their block heights. */
             assets: components["schemas"]["WalletAssetUpdate"][];
             /**
              * @description Chain the wallet is on.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Address of the wallet whose balances changed. */
             walletAddress: components["schemas"]["Address"];
         };
@@ -11630,7 +13043,7 @@ export interface components {
         };
         /** @description Successful result of selling a token from the authenticated user’s managed wallet. It contains the SELL execution, associated swap IDs, and the sell request details. */
         UserWalletSellResponse: components["schemas"]["SellExecution"];
-        /** @description Summary of the user's application-managed wallets, connected external wallets, and their combined asset value in USD. */
+        /** @description Complete current snapshot of the user's application-managed wallets, connected external wallets, and their combined asset value in USD. Wallet asset lists omit zero balances. */
         UserWalletsResponse: {
             /** @description Wallets the application manages for the user, keyed by chain. */
             appWallets: {
@@ -11659,7 +13072,7 @@ export interface components {
              * @description Recovery ID for the signature. `0` can also mean a reused coupon stored none.
              */
             recoveryId: number;
-            /** @description Signature authorizing the withdrawal, as an array of 64 bytes. */
+            /** @description Signature authorizing the withdrawal, as an array of bytes. 65 bytes on EVM, 64 on Solana. */
             signature: number[];
             /** @description Address of the token the coupon authorizes transferring. */
             token: components["schemas"]["Address"];
@@ -11702,12 +13115,12 @@ export interface components {
         };
         /** @description Identifies a wallet by its chain identifier and public key. */
         WaasWalletDto: {
-            /** @description Decimal string identifying the chain: "900" for Solana, or "137" for Polygon. */
+            /** @description Decimal string identifying the chain: "900" for Solana or "4663" for RH. */
             chainId: string;
             /** @description Public key identifying the wallet on the specified chain. */
             publicKey: string;
         };
-        /** @description A wallet address, base58-encoded for Solana. */
+        /** @description A wallet address: base58-encoded for Solana or 0x-prefixed hexadecimal for EVM-compatible chains. */
         WalletAddress: components["schemas"]["Address"];
         /** @description A wallet asset holding that identifies the asset and reports its balance, USD price, and total USD value. Numeric fields provide number display values, while corresponding `*Str` fields provide exact decimal representations. */
         WalletAsset: {
@@ -11763,7 +13176,7 @@ export interface components {
              * @description Chain the wallet is on.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Funding transfers for this page, newest first. */
             items: components["schemas"]["FundingEvent"][];
             summary: components["schemas"]["FundingSummary"] | null;
@@ -11833,7 +13246,7 @@ export interface components {
              * @description Chain containing the wallet address.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Address of the wallet. */
             walletAddress: components["schemas"]["Address"];
         };
@@ -11934,7 +13347,7 @@ export interface components {
              * @description Chain the wallet is on.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             committedThrough: components["schemas"]["ReadableTimestamp"] | null;
             /**
              * @description How far back the history reaches. Transfers before this are not
@@ -11951,16 +13364,16 @@ export interface components {
             /** @description Address of the wallet the history is for. */
             walletAddress: components["schemas"]["Address"];
         };
-        /** @description Request to submit a withdrawal transaction signed by the wallet. Provide the exact `transactionToSign` payload together with the wallet-produced `signature`. */
+        /** @description Request to submit a prepared withdrawal. Send the exact `transactionToSign` value. Send `signature` only when the prepare response has `signatureModel=client`. */
         WalletWithdrawConfirmRequest: {
-            /** @description The wallet's signature over `transactionToSign`. */
-            signature: string;
+            /** @description Optional linked-wallet signature over `transactionToSign`. It is required only when the prepare response has `signatureModel=client`. */
+            signature?: string | null;
             /** @description The `transactionToSign` string from the prepare step, sent back unchanged. */
             transactionToSign: string;
         };
         /** @description Result of submitting a signed wallet withdrawal, including the transaction signature and its confirmation state at response time. */
         WalletWithdrawConfirmResponse: {
-            /** @description Solana transaction signature for the broadcast withdrawal. Its presence does not mean the transaction confirmed. */
+            /** @description Network transaction identifier for the broadcast withdrawal. Its presence does not mean the transaction confirmed. */
             signature: string;
             /** @description `confirmed` means the transaction was seen on chain; `pending` means it was broadcast but the outcome is still unknown. */
             status: components["schemas"]["WalletWithdrawConfirmStatus"];
@@ -11970,20 +13383,24 @@ export interface components {
          * @enum {string}
          */
         WalletWithdrawConfirmStatus: "confirmed" | "pending";
-        /** @description Withdrawal request in one of two mutually exclusive forms: native SOL with `chain`, `withdrawNative` set to `true`, `amount`, and `destinationAddress`; or a Solana token with `chain`, `tokenAddress`, `amount`, and `destinationAddress`. */
+        /** @description Withdrawal request in one of two mutually exclusive forms: a native asset with `chain`, `withdrawNative` set to `true`, `amount`, and `destinationAddress`; or a token with `chain`, `tokenAddress`, `amount`, and `destinationAddress`. */
         WalletWithdrawRequest: components["schemas"]["NativeWalletWithdrawRequest"] | components["schemas"]["TokenWalletWithdrawRequest"];
-        /** @description Response for preparing a Solana wallet withdrawal. It includes the exact unsigned signing payload, the managed wallet that sends the funds, and the transaction's validity limit. The withdrawal has not been submitted or confirmed. */
+        /** @description Prepared withdrawal for SOL. It includes the exact transaction payload, the managed source wallet, and the required signature model. The withdrawal is not broadcast during this step. */
         WalletWithdrawResponse: {
             /**
              * Format: int64
              * @description Last Solana block height at which `transactionToSign` is still valid. Confirming after it returns HTTP 409.
              */
-            lastValidBlockHeight: number;
+            lastValidBlockHeight?: number | null;
+            /** @description Selects who must sign `transactionToSign` before confirmation. */
+            signatureModel: components["schemas"]["WalletWithdrawSignatureModel"];
             /** @description Address of the managed wallet sending the withdrawal, which is also the transaction signer. */
             sourceAddress: string;
-            /** @description Signing payload for the prepared withdrawal. Sign this exact string and send it back unchanged. */
+            /** @description Exact payload for the prepared withdrawal. Send it back unchanged. Sign it first only when `signatureModel` is `client`. */
             transactionToSign: string;
         };
+        /** @enum {string} */
+        WalletWithdrawSignatureModel: "client" | "server";
         /** @description Post-call all-time-high values for a watchlist call. The market-capitalization and price fields are the highest values observed after the call; native values use the pair’s native or quote-token currency. */
         WatchlistCallAth: {
             /** @description Peak market capitalization reached after the call. */
@@ -12013,10 +13430,10 @@ export interface components {
              */
             baseTokenAddress: string;
             /**
-             * @description Chain containing the base token: `SOL`.
+             * @description Chain containing the base token: `SOL` and `RH`.
              * @enum {string}
              */
-            baseTokenChain: "SOL";
+            baseTokenChain: "SOL" | "RH";
             /**
              * Format: int32
              * @description Decimals the base token uses on chain.
@@ -12033,10 +13450,10 @@ export interface components {
             /** @description ISO 8601 representation of the watchlist call time. */
             calledAtTimestampStr: string;
             /**
-             * @description Chain where the trading pair is located: `SOL`.
+             * @description Chain where the trading pair is located: `SOL` and `RH`.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Market cap now, divided by market cap when the call was made. `2` means it doubled. */
             currentMultiplier: number;
             devAddress: components["schemas"]["Address"] | null;
@@ -12065,10 +13482,10 @@ export interface components {
              */
             quoteTokenAddress: string;
             /**
-             * @description Chain containing the quote token: `SOL`.
+             * @description Chain containing the quote token: `SOL` and `RH`.
              * @enum {string}
              */
-            quoteTokenChain: "SOL";
+            quoteTokenChain: "SOL" | "RH";
             /**
              * Format: int32
              * @description Decimals the quote token uses on chain.
@@ -12080,12 +13497,30 @@ export interface components {
             quoteTokenSymbol: string;
         };
         /** @description A watchlist call record identified by `id`, with its originating source in `caller` and associated token, market, status, timing, and performance data in `callDetails`. */
-        WatchlistCallItem: {
-            /** @description Details associated with the call, including token and market information, timestamps, status flags, and post-call performance values. */
-            callDetails: components["schemas"]["WatchlistCallDetails"];
+        WatchlistCallItem: components["schemas"]["WatchlistCallItemBase"] & {
             /** @description Source that made the call. Use `type` to tell the source family. */
             caller: components["schemas"]["WatchlistCallSource"];
-            /** @description Stable identifier for the call, formatted `{sourceSegment}:{sourceId}:{chain}:{tokenAddress}:{callTimestampMicros}`. */
+            /**
+             * @description Present for an INTEGRATION call. Contains `integrationId` plus the dynamic custom fields stored when the call was accepted. Values are strings, numeric values, booleans, or lists of strings or numbers. Optional keys can be absent. Active schema changes do not rewrite historical call metadata.
+             * @example {
+             *       "integrationId": "7a3c6a78-1b2c-4d5e-8f90-123456789abc",
+             *       "followers": 1500,
+             *       "tags": [
+             *         "research",
+             *         "momentum"
+             *       ]
+             *     }
+             */
+            callerMeta?: {
+                /**
+                 * Format: uuid
+                 * @description ID of the integration that accepted this call. Matches caller.integrationId.
+                 */
+                integrationId: string;
+            } & {
+                [key: string]: components["schemas"]["CustomSignalMetadataValue"];
+            };
+            /** @description Stable call identifier. INTEGRATION calls use the accepted call UUID. Other watchlist calls use `{sourceSegment}:{sourceId}:{chain}:{tokenAddress}:{callTimestampMicros}`. */
             id: string;
         };
         /** @description Metadata for a watchlist call or update event, including its event type, source family, optional source identifier, and subscription scope. */
@@ -12104,10 +13539,16 @@ export interface components {
              * @description What made the call: a built-in caller, a Telegram chat, a user list, or a copy-trade wallet.
              * @enum {string}
              */
-            sourceType: "CALLER" | "TG" | "LIST" | "WALLET" | "THESIS";
+            sourceType: "INTEGRATION" | "CALLER" | "TG" | "LIST" | "WALLET" | "THESIS";
         };
-        /** @description Identifies what generated a watchlist call. Inspect `type` to determine whether the source is `CALLER`, `TG`, `LIST`, or `WALLET`. */
-        WatchlistCallSource: {
+        /** @description Identifies what generated a watchlist call. Inspect `type` to determine whether the source is `INTEGRATION`, `CALLER`, `TG`, `LIST`, or `WALLET`. */
+        WatchlistCallSource: ({
+            /**
+             * @description Indicates that a custom integration generated the call. This value is `INTEGRATION`.
+             * @enum {string}
+             */
+            type: "INTEGRATION";
+        } & components["schemas"]["IntegrationSourceIdentity"]) | {
             /** @description Stable identifier of the caller source that generated the call. */
             id: string;
             /** @description Current display name of the caller source that generated the call. */
@@ -12200,7 +13641,7 @@ export interface components {
              * @description Source family that produced the token call: `CALLER`, `TG`, `LIST`, or `WALLET`.
              * @enum {string}
              */
-            sourceType: "CALLER" | "TG" | "LIST" | "WALLET" | "THESIS";
+            sourceType: "INTEGRATION" | "CALLER" | "TG" | "LIST" | "WALLET" | "THESIS";
         };
         /** @description Watchlist feed pages grouped by source family. Each populated property contains a paginated feed; a property is `null` when its subrequest is unavailable. */
         WatchlistFeedPageFamily: {
@@ -12228,11 +13669,11 @@ export interface components {
             /** @description Filters and pagination cursor for the wallet-source watchlist feed. Null or omission uses the default query. This feed requires authentication. */
             wallets?: null | components["schemas"]["WatchlistFeedQuery"];
         };
-        /** @description Optional filters and pagination for watchlist feeds. Filter by caller, chain, swap direction, price, market cap, or multiplier. Supported chains are SOL; supported swap directions are BUY and SELL. */
+        /** @description Optional filters and pagination for watchlist feeds. Filter by caller, chain, swap direction, price, market cap, or multiplier. Supported chains are SOL and RH; supported swap directions are BUY and SELL. */
         WatchlistFeedQuery: {
             /** @description Caller IDs to filter by, repeated or comma-separated. The filter only applies when exactly one distinct ID remains. */
             callerIds?: string[];
-            /** @description Limits results to the specified chains: `SOL`. */
+            /** @description Limits results to the specified chains: `SOL` and `RH`. */
             chains?: components["schemas"]["Chain"][];
             /** @description Page to fetch. Omit it for the first page. A cursor only works with the filters it was issued for. */
             cursor?: string | null;
@@ -12258,7 +13699,7 @@ export interface components {
         };
         /** @description Optional filters for watchlist feeds and live subscriptions. They can restrict chains, current token price and USD market capitalization, the token’s since-call all-time-high multiplier, and wallet swap direction. */
         WatchlistFiltersCore: {
-            /** @description Restricts results to the specified chains. Supported values are `SOL`. */
+            /** @description Restricts results to the specified chains. Supported values are `SOL` and `RH`. */
             chains?: components["schemas"]["Chain"][];
             /** @description Inclusive upper bound for current market capitalization in USD, encoded as a decimal string. Omitted, `null`, blank, or whitespace-only values leave the bound unset. In HTTP feed search, 0 disables the bound and range values must be non-negative and ordered; in WebSocket live matching, 0 is an active bound and values are compared inclusively without those range checks. */
             maxMarketcap?: string | null;
@@ -12295,8 +13736,14 @@ export interface components {
              */
             type: "PAIR_UPDATE";
         };
-        /** @description Identifies the source of a TOKEN_CALL event. The `type` value identifies a caller (`CALLER`), Telegram (`TG`), or wallet (`WALLET`) source. */
-        WatchlistListTriggerSource: {
+        /** @description Identifies the source of a TOKEN_CALL event. The `type` value identifies a caller from a custom integration (`INTEGRATION`), a built-in caller (`CALLER`), Telegram (`TG`), or a wallet (`WALLET`). */
+        WatchlistListTriggerSource: ({
+            /**
+             * @description Identifies this as a custom integration source; always `INTEGRATION` in this variant.
+             * @enum {string}
+             */
+            type: "INTEGRATION";
+        } & components["schemas"]["IntegrationSourceIdentity"]) | {
             /** @description Identifier of the caller that produced the event. */
             id: string;
             /** @description Display name of the caller that produced the event. */
@@ -12450,61 +13897,10 @@ export interface components {
             tgLoginStatus?: null | components["schemas"]["FixedPageSource"];
         };
         /** @description Performance summary for one watchlist source over a ranking timeframe. */
-        WatchlistRankItem: {
+        WatchlistRankItem: components["schemas"]["WatchlistRankItemBase"] & {
             automation: components["schemas"]["TradeAutomation"];
-            /** @description Average return multiplier across calls in the timeframe. */
-            averageMultiplier: number;
-            /** @description Highest return multiplier across calls in the timeframe. */
-            highestMultiplier: number;
-            /** @description How long ago the latest call was made. */
-            latestCallAgeSeconds: number;
-            /** @description Time of the source’s most recent tracked call, in Unix epoch milliseconds. `0` (rendered as the 1970 epoch in `latestCallTimestampStr`) is a real value: the tracking service has no dated call for the source. Treat epoch-zero as "unknown", not as a call at the epoch. */
-            latestCallTimestamp: number;
-            /** @description Time of the latest call as an ISO 8601 timestamp string. */
-            latestCallTimestampStr: string;
-            /**
-             * Format: int64
-             * @description Number of tracked calls whose since-call high stayed below 2x. Always equals the `<2x` multiplier bucket’s count.
-             */
-            losses: number;
-            /** @description Complete distribution of the source’s tracked calls across fixed multiplier tiers. Win tiers (`100x` down to `2x`) count calls by the highest tier their since-call high reached; the `<2x` tier carries the losses — calls that never reached 2x. Every tier is always present (empty tiers have `count: 0`), and the tier counts sum to `totalCalls`. */
-            multiplierBuckets: {
-                /**
-                 * Format: int64
-                 * @description Number of calls assigned to the enclosing multiplier tier.
-                 */
-                count: number;
-                /** @description Multiplier tier label. The full set, always present in this order: `100x`, `50x`, `25x`, `15x`, `10x`, `5x`, `2x`, `<2x`. A winning call lands in the highest tier its since-call high reached; the `<2x` tier equals the source’s `losses`. */
-                tier: string;
-            }[];
-            /**
-             * Format: int32
-             * @description Composite quality score from 0 through 30, computed by the price-tracking service from the source’s win rate, average return, and highest return. The exact weighting is internal; treat the score as an opaque ranking value where higher is better. Score bounds are independent of the selected timeframe.
-             */
-            performanceScore: number;
             /** @description Identity of the ranked source. Use `type` to tell the source family. */
             source: components["schemas"]["WatchlistSourceIdentity"];
-            /**
-             * @description Window the ranking covers: `1d`, `3d`, `7d`, or `30d`.
-             * @enum {string}
-             */
-            timeframe: "1d" | "3d" | "7d" | "30d";
-            /** @description Best-performing call for this source and timeframe. Do not assume it is the first entry of `topCalls`. */
-            topCall: components["schemas"]["WatchlistRankTopCall"] | null;
-            /** @description Best-performing calls, best first. At most 5. */
-            topCalls: components["schemas"]["WatchlistRankTopCall"][];
-            /**
-             * Format: int64
-             * @description Number of calls included for the source within the selected ranking timeframe.
-             */
-            totalCalls: number;
-            /** @description Share of tracked calls that count as wins, in percentage points (`42` means 42%). A call is a win when its since-call high reaches at least 2x its call-time price; every other tracked call counts as a loss. Uses the selected timeframe’s calls. */
-            winRatePct: number;
-            /**
-             * Format: int64
-             * @description Number of tracked calls whose since-call high reached at least 2x. Matches the sum of the `2x` and higher multiplier buckets.
-             */
-            wins: number;
         };
         /** @description Identifies a chain token by its address, network, and display symbol. */
         WatchlistRankTokenIdentity: {
@@ -12517,7 +13913,7 @@ export interface components {
              * @description Chain for the token.
              * @enum {string}
              */
-            chain: "SOL";
+            chain: "SOL" | "RH";
             /** @description Display symbol for the token. */
             symbol: string;
         };
@@ -12687,8 +14083,14 @@ export interface components {
             /** @description Identifier of the source's avatar image. */
             photoId: string | null;
         };
-        /** @description Identifies the source associated with a watchlist entry. The `type` value selects the variant: `CALLER` and `LIST` provide `id` and `name`, `TG` provides Telegram identifiers, and `WALLET` provides `walletAddress` and `chain`. */
-        WatchlistSourceIdentity: {
+        /** @description Identifies the source associated with a watchlist entry. The `type` value selects the variant: `INTEGRATION` provides caller and integration identity fields, `CALLER` and `LIST` provide `id` and `name`, `TG` provides Telegram identifiers, and `WALLET` provides `walletAddress` and `chain`. `THESIS` identifies a thesis author by wallet address and thesis source. */
+        WatchlistSourceIdentity: ({
+            /**
+             * @description Identifies this object as a custom integration source; always `INTEGRATION`.
+             * @enum {string}
+             */
+            type: "INTEGRATION";
+        } & components["schemas"]["IntegrationSourceIdentity"]) | {
             /** @description Caller identifier (`caller_id`) for the CALLER source, returned as a string. */
             id: string;
             /** @description Display name of the caller source. */
@@ -12728,8 +14130,17 @@ export interface components {
             /** @enum {string} */
             type: "THESIS";
         } & components["schemas"]["ThesisSourceIdentity"]);
-        /** @description A watchlist source returned by source or list endpoints. The `type` value identifies the source variant: `CALLER`, `TG`, `LIST`, or `WALLET`; some variants include source-specific identity or `sourceDetails`. */
-        WatchlistSourceItem: {
+        /** @description A watchlist source returned by source or list endpoints. The `type` value identifies the source variant: `INTEGRATION`, `CALLER`, `TG`, `LIST`, `WALLET`, or `THESIS`; some variants include source-specific identity or `sourceDetails`. */
+        WatchlistSourceItem: ({
+            /**
+             * @description Identifies this item as a custom integration source; always `INTEGRATION`.
+             * @enum {string}
+             */
+            type: "INTEGRATION";
+        } & components["schemas"]["IntegrationSourceIdentity"] & {
+            /** @description Current bot automation state for this integration caller source. */
+            automation: components["schemas"]["TradeAutomation"];
+        }) | {
             automation: components["schemas"]["TradeAutomation"];
             /** @description Public identifier of the caller source. Use it to identify or select this `CALLER` source. */
             id: string;
@@ -12866,13 +14277,13 @@ export interface components {
              */
             totalCount?: number;
         };
-        /** @description Request payload for completing wallet sign-in. It must use one of two supported formats: Sign-In with Solana (SIWS), or legacy Solana signing. */
+        /** @description Request payload for completing wallet sign-in. It must use one of two supported formats: Solana Sign-In with Solana (SIWS), or EVM personal-sign/legacy Solana signing. */
         Web3SigninRequest: {
             /** @description Wallet address that produced the signature. */
             address: string;
-            /** @description Chain for the wallet signature: SOL. */
+            /** @description Chain for the wallet signature: SOL or RH. */
             chain: components["schemas"]["Chain"];
-            /** @description Optional decimal chain ID as a string. Surrounding whitespace is ignored, and the value must parse as an integer matching the selected chain; for this Solana SIWS branch, it must be `900`. If `null` or omitted, the selected chain’s expected ID is used. Sign-in is rejected for a non-integer or mismatched value. The supported chain ID is SOL `900`. */
+            /** @description Optional decimal chain ID as a string. Surrounding whitespace is ignored, and the value must parse as an integer matching the selected chain; for this Solana SIWS branch, it must be `900`. If `null` or omitted, the selected chain’s expected ID is used. Sign-in is rejected for a non-integer or mismatched value. Supported chain IDs are SOL `900` and RH `4663`. */
             chainId?: string | null;
             /** @description Identifier of the sign-in challenge being completed. */
             challengeId: string;
@@ -12894,9 +14305,9 @@ export interface components {
         } | {
             /** @description Wallet address that produced the signature. */
             address: string;
-            /** @description Chain for the wallet signature, such as SOL. */
+            /** @description Chain for the wallet signature, such as SOL or RH. */
             chain: components["schemas"]["Chain"];
-            /** @description Optional chain ID as a base-10 integer encoded as a string. Surrounding whitespace is trimmed before parsing, and the value must match the selected chain: SOL=900. If omitted or `null`, the selected chain's ID is used; non-integer or mismatched values are rejected. */
+            /** @description Optional chain ID as a base-10 integer encoded as a string. Surrounding whitespace is trimmed before parsing, and the value must match the selected chain: SOL=900 or RH=4663. If omitted or `null`, the selected chain's ID is used; non-integer or mismatched values are rejected. */
             chainId?: string | null;
             /** @description Identifier of the sign-in challenge being completed. */
             challengeId: string;
@@ -12907,13 +14318,13 @@ export interface components {
             /** @description Wallet signature proving that the wallet signed the supplied message. */
             signature: string;
             /**
-             * @description Signature format used for this request: solana_legacy.
+             * @description Signature format used for this request: evm_personal_sign or solana_legacy.
              * @enum {string}
              */
-            signatureProtocol: "solana_legacy";
-            /** @description Ignored and may be omitted for solana_legacy. For solana_siws, this structured SIWS input is required: domain, address, nonce, and `chainId` must be present and match the challenge; `chainId` must be mainnet, solana:mainnet, or 900. If provided, version must be 1, statement must not contain newlines, and uri must be a valid URL for the challenge domain. The SIWS message built from this input must equal the top-level message. */
+            signatureProtocol: "evm_personal_sign" | "solana_legacy";
+            /** @description Ignored and may be omitted for evm_personal_sign and solana_legacy. For solana_siws, this structured SIWS input is required: domain, address, nonce, and `chainId` must be present and match the challenge; `chainId` must be mainnet, solana:mainnet, or 900. If provided, version must be 1, statement must not contain newlines, and uri must be a valid URL for the challenge domain. The SIWS message built from this input must equal the top-level message. */
             siwsInput?: components["schemas"]["SiwsInput"];
-            /** @description Ignored and may be omitted for solana_legacy. For solana_siws, this structured SIWS output is required: account must identify the requested wallet, `signedMessage` must decode to the exact signed message, and signature must represent the same bytes as the top-level signature. If supplied, `signatureType` must be ed25519, case-insensitively. */
+            /** @description Ignored and may be omitted for evm_personal_sign and solana_legacy. For solana_siws, this structured SIWS output is required: account must identify the requested wallet, `signedMessage` must decode to the exact signed message, and signature must represent the same bytes as the top-level signature. If supplied, `signatureType` must be ed25519, case-insensitively. */
             siwsOutput?: components["schemas"]["SiwsOutput"];
         };
         /** @description Request to withdraw affiliate commissions or cashback to an authorized wallet on a supported chain. */
@@ -13068,10 +14479,40 @@ export interface components {
             topic: string;
         };
         /**
+         * WsBroadcastCustomSignalWatchlistFeedEvent
+         * @description Broadcast frame containing an integration-only Custom Signals replacement window.
+         */
+        WsBroadcastCustomSignalWatchlistFeedEvent: {
+            data: components["schemas"]["CustomSignalWatchlistFeedResponse"];
+            /**
+             * @description Event type. Always `WATCHLIST_FEED`.
+             * @enum {string}
+             */
+            event: "WATCHLIST_FEED";
+            meta: components["schemas"]["LivecursorWindowMeta"];
+            /** @description Custom Signals integration feed topic. */
+            topic: string;
+        };
+        /**
+         * WsBroadcastCustomSignalWatchlistRankingEvent
+         * @description Broadcast frame containing an integration-only Custom Signals replacement window.
+         */
+        WsBroadcastCustomSignalWatchlistRankingEvent: {
+            data: components["schemas"]["CustomSignalWatchlistRankingResponse"];
+            /**
+             * @description Event type. Always `WATCHLIST_RANKING`.
+             * @enum {string}
+             */
+            event: "WATCHLIST_RANKING";
+            meta: components["schemas"]["LivecursorWindowMeta"];
+            /** @description Custom Signals integration ranking topic. */
+            topic: string;
+        };
+        /**
          * WsBroadcastEvent
          * @description A live WebSocket message received after subscribing to a v2 topic. Use `event` to identify the payload type and `topic` to identify the subscription that produced the message.
          */
-        WsBroadcastEvent: components["schemas"]["WsBroadcastPegPricesEvent"] | components["schemas"]["WsBroadcastFeeEstimateEvent"] | components["schemas"]["WsBroadcastTwitterEventEvent"] | components["schemas"]["WsBroadcastLabeledWalletSwapEvent"] | components["schemas"]["WsBroadcastThesisEvent"] | components["schemas"]["WsBroadcastTokenCandleEvent"] | components["schemas"]["WsBroadcastTokenPriceEvent"] | components["schemas"]["WsBroadcastTokenStatsEvent"] | components["schemas"]["WsBroadcastTokenSwapsEvent"] | components["schemas"]["WsBroadcastTokenHolderCountEvent"] | components["schemas"]["WsBroadcastTokenHolderBalancesEvent"] | components["schemas"]["WsBroadcastTokenHoldersChangeEvent"] | components["schemas"]["WsBroadcastTokenHoldersEvent"] | components["schemas"]["WsBroadcastTokenTopTradersEvent"] | components["schemas"]["WsBroadcastTokenMigrationEvent"] | components["schemas"]["WsBroadcastChartMarkersEvent"] | components["schemas"]["WsBroadcastTokenDevTokensEvent"] | components["schemas"]["WsBroadcastTokenSafetyEvent"] | components["schemas"]["WsBroadcastTraderRankingEvent"] | components["schemas"]["WsBroadcastTraderOverviewEvent"] | components["schemas"]["WsBroadcastTraderSwapsEvent"] | components["schemas"]["WsBroadcastTraderTokenPnlEvent"] | components["schemas"]["WsBroadcastTraderTokenSwapsEvent"] | components["schemas"]["WsBroadcastTraderTokenPnlDetailEvent"] | components["schemas"]["WsBroadcastBotsLogsEvent"] | components["schemas"]["WsBroadcastBotsBalanceChangesEvent"] | components["schemas"]["WsBroadcastBotsEvent"] | components["schemas"]["WsBroadcastBotsStatsEvent"] | components["schemas"]["WsBroadcastBotsTradesEvent"] | components["schemas"]["WsBroadcastTradePresetsEvent"] | components["schemas"]["WsBroadcastUserSettingsEvent"] | components["schemas"]["WsBroadcastUserProfileEvent"] | components["schemas"]["WsBroadcastUserFavouritesEvent"] | components["schemas"]["WsBroadcastReferralCodeEvent"] | components["schemas"]["WsBroadcastReferralCommissionsSummaryEvent"] | components["schemas"]["WsBroadcastRewardsClaimedConfirmedEvent"] | components["schemas"]["WsBroadcastUserTgStatusEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatsEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatSendersEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatTopicsEvent"] | components["schemas"]["WsBroadcastTradeBuyCreatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuyCreatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellCreatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellCreatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuySubmittedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuySubmittedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellSubmittedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellSubmittedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapFinalizedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapFinalizedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradePriceUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetMetUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetMetUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSettingsUpdatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSettingsUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetAddedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetAddedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetUpdatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetRemovedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetRemovedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeAbortConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeAbortConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeCancelConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeCancelConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapQuickConfirmUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeUpdateErrorUserTradeUpdateErrorEvent"] | components["schemas"]["WsBroadcastUserBalanceEvent"] | components["schemas"]["WsBroadcastUserDepositEvent"] | components["schemas"]["WsBroadcastUserWithdrawEvent"] | components["schemas"]["WsBroadcastUserTradesEvent"] | components["schemas"]["WsBroadcastUserTgQrLoginEvent"] | components["schemas"]["WsBroadcastUserTgActionEvent"] | components["schemas"]["WsBroadcastWatchlistCallEvent"] | components["schemas"]["WsBroadcastWatchlistUpdateEvent"] | components["schemas"]["WsBroadcastWatchlistFeedEvent"] | components["schemas"]["WsBroadcastWatchlistSourcesEvent"] | components["schemas"]["WsBroadcastWatchlistRankingEvent"] | components["schemas"]["WsBroadcastTokenFeedCallEvent"] | components["schemas"]["WsBroadcastTokenFeedUpdateEvent"] | components["schemas"]["WsBroadcastTokenFeedEvent"] | components["schemas"]["WsBroadcastScannerTokensEvent"] | components["schemas"]["WsBroadcastScannerUpdateEvent"];
+        WsBroadcastEvent: components["schemas"]["WsBroadcastPegPricesEvent"] | components["schemas"]["WsBroadcastScannerOverviewEvent"] | components["schemas"]["WsBroadcastFeeEstimateEvent"] | components["schemas"]["WsBroadcastTwitterEventEvent"] | components["schemas"]["WsBroadcastLabeledWalletSwapEvent"] | components["schemas"]["WsBroadcastThesisEvent"] | components["schemas"]["WsBroadcastTokenCandleEvent"] | components["schemas"]["WsBroadcastTokenPriceEvent"] | components["schemas"]["WsBroadcastTokenStatsEvent"] | components["schemas"]["WsBroadcastTokenSwapsEvent"] | components["schemas"]["WsBroadcastTokenHolderCountEvent"] | components["schemas"]["WsBroadcastTokenHolderBalancesEvent"] | components["schemas"]["WsBroadcastTokenHoldersChangeEvent"] | components["schemas"]["WsBroadcastTokenHoldersEvent"] | components["schemas"]["WsBroadcastTokenTopTradersEvent"] | components["schemas"]["WsBroadcastTokenMigrationEvent"] | components["schemas"]["WsBroadcastChartMarkersEvent"] | components["schemas"]["WsBroadcastTokenDevTokensEvent"] | components["schemas"]["WsBroadcastTokenSafetyEvent"] | components["schemas"]["WsBroadcastTraderRankingEvent"] | components["schemas"]["WsBroadcastTraderOverviewEvent"] | components["schemas"]["WsBroadcastUserPnlEvent"] | components["schemas"]["WsBroadcastTraderSwapsEvent"] | components["schemas"]["WsBroadcastTraderTokenPnlEvent"] | components["schemas"]["WsBroadcastTraderTokenSwapsEvent"] | components["schemas"]["WsBroadcastTraderTokenPnlDetailEvent"] | components["schemas"]["WsBroadcastBotsLogsEvent"] | components["schemas"]["WsBroadcastBotsBalanceChangesEvent"] | components["schemas"]["WsBroadcastBotsEvent"] | components["schemas"]["WsBroadcastBotsStatsEvent"] | components["schemas"]["WsBroadcastBotsTradesEvent"] | components["schemas"]["WsBroadcastTradePresetsEvent"] | components["schemas"]["WsBroadcastUserSettingsEvent"] | components["schemas"]["WsBroadcastUserProfileEvent"] | components["schemas"]["WsBroadcastUserFavouritesEvent"] | components["schemas"]["WsBroadcastReferralCodeEvent"] | components["schemas"]["WsBroadcastReferralCommissionsSummaryEvent"] | components["schemas"]["WsBroadcastRewardsClaimedConfirmedEvent"] | components["schemas"]["WsBroadcastUserTgStatusEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatsEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatSendersEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatTopicsEvent"] | components["schemas"]["WsBroadcastTradeBuyCreatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuyCreatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellCreatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellCreatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuySubmittedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuySubmittedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellSubmittedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellSubmittedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapFinalizedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapFinalizedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradePriceUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetMetUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetMetUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSettingsUpdatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSettingsUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetAddedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetAddedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetUpdatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetRemovedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetRemovedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeAbortConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeAbortConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeCancelConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeCancelConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapQuickConfirmUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeUpdateErrorUserTradeUpdateErrorEvent"] | components["schemas"]["WsBroadcastUserBalanceEvent"] | components["schemas"]["WsBroadcastUserDepositEvent"] | components["schemas"]["WsBroadcastUserWithdrawEvent"] | components["schemas"]["WsBroadcastUserTradesEvent"] | components["schemas"]["WsBroadcastUserTgQrLoginEvent"] | components["schemas"]["WsBroadcastUserTgActionEvent"] | components["schemas"]["WsBroadcastWatchlistCallEvent"] | components["schemas"]["WsBroadcastWatchlistUpdateEvent"] | components["schemas"]["WsBroadcastWatchlistFeedEvent"] | components["schemas"]["WsBroadcastWatchlistSourcesEvent"] | components["schemas"]["WsBroadcastWatchlistRankingEvent"] | components["schemas"]["WsBroadcastTokenFeedCallEvent"] | components["schemas"]["WsBroadcastTokenFeedUpdateEvent"] | components["schemas"]["WsBroadcastTokenFeedEvent"] | components["schemas"]["WsBroadcastScannerTokensEvent"] | components["schemas"]["WsBroadcastScannerUpdateEvent"] | components["schemas"]["WsBroadcastCustomSignalWatchlistFeedEvent"] | components["schemas"]["WsBroadcastCustomSignalWatchlistRankingEvent"];
         /**
          * WsBroadcastFeeEstimateEvent
          * @description WebSocket message carrying `FEE_ESTIMATE` event data.
@@ -13108,7 +14549,7 @@ export interface components {
          * @description Live WebSocket frame emitted on the `peg-prices` topic when native-token prices are broadcast.
          */
         WsBroadcastPegPricesEvent: {
-            /** @description Native-token price data keyed by supported chain symbol: `SOL`. See `NativePricesResponse`. */
+            /** @description Native-token price data keyed by supported chain symbol: `SOL` and `RH`. See `NativePricesResponse`. */
             data: components["schemas"]["NativePricesResponse"];
             /**
              * @description Always `PEG_PRICES`; identifies this frame as a native-token price update on the v2 WebSocket.
@@ -13169,6 +14610,23 @@ export interface components {
             event: "REWARDS_CLAIMED_CONFIRMED";
             /** @description Authenticated user topic receiving this frame, formatted as `user:{userId}`, where `userId` is a UUID. */
             topic: string;
+        };
+        /**
+         * WsBroadcastScannerOverviewEvent
+         * @description WebSocket message carrying `SCANNER_OVERVIEW` event data.
+         */
+        WsBroadcastScannerOverviewEvent: {
+            data: components["schemas"]["MarketOverviewResponse"];
+            /**
+             * @description Event type. Always `SCANNER_OVERVIEW`.
+             * @enum {string}
+             */
+            event: "SCANNER_OVERVIEW";
+            /**
+             * @description Scanner market-statistics snapshot topic.
+             * @enum {string}
+             */
+            topic: "scanner:stats";
         };
         /**
          * WsBroadcastScannerTokensEvent
@@ -13264,7 +14722,7 @@ export interface components {
              * @enum {string}
              */
             event: "TOKEN_FEED_CALL";
-            /** @description Identifies the token and feed context for this event, including the chain (`SOL`) and token address. */
+            /** @description Identifies the token and feed context for this event, including the chain (`SOL` and `RH`) and token address. */
             meta: components["schemas"]["TokenWatchlistFeedMeta"];
             /** @description Token-scoped feed topic for this frame, formatted as `token:{chain}:{address}:feed`, where `{chain}` identifies the chain and `{address}` identifies the token represented by `data`. */
             topic: string;
@@ -13385,7 +14843,7 @@ export interface components {
             event: "TOKEN_MIGRATION";
             /** @description Chain and token address identifying the token associated with this migration broadcast. */
             meta: components["schemas"]["TokenTopicMeta"];
-            /** @description Token migration stream topic formatted as `token:{chain}:{address}:migration`. `{chain}` is `SOL`; `{address}` is the canonical token address. Subscribe to this exact topic to receive `TOKEN_MIGRATION` frames. */
+            /** @description Token migration stream topic formatted as `token:{chain}:{address}:migration`. `{chain}` is `SOL` or `RH`; `{address}` is the canonical token address. Subscribe to this exact topic to receive `TOKEN_MIGRATION` frames. */
             topic: string;
         };
         /**
@@ -14511,7 +15969,7 @@ export interface components {
             event: "TRADER_OVERVIEW";
             /** @description Metadata for the active live-update subscription window. `windowId` identifies the resolved window; `endCursor` is an empty string, and `startCursor` is omitted because trader overview subscriptions have no cursor selectors. */
             meta: components["schemas"]["LivecursorWindowMeta"];
-            /** @description Subscribed trader overview topic, formatted as `traders:{chain}:{wallet}:overview`, where `{chain}` is an uppercase supported symbol (`SOL`) and `{wallet}` is the normalized trader wallet address. */
+            /** @description Subscribed trader overview topic, formatted as `traders:{chain}:{wallet}:overview`, where `{chain}` is an uppercase supported symbol (`SOL` and `RH`) and `{wallet}` is the normalized trader wallet address. */
             topic: string;
         };
         /**
@@ -14666,6 +16124,24 @@ export interface components {
              * @enum {string}
              */
             topic: "user:favourites";
+        };
+        /**
+         * WsBroadcastUserPnlEvent
+         * @description WebSocket message carrying `USER_PNL` event data.
+         */
+        WsBroadcastUserPnlEvent: {
+            data: components["schemas"]["UserPnlResponse"];
+            /**
+             * @description Event type. Always `USER_PNL`.
+             * @enum {string}
+             */
+            event: "USER_PNL";
+            meta: components["schemas"]["LivecursorWindowMeta"];
+            /**
+             * @description Private live user P&L snapshot.
+             * @enum {string}
+             */
+            topic: "USER_PNL";
         };
         /**
          * WsBroadcastUserProfileEvent
@@ -14954,7 +16430,7 @@ export interface components {
          * @description Identifies the feature and payload represented by a server-sent WebSocket frame. This case-sensitive uppercase value is one of the defined event names, such as `TOKEN_PRICE`, `WATCHLIST_UPDATE`, `USER_BALANCE`, or `TWITTER_EVENT`.
          * @enum {string}
          */
-        WsEventType: "PEG_PRICES" | "FEE_ESTIMATE" | "TOKEN_CANDLE" | "TOKEN_DEV_TOKENS" | "TOKEN_SAFETY" | "TOKEN_PRICE" | "TOKEN_STATS" | "TOKEN_SWAPS" | "TOKEN_HOLDER_COUNT" | "TOKEN_HOLDER_BALANCES" | "TOKEN_HOLDERS_CHANGE" | "TOKEN_HOLDERS" | "TOKEN_TOP_TRADERS" | "TOKEN_MIGRATION" | "CHART_MARKERS" | "TRADER_RANKING" | "TRADER_OVERVIEW" | "TRADER_SWAPS" | "TRADER_TOKEN_PNL" | "TRADER_TOKEN_SWAPS" | "TRADER_TOKEN_PNL_DETAIL" | "USER_TRADE_UPDATE" | "USER_TRADE_UPDATE_ERROR" | "WATCHLIST_CALL" | "WATCHLIST_UPDATE" | "WATCHLIST_FEED" | "WATCHLIST_SOURCES" | "WATCHLIST_RANKING" | "TOKEN_FEED_CALL" | "TOKEN_FEED_UPDATE" | "TOKEN_FEED" | "USER_BALANCE" | "USER_DEPOSIT" | "USER_WITHDRAW" | "USER_TRADES_UPDATE" | "USER_TRADES" | "USER_TG_QR_LOGIN" | "USER_TG_ACTION" | "BOTS" | "BOTS_LOGS" | "BOTS_STATS" | "BOTS_BALANCE_CHANGES" | "BOTS_TRADES" | "TRADE_PRESETS" | "USER_SETTINGS" | "USER_PROFILE" | "USER_FAVOURITES" | "REFERRAL_CODE" | "REFERRAL_COMMISSIONS_SUMMARY" | "REWARDS_CLAIMED_CONFIRMED" | "USER_TG_STATUS" | "WATCHLIST_TG_CHATS" | "WATCHLIST_TG_CHAT_SENDERS" | "WATCHLIST_TG_CHAT_TOPICS" | "SCANNER_TOKENS" | "SCANNER_UPDATE" | "TWITTER_EVENT" | "LABELED_WALLET_SWAP" | "THESIS";
+        WsEventType: "PEG_PRICES" | "SCANNER_OVERVIEW" | "FEE_ESTIMATE" | "TOKEN_CANDLE" | "TOKEN_DEV_TOKENS" | "TOKEN_SAFETY" | "TOKEN_PRICE" | "TOKEN_STATS" | "TOKEN_SWAPS" | "TOKEN_HOLDER_COUNT" | "TOKEN_HOLDER_BALANCES" | "TOKEN_HOLDERS_CHANGE" | "TOKEN_HOLDERS" | "TOKEN_TOP_TRADERS" | "TOKEN_MIGRATION" | "CHART_MARKERS" | "TRADER_RANKING" | "TRADER_OVERVIEW" | "TRADER_SWAPS" | "TRADER_TOKEN_PNL" | "TRADER_TOKEN_SWAPS" | "TRADER_TOKEN_PNL_DETAIL" | "USER_TRADE_UPDATE" | "USER_TRADE_UPDATE_ERROR" | "WATCHLIST_CALL" | "WATCHLIST_UPDATE" | "WATCHLIST_FEED" | "WATCHLIST_SOURCES" | "WATCHLIST_RANKING" | "TOKEN_FEED_CALL" | "TOKEN_FEED_UPDATE" | "TOKEN_FEED" | "USER_BALANCE" | "USER_DEPOSIT" | "USER_WITHDRAW" | "USER_TRADES_UPDATE" | "USER_TRADES" | "USER_TG_QR_LOGIN" | "USER_TG_ACTION" | "BOTS" | "BOTS_LOGS" | "BOTS_STATS" | "BOTS_BALANCE_CHANGES" | "BOTS_TRADES" | "TRADE_PRESETS" | "USER_SETTINGS" | "USER_PROFILE" | "USER_PNL" | "USER_FAVOURITES" | "REFERRAL_CODE" | "REFERRAL_COMMISSIONS_SUMMARY" | "REWARDS_CLAIMED_CONFIRMED" | "USER_TG_STATUS" | "WATCHLIST_TG_CHATS" | "WATCHLIST_TG_CHAT_SENDERS" | "WATCHLIST_TG_CHAT_TOPICS" | "SCANNER_TOKENS" | "SCANNER_UPDATE" | "TWITTER_EVENT" | "LABELED_WALLET_SWAP" | "THESIS";
         /**
          * type=ping
          * @description Client-to-server keep-alive message. The server replies with a `pong` after all data queued before this ping has been written.
@@ -15228,7 +16704,7 @@ export interface components {
          * WsSubscribeCommand
          * @description Client-to-server WebSocket command that creates a subscription to a supported topic, with optional topic-specific parameters.
          */
-        WsSubscribeCommand: components["schemas"]["WsSubscribePageTerminalCommand"] | components["schemas"]["WsSubscribePageScannerCommand"] | components["schemas"]["WsSubscribePageSearchCommand"] | components["schemas"]["WsSubscribePageMemepoolCommand"] | components["schemas"]["WsSubscribePageWatchlistCommand"] | components["schemas"]["WsSubscribePageTradingCommand"] | components["schemas"]["WsSubscribePageBotsCommand"] | components["schemas"]["WsSubscribePageUserCommand"] | components["schemas"]["WsSubscribePageWalletCommand"] | components["schemas"]["WsSubscribeTradesActiveCommand"] | components["schemas"]["WsSubscribeTradesCompletedCommand"] | components["schemas"]["WsSubscribeTradePresetsCommand"] | components["schemas"]["WsSubscribeUserSettingsCommand"] | components["schemas"]["WsSubscribeUserWalletsCommand"] | components["schemas"]["WsSubscribeUserProfileCommand"] | components["schemas"]["WsSubscribeReferralCodeCommand"] | components["schemas"]["WsSubscribeReferralCommissionsSummaryCommand"] | components["schemas"]["WsSubscribeWatchlistTgLoginStatusCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatsCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatSendersCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatTopicsCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesAllCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesCallersCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesTgCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesListsCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingAllCommand"] | components["schemas"]["WsSubscribeWatchlistRankingCallersCommand"] | components["schemas"]["WsSubscribeWatchlistRankingTgCommand"] | components["schemas"]["WsSubscribeWatchlistRankingListsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingWalletsCommand"] | components["schemas"]["WsSubscribeUserFavouritesCommand"] | components["schemas"]["WsSubscribeBotsListCommand"] | components["schemas"]["WsSubscribeBotsStatsCommand"] | components["schemas"]["WsSubscribeBotsTradesActiveCommand"] | components["schemas"]["WsSubscribeBotsTradesCompletedCommand"] | components["schemas"]["WsSubscribeBotTradesActiveCommand"] | components["schemas"]["WsSubscribeBotTradesCompletedCommand"] | components["schemas"]["WsSubscribeBotsLogsCommand"] | components["schemas"]["WsSubscribeBotLogsCommand"] | components["schemas"]["WsSubscribeBotsBalanceChangesCommand"] | components["schemas"]["WsSubscribeBotBalanceChangesCommand"] | components["schemas"]["WsSubscribeTraderRankingCommand"] | components["schemas"]["WsSubscribeTraderOverviewCommand"] | components["schemas"]["WsSubscribeTraderSwapsCommand"] | components["schemas"]["WsSubscribeTraderTokenPnlCommand"] | components["schemas"]["WsSubscribeTraderTokenSwapsCommand"] | components["schemas"]["WsSubscribeTraderTokenPnlDetailCommand"] | components["schemas"]["WsSubscribeTwitterFeedCommand"] | components["schemas"]["WsSubscribeTwitterPersonalCommand"] | components["schemas"]["WsSubscribeWalletsFeedCommand"] | components["schemas"]["WsSubscribeWalletsPersonalCommand"] | components["schemas"]["WsSubscribeWalletsThesisCommand"] | components["schemas"]["WsSubscribeWalletsThesisPersonalCommand"] | components["schemas"]["WsSubscribePegPricesCommand"] | components["schemas"]["WsSubscribeFeeEstimateCommand"] | components["schemas"]["WsSubscribeTokenDevTokensCommand"] | components["schemas"]["WsSubscribeTokenSafetyCommand"] | components["schemas"]["WsSubscribeScannerTokensCommand"] | components["schemas"]["WsSubscribeScannerTrenchesCommand"] | components["schemas"]["WsSubscribeScannerLookupCommand"] | components["schemas"]["WsSubscribeTokenCandleDefaultCommand"] | components["schemas"]["WsSubscribeTokenCandleCommand"] | components["schemas"]["WsSubscribeTokenPriceCommand"] | components["schemas"]["WsSubscribeTokenStatsCommand"] | components["schemas"]["WsSubscribeTokenSwapsCommand"] | components["schemas"]["WsSubscribeTokenHoldersCommand"] | components["schemas"]["WsSubscribeTokenTopTradersCommand"] | components["schemas"]["WsSubscribeTokenMigrationCommand"] | components["schemas"]["WsSubscribeTokenChartMarkersCommand"] | components["schemas"]["WsSubscribeTokenFeedCommand"] | components["schemas"]["WsSubscribeTokenAllCommand"] | components["schemas"]["WsSubscribeWatchlistAllCommand"] | components["schemas"]["WsSubscribeWatchlistCallersCommand"] | components["schemas"]["WsSubscribeWatchlistCallersIdCommand"] | components["schemas"]["WsSubscribeWatchlistListsCommand"] | components["schemas"]["WsSubscribeWatchlistListsIdCommand"] | components["schemas"]["WsSubscribeWatchlistWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistWalletsIdCommand"] | components["schemas"]["WsSubscribeWatchlistTgCommand"] | components["schemas"]["WsSubscribeWatchlistTgFilterCommand"];
+        WsSubscribeCommand: components["schemas"]["WsSubscribeUserPnlCommand"] | components["schemas"]["WsSubscribePageTerminalCommand"] | components["schemas"]["WsSubscribePageScannerCommand"] | components["schemas"]["WsSubscribePageSearchCommand"] | components["schemas"]["WsSubscribePageMemepoolCommand"] | components["schemas"]["WsSubscribePageWatchlistCommand"] | components["schemas"]["WsSubscribePageTradingCommand"] | components["schemas"]["WsSubscribePageBotsCommand"] | components["schemas"]["WsSubscribePageUserCommand"] | components["schemas"]["WsSubscribePageWalletCommand"] | components["schemas"]["WsSubscribeTradesActiveCommand"] | components["schemas"]["WsSubscribeTradesCompletedCommand"] | components["schemas"]["WsSubscribeTradePresetsCommand"] | components["schemas"]["WsSubscribeUserSettingsCommand"] | components["schemas"]["WsSubscribeUserWalletsCommand"] | components["schemas"]["WsSubscribeUserProfileCommand"] | components["schemas"]["WsSubscribeReferralCodeCommand"] | components["schemas"]["WsSubscribeReferralCommissionsSummaryCommand"] | components["schemas"]["WsSubscribeWatchlistTgLoginStatusCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatsCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatSendersCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatTopicsCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesAllCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesCallersCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesTgCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesListsCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingAllCommand"] | components["schemas"]["WsSubscribeWatchlistRankingCallersCommand"] | components["schemas"]["WsSubscribeWatchlistRankingTgCommand"] | components["schemas"]["WsSubscribeWatchlistRankingListsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingIntegrationCommand"] | components["schemas"]["WsSubscribeUserFavouritesCommand"] | components["schemas"]["WsSubscribeBotsListCommand"] | components["schemas"]["WsSubscribeBotsStatsCommand"] | components["schemas"]["WsSubscribeBotsTradesActiveCommand"] | components["schemas"]["WsSubscribeBotsTradesCompletedCommand"] | components["schemas"]["WsSubscribeBotTradesActiveCommand"] | components["schemas"]["WsSubscribeBotTradesCompletedCommand"] | components["schemas"]["WsSubscribeBotsLogsCommand"] | components["schemas"]["WsSubscribeBotLogsCommand"] | components["schemas"]["WsSubscribeBotsBalanceChangesCommand"] | components["schemas"]["WsSubscribeBotBalanceChangesCommand"] | components["schemas"]["WsSubscribeTraderRankingCommand"] | components["schemas"]["WsSubscribeTraderOverviewCommand"] | components["schemas"]["WsSubscribeTraderSwapsCommand"] | components["schemas"]["WsSubscribeTraderTokenPnlCommand"] | components["schemas"]["WsSubscribeTraderTokenSwapsCommand"] | components["schemas"]["WsSubscribeTraderTokenPnlDetailCommand"] | components["schemas"]["WsSubscribeTwitterFeedCommand"] | components["schemas"]["WsSubscribeTwitterPersonalCommand"] | components["schemas"]["WsSubscribeWalletsFeedCommand"] | components["schemas"]["WsSubscribeWalletsPersonalCommand"] | components["schemas"]["WsSubscribeWalletsThesisCommand"] | components["schemas"]["WsSubscribeWalletsThesisPersonalCommand"] | components["schemas"]["WsSubscribePegPricesCommand"] | components["schemas"]["WsSubscribeScannerStatsCommand"] | components["schemas"]["WsSubscribeFeeEstimateCommand"] | components["schemas"]["WsSubscribeTokenDevTokensCommand"] | components["schemas"]["WsSubscribeTokenSafetyCommand"] | components["schemas"]["WsSubscribeScannerTokensCommand"] | components["schemas"]["WsSubscribeScannerTrenchesCommand"] | components["schemas"]["WsSubscribeScannerLookupCommand"] | components["schemas"]["WsSubscribeTokenCandleDefaultCommand"] | components["schemas"]["WsSubscribeTokenCandleCommand"] | components["schemas"]["WsSubscribeTokenPriceCommand"] | components["schemas"]["WsSubscribeTokenStatsCommand"] | components["schemas"]["WsSubscribeTokenSwapsCommand"] | components["schemas"]["WsSubscribeTokenHoldersCommand"] | components["schemas"]["WsSubscribeTokenTopTradersCommand"] | components["schemas"]["WsSubscribeTokenMigrationCommand"] | components["schemas"]["WsSubscribeTokenChartMarkersCommand"] | components["schemas"]["WsSubscribeTokenFeedCommand"] | components["schemas"]["WsSubscribeTokenAllCommand"] | components["schemas"]["WsSubscribeWatchlistAllCommand"] | components["schemas"]["WsSubscribeWatchlistCallersCommand"] | components["schemas"]["WsSubscribeWatchlistCallersIdCommand"] | components["schemas"]["WsSubscribeWatchlistIntegrationsCommand"] | components["schemas"]["WsSubscribeWatchlistIntegrationsIdCommand"] | components["schemas"]["WsSubscribeWatchlistIntegrationsIdCallerCommand"] | components["schemas"]["WsSubscribeWatchlistListsCommand"] | components["schemas"]["WsSubscribeWatchlistListsIdCommand"] | components["schemas"]["WsSubscribeWatchlistWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistWalletsIdCommand"] | components["schemas"]["WsSubscribeWatchlistTgCommand"] | components["schemas"]["WsSubscribeWatchlistTgFilterCommand"];
         /**
          * WsSubscribeFeeEstimateCommand
          * @description Subscribe command for `fee-estimate:{chain}`.
@@ -15337,7 +16813,7 @@ export interface components {
             /** @description Optional client-supplied string identifier. When provided, the server echoes it in the subscription acknowledgment or related error response. */
             requestId?: string;
             /**
-             * @description Terminal subscription topic in the form `page:terminal:{chain}:{address}`. `{chain}` must be `SOL`; `{address}` must be non-empty and contain no `:`.
+             * @description Terminal subscription topic in the form `page:terminal:{chain}:{address}`. `{chain}` must be `SOL` or `RH`; `{address}` must be non-empty and contain no `:`.
              * @example page:terminal:SOL:<address>
              */
             topic: string;
@@ -15502,6 +16978,17 @@ export interface components {
             type: "subscribe";
         };
         /**
+         * WsSubscribeScannerStatsCommand
+         * @description Subscribe command for `scanner:stats`.
+         */
+        WsSubscribeScannerStatsCommand: {
+            requestId?: string;
+            /** @enum {string} */
+            topic: "scanner:stats";
+            /** @enum {string} */
+            type: "subscribe";
+        };
+        /**
          * WsSubscribeScannerTokensCommand
          * @description WebSocket command to subscribe to `scanner:tokens` updates. Set `type` to `subscribe` and `topic` to `scanner:tokens`; optionally provide scanner filters and pagination in `params`.
          */
@@ -15549,7 +17036,7 @@ export interface components {
             /** @description Optional client-supplied identifier echoed in the `subscribed` acknowledgement or subscription error. If omitted, no identifier is returned. */
             requestId?: string;
             /**
-             * @description Catch-all token topic in the form `token:{chain}:{address}`. `{chain}` must be `SOL`; `{address}` is the token identifier.
+             * @description Catch-all token topic in the form `token:{chain}:{address}`. `{chain}` must be `SOL` or `RH`; `{address}` is the token identifier.
              * @example token:SOL:So11111111111111111111111111111111111111112
              */
             topic: string;
@@ -15567,7 +17054,7 @@ export interface components {
             /** @description Optional client-provided value echoed in the server's `subscribed` acknowledgement or any resulting subscription error to correlate the response with this command. Responses omit `requestId` when it is not provided. */
             requestId?: string;
             /**
-             * @description Mode-specific token candle topic in the format `token:{chain}:{address}:candle:{timeframe}:{mode}`. `{chain}` must be `SOL`; `{address}` is a token or pair address without `:`; `{timeframe}` must be `1s`, `5s`, `15s`, `30s`, `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `6h`, `12h`, or `24h`; and `{mode}` must be `price` or `marketCap`. Example: `token:SOL:So11111111111111111111111111111111111111112:candle:5m:marketCap`.
+             * @description Mode-specific token candle topic in the format `token:{chain}:{address}:candle:{timeframe}:{mode}`. `{chain}` must be `SOL` or `RH`; `{address}` is a token or pair address without `:`; `{timeframe}` must be `1s`, `5s`, `15s`, `30s`, `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `6h`, `12h`, or `24h`; and `{mode}` must be `price` or `marketCap`. Example: `token:SOL:So11111111111111111111111111111111111111112:candle:5m:marketCap`.
              * @example token:SOL:So11111111111111111111111111111111111111112:candle:5m:marketCap
              */
             topic: string;
@@ -15585,7 +17072,7 @@ export interface components {
             /** @description Optional client-supplied string echoed in the `subscribed` acknowledgment or an error response for correlation. If omitted or `null`, those responses omit `requestId`; no additional format is required. */
             requestId?: string;
             /**
-             * @description Token candle subscription topic in the form `token:{chain}:{address}:candle:{timeframe}`. `{chain}` must be `SOL`; `{address}` must not contain a colon; and `{timeframe}` must be `1s`, `5s`, `15s`, `30s`, `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `6h`, `12h`, or `24h`. The unsuffixed form subscribes to price candles.
+             * @description Token candle subscription topic in the form `token:{chain}:{address}:candle:{timeframe}`. `{chain}` must be `SOL` or `RH`; `{address}` must not contain a colon; and `{timeframe}` must be `1s`, `5s`, `15s`, `30s`, `1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `6h`, `12h`, or `24h`. The unsuffixed form subscribes to price candles.
              * @example token:SOL:So11111111111111111111111111111111111111112:candle:5m
              */
             topic: string;
@@ -15624,7 +17111,7 @@ export interface components {
             /** @description Optional opaque client identifier. When provided, it is echoed in the subscription acknowledgement and in errors for this command. If omitted, responses omit this field. No format or uniqueness is required. */
             requestId?: string;
             /**
-             * @description Token developer-token topic in the form `token:{chain}:{address}:dev_tokens`, where `{chain}` is `SOL`, and `{address}` contains no colon.
+             * @description Token developer-token topic in the form `token:{chain}:{address}:dev_tokens`, where `{chain}` is `SOL` or `RH`, and `{address}` contains no colon.
              * @example token:SOL:So11111111111111111111111111111111111111112:dev_tokens
              */
             topic: string;
@@ -15644,7 +17131,7 @@ export interface components {
             /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. No format or length constraint applies. */
             requestId?: string;
             /**
-             * @description Token feed topic in the form `token:{chain}:{address}:feed`. The chain must be `SOL`, and the address cannot contain a colon.
+             * @description Token feed topic in the form `token:{chain}:{address}:feed`. The chain must be `SOL` or `RH`, and the address cannot contain a colon.
              * @example token:SOL:So11111111111111111111111111111111111111112:feed
              */
             topic: string;
@@ -15664,7 +17151,7 @@ export interface components {
             /** @description Optional client-supplied identifier for correlating this subscribe request with the server response. When provided, it is echoed in the subscribed acknowledgement or an error response; when omitted, no request identifier is included. */
             requestId?: string;
             /**
-             * @description Token holder event topic in the form `token:{chain}:{address}:holders`, where `chain` is `SOL`, and `address` is the token address without a colon.
+             * @description Token holder event topic in the form `token:{chain}:{address}:holders`, where `chain` is `SOL` or `RH`, and `address` is the token address without a colon.
              * @example token:SOL:So11111111111111111111111111111111111111112:holders
              */
             topic: string;
@@ -15682,7 +17169,7 @@ export interface components {
             /** @description Optional client-supplied string echoed in the `subscribed` acknowledgement or subscription error to correlate the response with the request. The server also accepts the legacy `request_id` input name. */
             requestId?: string;
             /**
-             * @description Migration-event topic in the form `token:{chain}:{address}:migration`. `{chain}` must be `SOL`; `{address}` must be a token or resolvable pair address without colons. Resolvable addresses are canonicalized before subscription.
+             * @description Migration-event topic in the form `token:{chain}:{address}:migration`. `{chain}` must be `SOL` or `RH`; `{address}` must be a token or resolvable pair address without colons. Resolvable addresses are canonicalized before subscription.
              * @example token:SOL:So11111111111111111111111111111111111111112:migration
              */
             topic: string;
@@ -15700,7 +17187,7 @@ export interface components {
             /** @description Optional client-supplied identifier for correlating the subscription request. When provided, the server echoes it in the `subscribed` acknowledgement or any subscribe error; when omitted, responses omit `requestId`. */
             requestId?: string;
             /**
-             * @description Token price topic identifying the chain and token address: `token:{chain}:{address}:price`. `{chain}` must be `SOL`; the address must not contain `:`.
+             * @description Token price topic identifying the chain and token address: `token:{chain}:{address}:price`. `{chain}` must be `SOL` or `RH`; the address must not contain `:`.
              * @example token:SOL:So11111111111111111111111111111111111111112:price
              */
             topic: string;
@@ -15718,7 +17205,7 @@ export interface components {
             /** @description Optional client-supplied correlation identifier for the subscription request. If provided, it is echoed unchanged in the successful `subscribed` acknowledgement; if omitted, the acknowledgement omits this field. */
             requestId?: string;
             /**
-             * @description Token-safety subscription topic in the form `token:{chain}:{address}:safety`. `{chain}` must be `SOL`; `{address}` identifies the token or pair and must not contain a colon.
+             * @description Token-safety subscription topic in the form `token:{chain}:{address}:safety`. `{chain}` must be `SOL` or `RH`; `{address}` identifies the token or pair and must not contain a colon.
              * @example token:SOL:So11111111111111111111111111111111111111112:safety
              */
             topic: string;
@@ -15736,7 +17223,7 @@ export interface components {
             /** @description Optional client-provided correlation identifier. When provided, it is echoed in the subscription acknowledgement or an error response; `request_id` is also accepted as a legacy name. */
             requestId?: string;
             /**
-             * @description Token statistics subscription topic in the form `token:{chain}:{address}:stats`, using `SOL` as the chain. The address must not contain `:` and may identify a token or pair; pair addresses are accepted as aliases and acknowledged using the canonical token topic. The topic resolves to `TOKEN_STATS` events.
+             * @description Token statistics subscription topic in the form `token:{chain}:{address}:stats`, using `SOL` and `RH` as the chain. The address must not contain `:` and may identify a token or pair; pair addresses are accepted as aliases and acknowledged using the canonical token topic. The topic resolves to `TOKEN_STATS` events.
              * @example token:SOL:So11111111111111111111111111111111111111112:stats
              */
             topic: string;
@@ -15756,7 +17243,7 @@ export interface components {
             /** @description Optional client-supplied identifier echoed in the subscription acknowledgement or, when available, an error response for this request. */
             requestId?: string;
             /**
-             * @description Token swap subscription topic in the form `token:{chain}:{address}:swaps`. `{chain}` must be `SOL`; `{address}` is the token address.
+             * @description Token swap subscription topic in the form `token:{chain}:{address}:swaps`. `{chain}` must be `SOL` or `RH`; `{address}` is the token address.
              * @example token:SOL:So11111111111111111111111111111111111111112:swaps
              */
             topic: string;
@@ -15774,7 +17261,7 @@ export interface components {
             /** @description Optional client-supplied string echoed in the subscription acknowledgement or subscription error response to correlate it with this request. If omitted, the response omits `requestId`. */
             requestId?: string;
             /**
-             * @description Topic for top-trader updates in the form `token:{chain}:{address}:top_traders`, using `SOL` as the chain. The address may identify a token or pair; pair addresses are resolved to the canonical token address. Do not add topic segments or send `params`, including cursor or window parameters.
+             * @description Topic for top-trader updates in the form `token:{chain}:{address}:top_traders`, using `SOL` and `RH` as the chain. The address may identify a token or pair; pair addresses are resolved to the canonical token address. Do not add topic segments or send `params`, including cursor or window parameters.
              * @example token:SOL:So11111111111111111111111111111111111111112:top_traders
              */
             topic: string;
@@ -15812,7 +17299,7 @@ export interface components {
             /** @description Optional client-supplied identifier echoed in the `subscribed` acknowledgement or an error response for this subscription request. If omitted, responses omit `requestId`. */
             requestId?: string;
             /**
-             * @description Trader overview topic identifying the chain and wallet to monitor, in the form `traders:{chain}:{wallet}:overview`. `{chain}` must be `SOL`, and `{wallet}` is the wallet-address segment and must not contain `:`.
+             * @description Trader overview topic identifying the chain and wallet to monitor, in the form `traders:{chain}:{wallet}:overview`. `{chain}` must be `SOL` or `RH`, and `{wallet}` is the wallet-address segment and must not contain `:`.
              * @example traders:SOL:11111111111111111111111111111111:overview
              */
             topic: string;
@@ -15844,7 +17331,7 @@ export interface components {
         };
         /**
          * WsSubscribeTraderSwapsCommand
-         * @description WebSocket command for subscribing to a trader wallet’s swap-history stream on SOL.
+         * @description WebSocket command for subscribing to a trader wallet’s swap-history stream on SOL and RH.
          */
         WsSubscribeTraderSwapsCommand: {
             /** @description Optional parameters for the trader swaps live query. Set `endCursor` to subscribe from a specific pagination position; omit `params`, set it to `null`, or omit `endCursor` to start without a cursor. Unknown properties are rejected. */
@@ -15852,7 +17339,7 @@ export interface components {
             /** @description Optional client-provided string used to correlate this subscription request with the server’s `subscribed` acknowledgement or an error response. */
             requestId?: string;
             /**
-             * @description Topic identifying a trader wallet’s swap-history stream. Use `traders:{chain}:{wallet}:swaps`, with `SOL` as `{chain}` and a valid trader address as `{wallet}`.
+             * @description Topic identifying a trader wallet’s swap-history stream. Use `traders:{chain}:{wallet}:swaps`, with `SOL` and `RH` as `{chain}` and a valid trader address as `{wallet}`.
              * @example traders:SOL:11111111111111111111111111111111:swaps
              */
             topic: string;
@@ -15872,7 +17359,7 @@ export interface components {
             /** @description Optional client-supplied identifier echoed in the `subscribed` acknowledgement or an error response for this subscription request. It does not change subscription behavior. */
             requestId?: string;
             /**
-             * @description Trader token-position PnL topic in the form `traders:{chain}:{wallet}:tokens`. `chain` must be `SOL`, and `wallet` must be a wallet identifier without a colon.
+             * @description Trader token-position PnL topic in the form `traders:{chain}:{wallet}:tokens`. `chain` must be `SOL` or `RH`, and `wallet` must be a wallet identifier without a colon.
              * @example traders:SOL:11111111111111111111111111111111:tokens
              */
             topic: string;
@@ -15892,7 +17379,7 @@ export interface components {
             /** @description Optional client-supplied correlation string, echoed unchanged in the `subscribed` acknowledgement or `error` response. The legacy `request_id` spelling is also accepted; no format or length constraint applies. */
             requestId?: string;
             /**
-             * @description Topic for the trader-token PnL detail stream, formatted as `traders:{chain}:{wallet}:tokens:{token}:pnl`. Use `SOL` for `{chain}`, and provide the trader wallet and token addresses for `{wallet}` and `{token}`.
+             * @description Topic for the trader-token PnL detail stream, formatted as `traders:{chain}:{wallet}:tokens:{token}:pnl`. Use `SOL` and `RH` for `{chain}`, and provide the trader wallet and token addresses for `{wallet}` and `{token}`.
              * @example traders:SOL:11111111111111111111111111111111:tokens:So11111111111111111111111111111111111111112:pnl
              */
             topic: string;
@@ -15912,7 +17399,7 @@ export interface components {
             /** @description Optional client-supplied string used to correlate the subscribe command. When provided, the server echoes it in the `subscribed` acknowledgement or an error response for the command. */
             requestId?: string;
             /**
-             * @description Topic identifying swap updates for one wallet and token: `traders:{chain}:{wallet}:tokens:{token}:swaps`. Use `SOL` for `{chain}`, and replace the other placeholders with the wallet and token addresses.
+             * @description Topic identifying swap updates for one wallet and token: `traders:{chain}:{wallet}:tokens:{token}:swaps`. Use `SOL` and `RH` for `{chain}`, and replace the other placeholders with the wallet and token addresses.
              * @example traders:SOL:11111111111111111111111111111111:tokens:So11111111111111111111111111111111111111112:swaps
              */
             topic: string;
@@ -16020,6 +17507,18 @@ export interface components {
              * @description Identifies this message as a subscription request.
              * @enum {string}
              */
+            type: "subscribe";
+        };
+        /**
+         * WsSubscribeUserPnlCommand
+         * @description Subscribe command for `USER_PNL`.
+         */
+        WsSubscribeUserPnlCommand: {
+            params: components["schemas"]["UserPnlParams"];
+            requestId?: string;
+            /** @enum {string} */
+            topic: "USER_PNL";
+            /** @enum {string} */
             type: "subscribe";
         };
         /**
@@ -16185,6 +17684,48 @@ export interface components {
             type: "subscribe";
         };
         /**
+         * WsSubscribeWatchlistIntegrationsCommand
+         * @description Subscribe command for `watchlist:integrations`.
+         */
+        WsSubscribeWatchlistIntegrationsCommand: {
+            params?: components["schemas"]["AllCustomSignalsFeedLivecursorParams"] | null;
+            requestId?: string;
+            /** @enum {string} */
+            topic: "watchlist:integrations";
+            /** @enum {string} */
+            type: "subscribe";
+        };
+        /**
+         * WsSubscribeWatchlistIntegrationsIdCallerCommand
+         * @description Subscribe command for `watchlist:integrations:{integrationId}:{callerId}`.
+         */
+        WsSubscribeWatchlistIntegrationsIdCallerCommand: {
+            params?: components["schemas"]["CustomSignalFeedLivecursorParams"] | null;
+            requestId?: string;
+            /**
+             * @description Topic matching `watchlist:integrations:{integrationId}:{callerId}`.
+             * @example watchlist:integrations:550e8400-e29b-41d4-a716-446655440000:650e8400-e29b-41d4-a716-446655440000
+             */
+            topic: string;
+            /** @enum {string} */
+            type: "subscribe";
+        };
+        /**
+         * WsSubscribeWatchlistIntegrationsIdCommand
+         * @description Subscribe command for `watchlist:integrations:{integrationId}`.
+         */
+        WsSubscribeWatchlistIntegrationsIdCommand: {
+            params?: components["schemas"]["CustomSignalFeedLivecursorParams"] | null;
+            requestId?: string;
+            /**
+             * @description Topic matching `watchlist:integrations:{integrationId}`.
+             * @example watchlist:integrations:550e8400-e29b-41d4-a716-446655440000
+             */
+            topic: string;
+            /** @enum {string} */
+            type: "subscribe";
+        };
+        /**
          * WsSubscribeWatchlistListsCommand
          * @description Subscribe to live watchlist call and update events for the authenticated user's list sources.
          */
@@ -16262,6 +17803,21 @@ export interface components {
              * @description Subscription command type for the `watchlist:ranking:callers` WebSocket topic.
              * @enum {string}
              */
+            type: "subscribe";
+        };
+        /**
+         * WsSubscribeWatchlistRankingIntegrationCommand
+         * @description Subscribe command for `watchlist:ranking:integrations:{integrationId}`.
+         */
+        WsSubscribeWatchlistRankingIntegrationCommand: {
+            params?: components["schemas"]["WatchlistRankingLivecursorParams"] | null;
+            requestId?: string;
+            /**
+             * @description Topic matching `watchlist:ranking:integrations:{integrationId}`.
+             * @example watchlist:ranking:integrations:550e8400-e29b-41d4-a716-446655440000
+             */
+            topic: string;
+            /** @enum {string} */
             type: "subscribe";
         };
         /**
@@ -17492,7 +19048,7 @@ export interface components {
          * @description WebSocket command that replaces the `stats` source parameters on an existing authenticated bots-page subscription identified by `subId`. It updates the live feed without creating a new subscription or changing the page subscription topic.
          */
         WsUpdateSourceStatsCommand: {
-            /** @description Parameters that replace the `stats` source. You can optionally filter statistics by `sourceType` (`CALLER`, `TG`, `LIST`, or `WALLET`) and `chain` (`SOL`). Omit either field or set it to `null` to apply no filter for that dimension. The replacement parameters are validated before they are applied. */
+            /** @description Parameters that replace the `stats` source. You can optionally filter statistics by `sourceType` (`CALLER`, `TG`, `LIST`, or `WALLET`) and `chain` (`SOL` and `RH`). Omit either field or set it to `null` to apply no filter for that dimension. The replacement parameters are validated before they are applied. */
             params: components["schemas"]["BotsStatsPageSource"];
             /** @description Optional client-supplied identifier echoed in the corresponding `source_updated` or `error` response to correlate this command. */
             requestId?: string;
@@ -17799,6 +19355,216 @@ export interface components {
             txHash: string;
             usdValue: string;
         };
+        /** @description A caller from the requested custom integration. The source type is always INTEGRATION. */
+        CustomSignalWatchlistSourceItem: components["schemas"]["IntegrationSourceIdentity"] & {
+            /**
+             * @description Identifies a caller from a custom integration.
+             * @enum {string}
+             */
+            type: "INTEGRATION";
+            /** @description Bot attribution visible to the requesting user for this integration caller. */
+            automation: components["schemas"]["CustomSignalTradeAutomation"];
+        };
+        /** @description Up to 15 callers from the requested integration, newest creation time first, then descending caller ID. */
+        CustomSignalWatchlistSourcesResponse: {
+            /** @description Cursor supplied in this request, or an empty string for the first page. */
+            cursor: string;
+            /** @description Cursor for the next page. Absent when there are no more callers. Reuse it with the same organization, integration, and normalized search. */
+            nextCursor?: string;
+            /** @description Callers from this integration, or an empty array when no callers match. */
+            sources: components["schemas"]["CustomSignalWatchlistSourceItem"][];
+        };
+        CustomSignalGeneratedAddressSchema: {
+            /** @constant */
+            type: "string";
+        };
+        CustomSignalGeneratedChainSchema: {
+            /** @constant */
+            type: "string";
+            /** @description Chain names configured when this schema revision was published. */
+            enum: components["schemas"]["Chain"][];
+        };
+        CustomSignalGeneratedCallerNameSchema: {
+            /** @constant */
+            type: "string";
+            /** @constant */
+            minLength: 1;
+            /** @constant */
+            "x-opendex-normalization": "trim-unicode-whitespace-then-nfc";
+            /** @constant */
+            "x-opendex-normalized-max-length": 256;
+        };
+        CustomSignalGeneratedAvatarSchema: {
+            /** @constant */
+            type: [
+                "string",
+                "null"
+            ];
+        };
+        CustomSignalGeneratedStringSchema: {
+            /** @constant */
+            type: "string";
+            /** @constant */
+            minLength: 1;
+            /** @constant */
+            "x-opendex-normalization": "trim-unicode-whitespace-then-nfc";
+            /** @constant */
+            "x-opendex-normalized-max-length": 2048;
+        };
+        CustomSignalGeneratedEnumSchema: {
+            /** @constant */
+            type: "string";
+            /** @constant */
+            minLength: 1;
+            /** @constant */
+            "x-opendex-normalization": "trim-unicode-whitespace-then-nfc";
+            /** @constant */
+            "x-opendex-normalized-max-length": 256;
+            "x-opendex-enum-values": string[];
+            /** @constant */
+            "x-opendex-enum-match": "trim-nfc-then-unicode-default-case-fold";
+        };
+        CustomSignalGeneratedNumberSchema: {
+            /** @constant */
+            type: "number";
+            /** @constant */
+            "x-opendex-max-integer-digits": 20;
+            /** @constant */
+            "x-opendex-max-fractional-digits": 18;
+            minimum?: components["schemas"]["ExactDecimal"];
+            maximum?: components["schemas"]["ExactDecimal"];
+            /** @constant */
+            multipleOf?: 1;
+        };
+        CustomSignalGeneratedBooleanSchema: {
+            /** @constant */
+            type: "boolean";
+        };
+        CustomSignalGeneratedStringListSchema: {
+            /** @constant */
+            type: "array";
+            /** @constant */
+            maxItems: 64;
+            /** @constant */
+            uniqueItems: true;
+            items: components["schemas"]["CustomSignalGeneratedStringSchema"];
+        };
+        CustomSignalGeneratedEnumListSchema: {
+            /** @constant */
+            type: "array";
+            /** @constant */
+            maxItems: 64;
+            /** @constant */
+            uniqueItems: true;
+            items: components["schemas"]["CustomSignalGeneratedEnumSchema"];
+        };
+        CustomSignalGeneratedNumberListSchema: {
+            /** @constant */
+            type: "array";
+            /** @constant */
+            maxItems: 64;
+            /** @constant */
+            uniqueItems: true;
+            items: components["schemas"]["CustomSignalGeneratedNumberSchema"];
+        };
+        CustomSignalGeneratedMetadataSchema: components["schemas"]["CustomSignalGeneratedStringSchema"] | components["schemas"]["CustomSignalGeneratedEnumSchema"] | components["schemas"]["CustomSignalGeneratedNumberSchema"] | components["schemas"]["CustomSignalGeneratedBooleanSchema"] | components["schemas"]["CustomSignalGeneratedStringListSchema"] | components["schemas"]["CustomSignalGeneratedEnumListSchema"] | components["schemas"]["CustomSignalGeneratedNumberListSchema"];
+        /** @description Published JSON Schema for call requests. The standard fields and active custom fields appear in properties. Custom extension keywords describe normalization, enum matching, and decimal limits that a JSON Schema validator does not enforce by itself. */
+        CustomSignalGeneratedRequestSchema: {
+            /** @constant */
+            $schema: "https://json-schema.org/draft/2020-12/schema";
+            /** @constant */
+            type: "object";
+            /** @constant */
+            additionalProperties: false;
+            /** @description Contains `tokenAddress`, chain, `callerName`, and each required custom field key. */
+            required: string[];
+            properties: {
+                tokenAddress: components["schemas"]["CustomSignalGeneratedAddressSchema"];
+                pairAddress: components["schemas"]["CustomSignalGeneratedAddressSchema"];
+                chain: components["schemas"]["CustomSignalGeneratedChainSchema"];
+                callerName: components["schemas"]["CustomSignalGeneratedCallerNameSchema"];
+                callerAvatar: components["schemas"]["CustomSignalGeneratedAvatarSchema"];
+            } & {
+                [key: string]: components["schemas"]["CustomSignalGeneratedMetadataSchema"];
+            };
+        };
+        /** @description Zero or one ranking item for the requested caller. Filters and pagination apply and can produce an empty items array. */
+        CustomSignalWatchlistCallerRankingResponse: components["schemas"]["CursorPagination"] & {
+            items: components["schemas"]["CustomSignalWatchlistRankItem"][];
+        };
+        /** @description Shared fields of WatchlistCallItem, independent of the source type. */
+        WatchlistCallItemBase: {
+            /** @description Details associated with the call, including token and market information, timestamps, status flags, and post-call performance values. */
+            callDetails: components["schemas"]["WatchlistCallDetails"];
+        };
+        /** @description Shared fields of WatchlistRankItem, independent of the source type. */
+        WatchlistRankItemBase: {
+            /** @description Average return multiplier across calls in the timeframe. */
+            averageMultiplier: number;
+            /** @description Highest return multiplier across calls in the timeframe. */
+            highestMultiplier: number;
+            /** @description How long ago the latest call was made. */
+            latestCallAgeSeconds: number;
+            /** @description Time of the source’s most recent tracked call, in Unix epoch milliseconds. `0` (rendered as the 1970 epoch in `latestCallTimestampStr`) is a real value: the tracking service has no dated call for the source. Treat epoch-zero as "unknown", not as a call at the epoch. */
+            latestCallTimestamp: number;
+            /** @description Time of the latest call as an ISO 8601 timestamp string. */
+            latestCallTimestampStr: string;
+            /**
+             * Format: int64
+             * @description Number of tracked calls whose since-call high stayed below 2x. Always equals the `<2x` multiplier bucket’s count.
+             */
+            losses: number;
+            /** @description Complete distribution of the source’s tracked calls across fixed multiplier tiers. Win tiers (`100x` down to `2x`) count calls by the highest tier their since-call high reached; the `<2x` tier carries the losses — calls that never reached 2x. Every tier is always present (empty tiers have `count: 0`), and the tier counts sum to `totalCalls`. */
+            multiplierBuckets: {
+                /**
+                 * Format: int64
+                 * @description Number of calls assigned to the enclosing multiplier tier.
+                 */
+                count: number;
+                /** @description Multiplier tier label. The full set, always present in this order: `100x`, `50x`, `25x`, `15x`, `10x`, `5x`, `2x`, `<2x`. A winning call lands in the highest tier its since-call high reached; the `<2x` tier equals the source’s `losses`. */
+                tier: string;
+            }[];
+            /**
+             * Format: int32
+             * @description Composite quality score from 0 through 30, computed by the price-tracking service from the source’s win rate, average return, and highest return. The exact weighting is internal; treat the score as an opaque ranking value where higher is better. Score bounds are independent of the selected timeframe.
+             */
+            performanceScore: number;
+            /**
+             * @description Window the ranking covers: `1d`, `3d`, `7d`, or `30d`.
+             * @enum {string}
+             */
+            timeframe: "1d" | "3d" | "7d" | "30d";
+            /** @description Best-performing call for this source and timeframe. Do not assume it is the first entry of `topCalls`. */
+            topCall: components["schemas"]["WatchlistRankTopCall"] | null;
+            /** @description Best-performing calls, best first. At most 5. */
+            topCalls: components["schemas"]["WatchlistRankTopCall"][];
+            /**
+             * Format: int64
+             * @description Number of calls included for the source within the selected ranking timeframe.
+             */
+            totalCalls: number;
+            /** @description Share of tracked calls that count as wins, in percentage points (`42` means 42%). A call is a win when its since-call high reaches at least 2x its call-time price; every other tracked call counts as a loss. Uses the selected timeframe’s calls. */
+            winRatePct: number;
+            /**
+             * Format: int64
+             * @description Number of tracked calls whose since-call high reached at least 2x. Matches the sum of the `2x` and higher multiplier buckets.
+             */
+            wins: number;
+        };
+        /** @description Shared fields of TradeAutomation, independent of the source type. */
+        TradeAutomationBase: {
+            /** @description Whether `bots` has any entries. */
+            hasBot: boolean;
+        };
+        /** @description Shared fields of TradeAutomationBot, independent of the source type. */
+        TradeAutomationBotBase: {
+            /**
+             * Format: uuid
+             * @description UUID of the autobuy or copy-trade bot.
+             */
+            id: string;
+            isEnabled: boolean;
+        };
     };
     responses: never;
     parameters: never;
@@ -17815,7 +19581,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send `method: "web3"` with the required `web3` wallet details. Partner JWT sign-in is not supported here. `chain` must be `SOL`, with a valid Solana address and a protocol of `solana_siws` or `solana_legacy`. A non-empty request `Origin` takes precedence over `web3.domain`, followed by `web3.domain` and then `Host`. If `chainId` is omitted, the standard ID `900` is used; a supplied ID must match. The selected domain and chain ID are used to build the returned challenge message. Sign the returned challenge message. */
+        /** @description Send `method: "web3"` with the required `web3` wallet details. Partner JWT sign-in is not supported here. `chain` must be `SOL` or `RH`, with a valid chain-specific address and protocol: `evm_personal_sign` for `RH`, or `solana_siws` or `solana_legacy` for `SOL`. A non-empty request `Origin` takes precedence over `web3.domain`, followed by `web3.domain` and then `Host`. If `chainId` is omitted, the standard ID is used (`SOL`: 900, `RH`: 4663); a supplied ID must match. The selected domain and chain ID are used to build the returned challenge message. Sign the returned challenge message. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AuthChallengeWeb3OnlyRequest"];
@@ -18234,7 +20000,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send a JSON object containing source, with an id and type CALLER, TG, LIST, or WALLET, and `chainConfigs`, a non-empty map from SOL to complete bot configurations. For WALLET sources, include the wallet source's chain; other submitted chain entries are ignored. */
+        /** @description Send a JSON object containing source, with an id and type CALLER, TG, LIST, or WALLET, and `chainConfigs`, a non-empty map keyed by `SOL`, `RH`, or both, with complete bot configurations. For WALLET sources, include the wallet source's chain; other submitted chain entries are ignored. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateBotRequest"];
@@ -18832,6 +20598,187 @@ export interface operations {
             };
         };
     };
+    create_custom_signal_call: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Integration ID */
+                integrationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "tokenAddress": "So11111111111111111111111111111111111111112",
+                 *       "chain": "SOL",
+                 *       "callerName": "Maya",
+                 *       "followers": 1500,
+                 *       "tags": [
+                 *         "research",
+                 *         "momentum"
+                 *       ]
+                 *     }
+                 */
+                "application/json": components["schemas"]["CustomSignalWebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description Call and delivery event stored. Delivery is asynchronous. Optional callerAvatarUpdateFailed warning means the call was accepted but the avatar was preserved. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "callId": "6f2a64f1-320f-451f-a3ef-ecc2bd704ca5",
+                     *       "callerId": "2b682818-c768-49d6-9497-47b4f51a1bc0",
+                     *       "acceptedAt": "2026-10-02T08:30:00Z"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["CustomSignalWebhookResponse"];
+                };
+            };
+            /** @description Malformed JSON, duplicate JSON property, or unreadable request body */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Protected integration requires a valid, unexpired, same-organization Platform API key with the exact custom-signals:write scope and an integration grant. Public integrations ignore credentials. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Organization host or integration unavailable, or organization feature or integration disabled */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request body exceeds 1 MiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unsupported media type or compression */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Call does not match the active schema, chain or address is invalid, or token/pair has no usable tracked pair */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Attempt or accepted-call limit exceeded. Retry-After gives seconds to wait. Limits: 120 attempts per organization/integration/client IP per minute; 120 accepted calls per integration and 600 per organization per minute. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal failure */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Required service unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    history_downloads: {
+        parameters: {
+            query: {
+                chain: components["schemas"]["Chain"];
+                kind: components["schemas"]["HistoryKind"];
+                /** @description Inclusive range start, unix seconds. */
+                from: number;
+                /** @description Exclusive range end, unix seconds. Must be at or before now minus 30 days. */
+                to: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Download links for the requested range */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryDownloadsResponse"];
+                };
+            };
+            /** @description from is not before to, the span exceeds 24 hours, or from is before `coverageStart` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description LIVE_DATA_WINDOW. to is inside the last 30 days */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Historical downloads are unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     saved: {
         parameters: {
             query?: never;
@@ -19338,7 +21285,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Required JSON object configuring the optional `sources.results` search source. Omit `sources` or `sources.results`, or set `sources.results` to `null`, to receive `results: null`; otherwise provide either a non-blank `query` with optional `chain`, `timeFrame`, and cursor (`timeFrame` defaults to `24H`) or a non-empty `lookup` array of no more than 50 `CHAIN:ADDRESS` keys using supported chains such as `SOL`. A non-blank query and lookup cannot be combined; lookup metrics always use `24H`. If both are absent or blank/empty, the endpoint returns an empty results page. Unknown properties in the request or nested source objects are rejected. */
+        /** @description Required JSON object configuring the optional `sources.results` search source. Omit `sources` or `sources.results`, or set `sources.results` to `null`, to receive `results: null`; otherwise provide either a non-blank `query` with optional `chain`, `timeFrame`, and cursor (`timeFrame` defaults to `24H`) or a non-empty `lookup` array of no more than 50 `CHAIN:ADDRESS` keys using supported chains such as `SOL` and `RH`. A non-blank query and lookup cannot be combined; lookup metrics always use `24H`. If both are absent or blank/empty, the endpoint returns an empty results page. Unknown properties in the request or nested source objects are rejected. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SearchPageRequest"];
@@ -19618,6 +21565,40 @@ export interface operations {
             };
         };
     };
+    profiles_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description FOMO, PUMPFUN, or KOL */
+                source: string;
+                /** @description Platform handle */
+                handle: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Trader card */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TraderCard"];
+                };
+            };
+            /** @description Unknown source */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     profiles_receipts: {
         parameters: {
             query?: {
@@ -19662,7 +21643,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send JSON containing the required `address` and `chain` properties. `address` must be an authorized wallet of the authenticated user, and `chain` must be `SOL`. The server returns a signed coupon for this destination and does not submit the on-chain transfer. */
+        /** @description Send JSON containing the required `address` and `chain` properties. `address` must be an authorized wallet of the authenticated user, and `chain` must be `SOL` or `RH`. The server returns a signed coupon for this destination and does not submit the on-chain transfer. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["WithdrawRequest"];
@@ -19914,7 +21895,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Provide both required fields: `address`, the recipient wallet address, which must belong to the authenticated user; and `chain`, the withdrawal network, which must be one of `SOL`. */
+        /** @description Provide both required fields: `address`, the recipient wallet address, which must belong to the authenticated user; and `chain`, the withdrawal network, which must be `SOL` or `RH`. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["WithdrawRequest"];
@@ -20033,6 +22014,33 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
+            };
+        };
+    };
+    stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Market statistics snapshot */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarketOverviewResponse"];
+                };
+            };
+            /** @description Overview history is not ready */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -20398,7 +22406,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Returns available USD prices in a `prices` object keyed by `SOL`. Each price includes the numeric `priceUsd` value and its exact decimal representation in `priceUsdStr`; chains without an available price are omitted. */
+            /** @description Returns available USD prices in a `prices` object keyed by `SOL` and `RH`. Each price includes the numeric `priceUsd` value and its exact decimal representation in `priceUsdStr`; chains without an available price are omitted. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -20562,6 +22570,15 @@ export interface operations {
             };
             /** @description No token or pair was found for the supplied address on the selected chain. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description HISTORY_DOWNLOAD_REQUIRED. 1s or 5s window is older than 30 days */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -20766,12 +22783,13 @@ export interface operations {
                 walletAddress?: components["schemas"]["WalletAddress"];
                 /** @description Whether to include swaps flagged as outliers. Defaults to `false`. */
                 includeOutlier?: boolean;
+                /** @description Chain the token is on. */
+                from?: number;
             };
             header?: never;
             path: {
                 /** @description Token or pair address. A token address resolves to its best pair; a pair address stays pinned to that pair through migration. */
                 address: string;
-                /** @description Chain the token is on. */
                 chain: components["schemas"]["Chain"];
             };
             cookie?: never;
@@ -20789,6 +22807,15 @@ export interface operations {
             };
             /** @description Returned when the requested token or pair cannot be found on the specified chain. The JSON body uses the standard error format with `error` and `message` strings. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description HISTORY_DOWNLOAD_REQUIRED. from is older than 30 days */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -21018,7 +23045,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Returns a one-time priority-fee estimate for the swap. `gasFeeNative` and `gasFeeNativeStr` contain the fee in the applicable native or quote-token unit (`SOL` for SOL); `gasFeeUsd` and `gasFeeUsdStr` contain its USD equivalent. The `*Str` fields preserve the exact decimal representations. */
+            /** @description Returns a one-time priority-fee estimate for the swap. `gasFeeNative` and `gasFeeNativeStr` contain the fee in the applicable native or quote-token unit (`SOL` for SOL); `gasFeeUsd` and `gasFeeUsdStr` contain its USD equivalent. The `*Str` fields preserve the exact decimal representations. For RH, estimation is not implemented and all four fields are zero (`"0"` in the string fields); treat these values as unavailable estimates. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -21068,7 +23095,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Returned when `token` is not a valid address for the selected chain. For `SOL`, use a base58 address that decodes to 32 bytes and is no more than 44 characters. */
+            /** @description Returned when `token` is not a valid address for the selected chain. For `SOL`, use a base58 address that decodes to 32 bytes and is no more than 44 characters. For `RH`, use a lowercase `0x` prefix followed by exactly 40 hexadecimal characters. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -22267,6 +24294,44 @@ export interface operations {
             };
         };
     };
+    user_get_pnl: {
+        parameters: {
+            query: {
+                range: components["schemas"]["PnlRange"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live P&L and retained history for the authenticated user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPnlResponse"];
+                };
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description P&L state is temporarily unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     user_get_profile: {
         parameters: {
             query?: never;
@@ -22584,6 +24649,70 @@ export interface operations {
             };
         };
     };
+    call_managed_wallet_contract: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional request identity for safe replay */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The chain and unsigned transaction to validate, sign, and broadcast. The transaction must use the user's managed wallet and may call only organization-allowlisted contracts or programs. */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContractCallRequest"];
+            };
+        };
+        responses: {
+            /** @description The transaction was signed and broadcast. Inspect `status`: `confirmed` means it reached confirmed or finalized status; `pending` means broadcast succeeded but confirmation could not be determined. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContractCallResponse"];
+                };
+            };
+            /** @description The transaction calls a contract or program outside the organization's allowlist, or the authenticated caller is not authorized for Managed Contract Calls. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The transaction expired before it could be confirmed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The unsigned transaction is malformed, violates managed-wallet signing rules, or failed during on-chain execution. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description A required signing or chain RPC dependency failed before a usable submission result was available. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     prepare_wallet_withdrawal: {
         parameters: {
             query?: never;
@@ -22591,14 +24720,14 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send exactly one request variant: a native SOL withdrawal or an SPL-token withdrawal. Native requests require chain="SOL", `withdrawNative`=`true`, amount, and `destinationAddress`; token requests require chain="SOL", `tokenAddress`, amount, and `destinationAddress`. Amounts must be positive, fit the asset's supported decimal precision, and not exceed the available balance. Addresses must be valid Solana public keys, `tokenAddress` must identify an existing SPL Token or Token-2022 mint, and unknown fields are rejected. */
+        /** @description Send exactly one request variant for `SOL`. Native requests require `withdrawNative=true`, `amount`, and `destinationAddress`. Token requests require `tokenAddress`, `amount`, and `destinationAddress`. Amounts and addresses must be valid for the selected chain, and unknown fields are rejected. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["WalletWithdrawRequest"];
             };
         };
         responses: {
-            /** @description Returns the unsigned Solana withdrawal transaction to sign, the managed source wallet address, and the transaction's last valid block height. The transaction is not broadcast, and the wallet balance is unchanged. */
+            /** @description Returns the prepared transaction, managed source wallet, and `signatureModel`. Solana responses also include the last valid block height. The transaction is not broadcast. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -22614,7 +24743,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The authenticated user cannot prepare the withdrawal because a linked Solana sign-in wallet is required. The response contains an ErrorResponse. */
+            /** @description The authenticated user cannot prepare the withdrawal. Client signing can require a linked sign-in wallet. Managed signing can require the transfer capability. The response contains an ErrorResponse. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -22632,7 +24761,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The requested withdrawal chain is not supported. Only chain=SOL withdrawals are currently implemented; the response contains an ErrorResponse. */
+            /** @description The requested withdrawal chain is not supported. The supported chain is SOL. The response contains an ErrorResponse. */
             501: {
                 headers: {
                     [name: string]: unknown;
@@ -22641,7 +24770,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description A required Solana RPC call failed or returned an unusable result while preparing the withdrawal, so no unsigned transaction is returned. The response contains an ErrorResponse. This endpoint defines no retry interval or Retry-After value. */
+            /** @description A required chain RPC call failed or returned an unusable result while preparing the withdrawal. The response contains an ErrorResponse and no prepared transaction. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -22659,14 +24788,14 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send `transactionToSign` and `signature` as required strings, with no additional properties. `transactionToSign` must be the unchanged string returned by withdrawal preparation and describe a supported Solana v0 withdrawal for the authenticated user's managed wallet. `signature` must be hexadecimal encoding of exactly 64 bytes and a valid Ed25519 signature from the linked Solana sign-in wallet over the exact UTF-8 bytes of `transactionToSign`; do not parse or reserialize the transaction string. */
+        /** @description Send the unchanged `transactionToSign` with no additional properties. Include `signature` only for `signatureModel=client`. The signature must use the linked wallet and the selected chain format. Do not parse or reserialize `transactionToSign`. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["WalletWithdrawConfirmRequest"];
             };
         };
         responses: {
-            /** @description The withdrawal was signed and broadcast successfully. The response contains the Solana transaction signature and a `status` of `confirmed` when on-chain confirmation is observed, or `pending` when broadcasting succeeds but confirmation polling is unavailable. */
+            /** @description The withdrawal was signed and broadcast successfully. The response contains the network transaction identifier and a `status` of `confirmed` when on-chain confirmation is observed, or `pending` when broadcasting succeeds but confirmation polling is unavailable. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -22709,7 +24838,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description A required wallet-signing or Solana chain dependency was unavailable, failed, or returned an invalid response. The response body is an ErrorResponse. If broadcasting succeeds but confirmation polling is unavailable, the endpoint returns 200 with status `pending` instead. */
+            /** @description A required client or server signer or chain dependency was unavailable, failed, or returned an invalid response. The response body is an ErrorResponse. If broadcasting succeeds but confirmation polling is unavailable, the endpoint returns 200 with status `pending` instead. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -22943,6 +25072,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LabeledWalletFeedResponse"];
+                };
+            };
+        };
+    };
+    wallets_flows: {
+        parameters: {
+            query?: {
+                /** @description `24h` (default) or `15m`. */
+                window?: string;
+                /** @description `SOL`, `RH`, or omitted for both. */
+                chain?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Flow board */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlowBoard"];
                 };
             };
         };
@@ -23203,6 +25357,15 @@ export interface operations {
                     "application/json": components["schemas"]["WatchlistFeedResponse"];
                 };
             };
+            /** @description A feed dependency is temporarily unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     get_callers_feed: {
@@ -23242,6 +25405,202 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WatchlistFeedResponse"];
+                };
+            };
+        };
+    };
+    get_all_integrations_feed: {
+        parameters: {
+            query?: {
+                /** @description Minimum current token price in USD, as a decimal query string. */
+                minPrice?: string;
+                /** @description Maximum current token price in USD, as a decimal query string. */
+                maxPrice?: string;
+                /** @description Minimum since-call all-time-high market-cap multiplier, as a decimal query string. */
+                minMultiplier?: string;
+                /** @description Maximum since-call all-time-high market-cap multiplier, as a decimal query string. */
+                maxMultiplier?: string;
+                /** @description Minimum current token market capitalization in USD, as a decimal query string. */
+                minMarketcap?: string;
+                /** @description Maximum current token market capitalization in USD, as a decimal query string. */
+                maxMarketcap?: string;
+                /** @description Chains to include. Accepts bracketed, repeated, and CSV `chains` values. */
+                chains?: components["schemas"]["Chain"][];
+                /** @description Opaque cursor from this feed with the same filters. Omit for the first page. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All custom-integration calls for this organization */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomSignalWatchlistFeedResponse"];
+                };
+            };
+            /** @description Invalid filter or cursor */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Organization context is not available */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Feed cursor storage is temporarily unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_integration_feed: {
+        parameters: {
+            query?: {
+                /** @description Minimum current token price in USD, as a decimal query string. */
+                minPrice?: string;
+                /** @description Maximum current token price in USD, as a decimal query string. */
+                maxPrice?: string;
+                /** @description Minimum since-call all-time-high market-cap multiplier, as a decimal query string. */
+                minMultiplier?: string;
+                /** @description Maximum since-call all-time-high market-cap multiplier, as a decimal query string. */
+                maxMultiplier?: string;
+                /** @description Minimum current token market capitalization in USD, as a decimal query string. */
+                minMarketcap?: string;
+                /** @description Maximum current token market capitalization in USD, as a decimal query string. */
+                maxMarketcap?: string;
+                /** @description Chains to include. Accepts bracketed, repeated, and CSV `chains` values. */
+                chains?: components["schemas"]["Chain"][];
+                /** @description Opaque cursor from this feed with the same filters. Omit for the first page. */
+                cursor?: string;
+                /** @description JSON-text predicate array for this integration's historical filterable fields. All predicates must match. URL-encode once; numbers and booleans remain JSON values. Example: [{"field":"followers","op":"gte","value":1500},{"field":"tags","op":"containsAll","value":["research","momentum"]}]. Omit or use [] for no metadata filter. At most 32 predicates and 8192 bytes. */
+                metaFilter?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Custom integration ID */
+                integrationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization integration feed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "cursor": "opaque-integration-feed-cursor",
+                     *       "items": [
+                     *         {
+                     *           "id": "6f2a64f1-320f-451f-a3ef-ecc2bd704ca5",
+                     *           "caller": {
+                     *             "type": "INTEGRATION",
+                     *             "id": "2b682818-c768-49d6-9497-47b4f51a1bc0",
+                     *             "name": "Maya",
+                     *             "photoId": null,
+                     *             "integrationId": "7a3c6a78-1b2c-4d5e-8f90-123456789abc",
+                     *             "integrationName": "Research Desk",
+                     *             "integrationPhotoId": null
+                     *           },
+                     *           "callerMeta": {
+                     *             "integrationId": "7a3c6a78-1b2c-4d5e-8f90-123456789abc",
+                     *             "followers": 1500,
+                     *             "tags": [
+                     *               "research",
+                     *               "momentum"
+                     *             ]
+                     *           },
+                     *           "callDetails": {
+                     *             "chain": "SOL",
+                     *             "pairAddress": "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2",
+                     *             "baseTokenAddress": "TokenAddress11111111111111111111111111111111",
+                     *             "baseTokenChain": "SOL",
+                     *             "baseTokenDecimals": 6,
+                     *             "baseTokenName": "Example Token",
+                     *             "baseTokenSymbol": "EXAMPLE",
+                     *             "quoteTokenAddress": "So11111111111111111111111111111111111111112",
+                     *             "quoteTokenChain": "SOL",
+                     *             "quoteTokenDecimals": 9,
+                     *             "quoteTokenName": "Wrapped SOL",
+                     *             "quoteTokenSymbol": "SOL",
+                     *             "rugged": false,
+                     *             "priceUsd": 1,
+                     *             "priceUsdStr": "1",
+                     *             "priceNative": 0.00625,
+                     *             "priceNativeStr": "0.00625",
+                     *             "marketCapUsd": 60000000000,
+                     *             "marketCapUsdStr": "60000000000",
+                     *             "marketCapNative": 375000000,
+                     *             "marketCapNativeStr": "375000000",
+                     *             "marketCapAtCallUsd": 60000000000,
+                     *             "marketCapAtCallUsdStr": "60000000000",
+                     *             "marketCapAtCallNative": 375000000,
+                     *             "marketCapAtCallNativeStr": "375000000",
+                     *             "athMarketCapUsd": 60000000000,
+                     *             "athMarketCapUsdStr": "60000000000",
+                     *             "athMarketCapNative": 375000000,
+                     *             "athMarketCapNativeStr": "375000000",
+                     *             "athMultiplier": 1,
+                     *             "athPriceUsd": 1,
+                     *             "athPriceUsdStr": "1",
+                     *             "athPriceNative": 0.00625,
+                     *             "athPriceNativeStr": "0.00625",
+                     *             "currentMultiplier": 1,
+                     *             "calledAtAgeSeconds": 0,
+                     *             "calledAtTimestamp": 1790929800000,
+                     *             "calledAtTimestampStr": "2026-10-02T08:30:00Z",
+                     *             "priceObservedAtAgeSeconds": 0,
+                     *             "priceObservedAtTimestamp": 1790929800000,
+                     *             "priceObservedAtTimestampStr": "2026-10-02T08:30:00Z",
+                     *             "devAddress": null
+                     *           }
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["CustomSignalWatchlistFeedResponse"];
+                };
+            };
+            /** @description Invalid filter or cursor */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Integration not found on this organization host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Feed cursor storage is temporarily unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -23383,6 +25742,224 @@ export interface operations {
             };
             /** @description Authentication failed. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_integrations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization custom-signal integrations */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "enabled": true,
+                     *       "integrations": [
+                     *         {
+                     *           "id": "7a3c6a78-1b2c-4d5e-8f90-123456789abc",
+                     *           "name": "Research Desk",
+                     *           "photoId": null,
+                     *           "enabled": true
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["CustomSignalIntegrationsResponse"];
+                };
+            };
+            /** @description Organization host not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The integration catalog could not be loaded. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_filter_fields: {
+        parameters: {
+            query: {
+                /**
+                 * @description URL-encoded JSON-text array of at most 32 metadata field keys, with at most 8192 bytes after URL decoding. An empty array returns an empty fields array. Keys must be distinct without regard to ASCII case and must match the published key spelling. Each key must have been filterable in a published schema. Results include removed fields and are ordered by field key.
+                 * @example ["followers","tags"]
+                 */
+                fieldKeys: string;
+            };
+            header?: never;
+            path: {
+                /** @description Custom integration ID */
+                integrationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requested historical filter fields */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "fields": [
+                     *         {
+                     *           "key": "followers",
+                     *           "type": "number",
+                     *           "everOptional": false
+                     *         },
+                     *         {
+                     *           "key": "tags",
+                     *           "type": "list",
+                     *           "itemType": "string",
+                     *           "everOptional": true
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["CustomSignalFilterFieldsResponse"];
+                };
+            };
+            /** @description Invalid, unknown, or non-filterable field key */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Integration not found on this organization host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_active_schema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Custom integration ID */
+                integrationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active custom-signal schema */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "revision": 1,
+                     *       "fields": [
+                     *         {
+                     *           "key": "followers",
+                     *           "type": "number",
+                     *           "required": true,
+                     *           "filterable": true,
+                     *           "integerOnly": true,
+                     *           "min": "0"
+                     *         },
+                     *         {
+                     *           "key": "tags",
+                     *           "type": "list",
+                     *           "itemType": "string",
+                     *           "required": false,
+                     *           "filterable": true
+                     *         }
+                     *       ],
+                     *       "jsonSchema": {
+                     *         "$schema": "https://json-schema.org/draft/2020-12/schema",
+                     *         "type": "object",
+                     *         "additionalProperties": false,
+                     *         "required": [
+                     *           "tokenAddress",
+                     *           "chain",
+                     *           "callerName",
+                     *           "followers"
+                     *         ],
+                     *         "properties": {
+                     *           "tokenAddress": {
+                     *             "type": "string"
+                     *           },
+                     *           "pairAddress": {
+                     *             "type": "string"
+                     *           },
+                     *           "chain": {
+                     *             "type": "string",
+                     *             "enum": [
+                     *               "SOL"
+                     *             ]
+                     *           },
+                     *           "callerName": {
+                     *             "type": "string",
+                     *             "minLength": 1,
+                     *             "x-opendex-normalization": "trim-unicode-whitespace-then-nfc",
+                     *             "x-opendex-normalized-max-length": 256
+                     *           },
+                     *           "callerAvatar": {
+                     *             "type": [
+                     *               "string",
+                     *               "null"
+                     *             ]
+                     *           },
+                     *           "followers": {
+                     *             "type": "number",
+                     *             "minimum": 0,
+                     *             "multipleOf": 1,
+                     *             "x-opendex-max-integer-digits": 20,
+                     *             "x-opendex-max-fractional-digits": 18
+                     *           },
+                     *           "tags": {
+                     *             "type": "array",
+                     *             "maxItems": 64,
+                     *             "uniqueItems": true,
+                     *             "items": {
+                     *               "type": "string",
+                     *               "minLength": 1,
+                     *               "x-opendex-normalization": "trim-unicode-whitespace-then-nfc",
+                     *               "x-opendex-normalized-max-length": 2048
+                     *             }
+                     *           }
+                     *         }
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["CustomSignalSchemaResponse"];
+                };
+            };
+            /** @description Integration not found on this organization host */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -24084,7 +26661,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send `walletAddress`, `chain`, and `name`. `walletAddress` must be a valid Solana address, `chain` must be `SOL`, and `name` must contain at least one non-whitespace character. Names are trimmed. */
+        /** @description Send `walletAddress`, `chain`, and `name`. `walletAddress` must be a valid EVM or Solana address, `chain` must be `SOL` or `RH`, and `name` must contain at least one non-whitespace character. Names are trimmed, and EVM addresses are checksummed for non-SOL chains. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["CreateWalletSourceRequest"];
@@ -24246,6 +26823,15 @@ export interface operations {
                     "application/json": components["schemas"]["WatchlistRankingResponse"];
                 };
             };
+            /** @description The price tracker could not provide the ranking */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     get_caller_ranking: {
@@ -24302,6 +26888,132 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    get_integration_ranking: {
+        parameters: {
+            query?: {
+                timeframe?: components["schemas"]["WatchlistRankingTimeframe"];
+                cursor?: string;
+                winRatePctMin?: number;
+                winRatePctMax?: number;
+                totalCallsMin?: number;
+                totalCallsMax?: number;
+                rankBy?: components["schemas"]["RankingRankBy"];
+                orderBy?: components["schemas"]["OrderBy"];
+                performanceScoreMin?: number;
+                performanceScoreMax?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Custom integration ID */
+                integrationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom integration caller ranking */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomSignalWatchlistRankingResponse"];
+                };
+            };
+            /** @description Invalid query or integration UUID, invalid cursor, or invalid filter bounds. Win rate must be from 0 through 100, performance score from 0 through 30, and call counts from 0 through 2147483647. Each minimum must not exceed its maximum. Unknown query parameters are rejected. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                    "text/plain": string;
+                };
+            };
+            /** @description Organization host or integration not found, or the ranking request failed. A failed ranking request returns message No results found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Ranking identities or bot attribution could not be loaded, or the ranking results contained duplicate callers or callers outside the requested integration. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_integration_caller_ranking: {
+        parameters: {
+            query?: {
+                timeframe?: components["schemas"]["WatchlistRankingTimeframe"];
+                cursor?: string;
+                winRatePctMin?: number;
+                winRatePctMax?: number;
+                totalCallsMin?: number;
+                totalCallsMax?: number;
+                rankBy?: components["schemas"]["RankingRankBy"];
+                orderBy?: components["schemas"]["OrderBy"];
+                performanceScoreMin?: number;
+                performanceScoreMax?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Custom integration ID */
+                integrationId: string;
+                /** @description Opaque custom caller ID */
+                callerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Custom integration caller ranking row */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomSignalWatchlistCallerRankingResponse"];
+                };
+            };
+            /** @description Invalid query or UUID, invalid cursor, or invalid filter bounds. Win rate must be from 0 through 100, performance score from 0 through 30, and call counts from 0 through 2147483647. Each minimum must not exceed its maximum. Unknown query parameters are rejected. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                    "text/plain": string;
+                };
+            };
+            /** @description Organization host, integration, or caller not found, or the ranking request failed. A failed ranking request returns message No results found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Ranking identities or bot attribution could not be loaded, or the ranking results contained duplicate callers or callers outside the requested integration. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
         };
     };
@@ -24539,6 +27251,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WatchlistSourcesResponse"];
+                };
+            };
+        };
+    };
+    get_integration_caller_feed: {
+        parameters: {
+            query?: {
+                /** @description Minimum current token price in USD, as a decimal query string. */
+                minPrice?: string;
+                /** @description Maximum current token price in USD, as a decimal query string. */
+                maxPrice?: string;
+                /** @description Minimum since-call all-time-high market-cap multiplier, as a decimal query string. */
+                minMultiplier?: string;
+                /** @description Maximum since-call all-time-high market-cap multiplier, as a decimal query string. */
+                maxMultiplier?: string;
+                /** @description Minimum current token market capitalization in USD, as a decimal query string. */
+                minMarketcap?: string;
+                /** @description Maximum current token market capitalization in USD, as a decimal query string. */
+                maxMarketcap?: string;
+                /** @description Chains to include. Accepts bracketed, repeated, and CSV `chains` values. */
+                chains?: components["schemas"]["Chain"][];
+                /** @description Opaque cursor from this feed with the same filters. Omit for the first page. */
+                cursor?: string;
+                /** @description JSON-text predicate array for this integration's historical filterable fields. All predicates must match. URL-encode once; numbers and booleans remain JSON values. Example: [{"field":"followers","op":"gte","value":1500},{"field":"tags","op":"containsAll","value":["research","momentum"]}]. Omit or use [] for no metadata filter. At most 32 predicates and 8192 bytes. */
+                metaFilter?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Opaque custom caller ID */
+                callerId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organization custom-caller feed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomSignalWatchlistFeedResponse"];
+                };
+            };
+            /** @description Invalid filter or cursor */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Caller not found on this organization host */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Feed cursor storage is temporarily unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_integration_callers: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                /** @description Trimmed Unicode case-insensitive literal substring search. */
+                search?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Custom integration ID */
+                integrationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Integration caller source catalog */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "cursor": "",
+                     *       "sources": [
+                     *         {
+                     *           "type": "INTEGRATION",
+                     *           "id": "2b682818-c768-49d6-9497-47b4f51a1bc0",
+                     *           "name": "Maya",
+                     *           "photoId": null,
+                     *           "integrationId": "7a3c6a78-1b2c-4d5e-8f90-123456789abc",
+                     *           "integrationName": "Research Desk",
+                     *           "integrationPhotoId": null,
+                     *           "automation": {
+                     *             "hasBot": false,
+                     *             "bots": []
+                     *           }
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["CustomSignalWatchlistSourcesResponse"];
+                };
+            };
+            /** @description Invalid query or integration UUID, search containing U+0000, or an invalid cursor. The cursor must match the organization, integration, and normalized search. Unknown query parameters are rejected. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                    "text/plain": string;
+                };
+            };
+            /** @description Organization host or integration not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The caller catalog or bot attribution could not be loaded. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

@@ -3,13 +3,14 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import CreateBotModal from './components/CreateBotModal.svelte';
 import type { Bot } from './utils/bot-settings';
 
-const { apiPost, fetchManagedWallets, getManagedWalletForChain } = vi.hoisted(() => ({
+const { apiGet, apiPost, fetchManagedWallets, getManagedWalletForChain } = vi.hoisted(() => ({
+	apiGet: vi.fn(),
 	apiPost: vi.fn(),
 	fetchManagedWallets: vi.fn(),
 	getManagedWalletForChain: vi.fn()
 }));
 
-vi.mock('$lib/api/client', () => ({ api: { POST: apiPost } }));
+vi.mock('$lib/api/client', () => ({ api: { GET: apiGet, POST: apiPost } }));
 vi.mock('$lib/stores/trade.svelte', () => ({ fetchManagedWallets, getManagedWalletForChain }));
 vi.mock('$lib/stores/currency.svelte', () => ({ isUsd: () => true }));
 vi.mock('$lib/stores/peg.svelte', () => ({ getPegPrices: () => ({ ETH: '3000', SOL: '150' }) }));
@@ -19,6 +20,29 @@ afterEach(cleanup);
 beforeEach(() => {
 	apiPost.mockReset();
 	apiPost.mockResolvedValue({ data: {}, error: undefined });
+	apiGet.mockReset();
+	apiGet.mockImplementation((path: string) => {
+		if (path.endsWith('/schema')) {
+			return Promise.resolve({
+				data: {
+					revision: 1,
+					fields: [{ key: 'followers', type: 'number', required: true, filterable: true, integerOnly: true }],
+					jsonSchema: {}
+				},
+				response: { ok: true, status: 200 }
+			});
+		}
+		return Promise.resolve({
+			data: {
+				sources: [{
+					type: 'INTEGRATION', id: 'caller-id', name: 'Caller one', photoId: null,
+					integrationId: 'integration-id', integrationName: 'Signals desk', integrationPhotoId: null,
+					automation: { hasBot: false, bots: [] }
+				}]
+			},
+			response: { ok: true, status: 200 }
+		});
+	});
 	fetchManagedWallets.mockReset();
 	getManagedWalletForChain.mockReset();
 	getManagedWalletForChain.mockReturnValue({ address: '0x2222222222222222222222222222222222222222' });
@@ -60,6 +84,36 @@ function editableWalletBot(): Bot {
 }
 
 describe('create bot modal wallet settings', () => {
+	test('creates an integration bot with an optional caller and native metadata filter', async () => {
+		render(CreateBotModal, {
+			props: {
+				show: true,
+				source: {
+					type: 'INTEGRATION',
+					integrationId: 'integration-id',
+					integrationName: 'Signals desk',
+					integrationPhotoId: null,
+					integrationEnabled: true,
+					metaFilter: [],
+					name: 'Signals desk'
+				}
+			}
+		});
+
+		await fireEvent.click(await screen.findByRole('button', { name: /Caller one/ }));
+		await fireEvent.input(screen.getByLabelText('Filter value'), { target: { value: '1000' } });
+		await fireEvent.click(screen.getByRole('button', { name: 'Add filter' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Create Bot' }));
+
+		await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1));
+		expect(apiPost.mock.calls[0][1].body.source).toEqual({
+			type: 'INTEGRATION',
+			integrationId: 'integration-id',
+			callerId: 'caller-id',
+			metaFilter: [{ field: 'followers', op: 'eq', value: 1000 }]
+		});
+	});
+
 	test('locks the wallet chain and submits a valid zero position sell without fallback coercion', async () => {
 		render(CreateBotModal, {
 			props: {
@@ -95,6 +149,7 @@ describe('create bot modal wallet settings', () => {
 
 	test('hydrates and preserves source rules, custom gas, slippage, and targets on edit', async () => {
 		const bot = editableWalletBot();
+		if (bot.source.type !== 'WALLET') throw new Error('Expected wallet bot source');
 		render(CreateBotModal, {
 			props: {
 				show: true,

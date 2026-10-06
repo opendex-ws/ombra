@@ -10,6 +10,7 @@
 	import { getNow } from '$lib/stores/tick.svelte';
 	import { siX, siTelegram, siDiscord, siInstagram } from 'simple-icons';
 	import DexPaidIcon from './DexPaidIcon.svelte';
+	import TokenChainBadge from './TokenChainBadge.svelte';
 	import Globe from 'lucide-svelte/icons/globe';
 	import Flame from 'lucide-svelte/icons/flame';
 	import Trophy from 'lucide-svelte/icons/trophy';
@@ -280,15 +281,14 @@
 						<span class="text-sm font-bold text-g6">{token.tokenSymbol?.[0] ?? '?'}</span>
 					</div>
 				{/if}
-				<span class="absolute -right-0.5 -top-0.5 inline-flex items-center" title={token.chain}>
-					<img src="/icons/{token.chain?.toLowerCase()}.png" alt={token.chain} class="h-3.5 w-3.5 rounded-full ring-1 ring-s6" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+				<TokenChainBadge chain={token.chain}>
 					{#if routerIconUrl}
 						<img src={routerIconUrl} alt={displayRouter.name} title={displayRouter.name} class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" />
 					{/if}
 					{#if migratedFromIcon}
 						<img src={migratedFromIcon} alt="Migrated from" class="absolute -top-1 left-0 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" title="Migrated from {(token.launchPad?.bondingCurve as any)?.migratedFromPlatformName ?? ''}" />
 					{/if}
-				</span>
+				</TokenChainBadge>
 				<span class="absolute -bottom-1 -left-0.5 rounded-md bg-s6 px-1 py-0.5 text-[9px] font-bold leading-none text-g9 ring-1 ring-bd">{liveAge(createdMs, getNow())}</span>
 				{#if isGraduated}
 					<span class="absolute -bottom-1 -right-1 rounded bg-s6 px-0.5 py-px text-[7px] font-bold text-yel ring-1 ring-yel/40">GRAD</span>

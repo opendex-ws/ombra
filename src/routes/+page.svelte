@@ -4,6 +4,7 @@
 	import { page } from '$app/stores';
 	import { portal } from '$lib/actions/portal';
 	import type { Chain, TokenSnapshot } from '$lib/api/types';
+	import { isDisplayChain } from '$lib/utils/chains';
 	import TokenDetail from '$lib/components/TokenDetail.svelte';
 	import TokenStats from '$lib/components/TokenStats.svelte';
 	import TradePanel from '$lib/components/TradePanel.svelte';
@@ -24,11 +25,10 @@
 
 	const DEFAULT_CHAIN: Chain = 'SOL';
 	const DEFAULT_ADDRESS = 'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm';
-	const VALID_CHAINS: Chain[] = ['SOL'];
 
 	function getInitialChain(): Chain {
 		const p = $page.url.searchParams.get('chain')?.toUpperCase();
-		return (p && VALID_CHAINS.includes(p as Chain)) ? p as Chain : DEFAULT_CHAIN;
+		return (p && isDisplayChain(p)) ? p : DEFAULT_CHAIN;
 	}
 
 	function getInitialAddress(): string {
@@ -217,8 +217,8 @@
 		const params = $page.url.searchParams;
 		const qChain = params.get('chain')?.toUpperCase();
 		const qToken = params.get('token');
-		if (qChain && VALID_CHAINS.includes(qChain as Chain) && qToken) {
-			selectedChain = qChain as Chain;
+		if (qChain && isDisplayChain(qChain) && qToken) {
+			selectedChain = qChain;
 			selectedAddress = qToken;
 		}
 		setActiveToken(selectedAddress);

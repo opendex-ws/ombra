@@ -67,6 +67,49 @@ describe('memescope per-column filters', () => {
 		expect(reloaded.getMemescopeFilters('graduated').chain).toBe('All');
 	});
 
+	it('shares one chain across scanner and memescope', async () => {
+		const s = await loadStore();
+		expect(s.getFeedChain()).toBe('All');
+		s.setFeedChain('RH');
+		const reloaded = await loadStore();
+		expect(reloaded.getFeedChain()).toBe('RH');
+		reloaded.setFeedChain('nope');
+		expect(reloaded.getFeedChain()).toBe('RH');
+	});
+
+	it('adopts a chain every memescope column already agreed on', async () => {
+		localStorage.setItem(
+			KEY,
+			JSON.stringify({
+				settingsVersion: 2,
+				memescopeFilters: {
+					new: { filters: {}, platforms: [], chain: 'RH' },
+					graduating: { filters: {}, platforms: [], chain: 'RH' },
+					graduated: { filters: {}, platforms: [], chain: 'RH' }
+				}
+			})
+		);
+		const s = await loadStore();
+		expect(s.getFeedChain()).toBe('RH');
+	});
+
+	it('leaves the shared chain on All when columns disagree', async () => {
+		localStorage.setItem(
+			KEY,
+			JSON.stringify({
+				settingsVersion: 2,
+				memescopeFilters: {
+					new: { filters: {}, platforms: [], chain: 'RH' },
+					graduating: { filters: {}, platforms: [], chain: 'All' },
+					graduated: { filters: {}, platforms: [], chain: 'SOL' }
+				}
+			})
+		);
+		const s = await loadStore();
+		expect(s.getFeedChain()).toBe('All');
+		expect(s.getMemescopeFilters('new').chain).toBe('RH');
+	});
+
 	it('falls back when a stored blob predates the field', async () => {
 		localStorage.setItem(KEY, JSON.stringify({ expandPositions: true, settingsVersion: 2 }));
 		const s = await loadStore();

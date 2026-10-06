@@ -11,6 +11,7 @@
 	import XIcon from 'lucide-svelte/icons/x';
 	import { api, type QueryOf } from '$lib/api/client';
 	import { tokenImage } from '$lib/api/config';
+	import TokenChainBadge from './TokenChainBadge.svelte';
 	import { subscribe, unsubscribe } from '$lib/ws/client';
 	import type { Chain, ThesisItem, ThesisResponse, ThesisSource, WalletLabelSummary } from '$lib/api/types';
 	import { formatUsd, timeAgo, fullDateTime, shortAddress, formatCompactCount, avatarUrl } from '$lib/utils/format';
@@ -593,12 +594,15 @@
 									class="flex max-w-[45%] shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-s4 px-1.5 py-1 transition-colors hover:bg-s7"
 									title="Open {item.token.name ?? (ticker || shortAddress(item.token.address))}"
 								>
+									<span class="relative h-5 w-5 shrink-0">
 									<img
 										src={tokenImage(item.chain, item.token.address)}
 										alt=""
-										class="h-5 w-5 shrink-0 rounded ring-1 ring-bd"
+										class="h-5 w-5 rounded ring-1 ring-bd"
 										onerror={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
 									/>
+									<TokenChainBadge chain={item.chain} class="h-2.5 w-2.5" />
+									</span>
 									<span class="min-w-0 truncate text-[12px] font-semibold text-tx md:text-[11px]">
 										{ticker || shortAddress(item.token.address)}
 									</span>

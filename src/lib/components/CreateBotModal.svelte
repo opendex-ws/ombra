@@ -7,9 +7,11 @@
 	import { isUsd } from '$lib/stores/currency.svelte';
 	import { getPegPrices } from '$lib/stores/peg.svelte';
 	import { portal } from '$lib/actions/portal';
+	import { modalDialog } from '$lib/actions/modal-dialog';
 	import { typeBadge } from '$lib/utils/format';
 	import {
 		buildBotConfig,
+		buildBotSourceRef,
 		createBotConfigForm,
 		getBotChain,
 		hydrateBotConfig,
@@ -21,7 +23,13 @@
 		type Chain,
 		type GasMode
 	} from '$lib/utils/bot-settings';
+	import type { CustomMetaFilter, CustomSignalIntegrationDescriptor } from '$lib/custom-signals/contracts';
+	import { CustomSignalSchemaCache } from '$lib/custom-signals/schema-cache';
+	import { fetchIntegrationSchema } from '$lib/watchlist/custom-integrations';
+	import { DISPLAY_CHAINS } from '$lib/utils/chains';
+	import ChainIcon from './ChainIcon.svelte';
 	import TargetCard from './TargetCard.svelte';
+	import IntegrationSourceControls from './IntegrationSourceControls.svelte';
 	type CreateBotRequest = components['schemas']['CreateBotRequest'];
 	type UpdateBotStatusRequest = components['schemas']['UpdateBotStatusRequest'];
 	type ErrorResponse = components['schemas']['ErrorResponse'];
@@ -34,7 +42,8 @@
 		editBot = null,
 		defaultChain = 'SOL' as Chain,
 		oncreated = () => {},
-		onupdated = () => {}
+		onupdated = () => {},
+		restoreFocusTo = null
 	}: {
 		show: boolean;
 		source: BotSourceDescriptor | null;
@@ -42,6 +51,7 @@
 		defaultChain?: Chain;
 		oncreated?: () => void;
 		onupdated?: () => void;
+		restoreFocusTo?: HTMLElement | null;
 	} = $props();
 
 	let creating = $state(false);
@@ -74,8 +84,19 @@
 	let resetLifetimeSpend = $state(false);
 	let isWallet = $derived(source?.type === 'WALLET');
 	let isEditing = $derived(!!editBot);
+	let integrationCallerIds = $state<string[]>([]);
+	let integrationMetaFilter = $state<CustomMetaFilter>([]);
+	const integrationSchemaCache = new CustomSignalSchemaCache(fetchIntegrationSchema);
+	const integrationDescriptors = $derived.by((): CustomSignalIntegrationDescriptor[] => {
+		if (!source || source.type !== 'INTEGRATION') return [];
+		return [{
+			id: source.integrationId,
+			name: source.integrationName,
+			photoId: source.integrationPhotoId,
+			enabled: source.integrationEnabled
+		}];
+	});
 
-	const chains: Chain[] = ['SOL'];
 	const gasOptions: { label: string; value: GasMode }[] = [
 		{ label: 'Auto', value: 'AUTO' },
 		{ label: 'Low', value: 'LOW' },
@@ -102,6 +123,8 @@
 		const initialChain = sourceChain ?? editChain ?? defaultChain;
 		untrack(() => {
 			resetForm(initialChain);
+			integrationCallerIds = currentSource?.type === 'INTEGRATION' && currentSource.callerId ? [currentSource.callerId] : [];
+			integrationMetaFilter = currentSource?.type === 'INTEGRATION' ? [...currentSource.metaFilter] : [];
 			void fetchManagedWallets();
 			if (currentEditBot) populateFromBot(currentEditBot);
 		});
@@ -141,7 +164,7 @@
 
 	async function submit() {
 		if (!source) return;
-		if (isWallet && !source.chain && !editBot) {
+		if (source.type === 'WALLET' && !source.chain && !editBot) {
 			error = 'This wallet source is missing its chain. Re-select the wallet and try again.';
 			return;
 		}
@@ -158,14 +181,22 @@
 		error = '';
 		fieldErrors = {};
 		try {
+			const configuredSource = source.type === 'INTEGRATION'
+				? {
+					...source,
+					callerId: integrationCallerIds[0],
+					metaFilter: integrationMetaFilter
+				}
+				: source;
 			if (isEditing && editBot) {
 				const { error: apiErr } = await api.POST('/v2/bots/{id}/update', {
 					params: { path: { id: editBot.id } },
 					body: {
+						...(configuredSource.type === 'INTEGRATION' ? { source: buildBotSourceRef(configuredSource) } : {}),
 						chainConfigs: { [form.chain]: built.config },
 						limits: built.limits ?? {},
 						resetLifetimeSpend: resetLifetimeSpend ? true : undefined
-					}
+					} as never
 				});
 				if (apiErr) throw new Error((apiErr as ErrorResponse)?.message ?? 'Update failed');
 				if (botStatus !== editBot.status) {
@@ -178,11 +209,11 @@
 				close();
 				onupdated();
 			} else {
-				const body: CreateBotRequest = {
-					source: { id: source.id, type: source.type },
+				const body = {
+					source: buildBotSourceRef(configuredSource),
 					chainConfigs: { [form.chain]: built.config as components['schemas']['BotChainConfigRequest'] },
 					limits: built.limits ?? null
-				};
+				} as unknown as CreateBotRequest;
 				const { error: apiErr } = await api.POST('/v2/bots/create', { body });
 				if (apiErr) throw new Error((apiErr as ErrorResponse)?.message ?? 'Failed');
 				close();
@@ -199,10 +230,10 @@
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div class="fixed inset-0 z-[200] overflow-y-auto bg-s0/60 backdrop-blur-[2px]" use:portal>
 		<div class="flex min-h-full items-center justify-center p-3 md:p-6" onclick={(e) => { if (e.target === e.currentTarget) close(); }}>
-		<div class="animate-fade-in w-full max-w-md overflow-x-hidden rounded-2xl border border-bd bg-s5 p-6 shadow-2xl backdrop-blur-xl" onclick={(e) => e.stopPropagation()}>
+		<div use:modalDialog={{ onClose: close, restoreFocusTo }} role="dialog" aria-modal="true" aria-labelledby="bot-modal-title" tabindex="-1" class="animate-fade-in w-full max-w-md overflow-x-hidden rounded-2xl border border-bd bg-s5 p-6 shadow-2xl backdrop-blur-xl outline-none" onclick={(e) => e.stopPropagation()}>
 			<div class="mb-4 flex items-center justify-between">
 				<div class="flex items-center gap-3">
-					<h2 class="text-base font-semibold text-tx">{isEditing ? 'Edit' : 'Create'} {isWallet ? 'Copy Trade Bot' : 'Bot'}</h2>
+					<h2 id="bot-modal-title" class="text-base font-semibold text-tx">{isEditing ? 'Edit' : 'Create'} {isWallet ? 'Copy Trade Bot' : 'Bot'}</h2>
 					{#if isEditing}
 					<button
 						class="relative h-5 w-9 cursor-pointer rounded-full transition-colors {botStatus === 'ACTIVE' ? 'bg-grn' : 'bg-bd2'}"
@@ -233,13 +264,35 @@
 				{#if isWallet}<div class="mt-1 flex justify-between"><span class="text-g6">Source chain</span><span class="font-medium text-tx">{form.chain}</span></div>{/if}
 			</div>
 
+			{#if source.type === 'INTEGRATION'}
+				<div class="mb-3 rounded-lg border border-bd bg-s1 p-3">
+					<IntegrationSourceControls
+						integrations={integrationDescriptors}
+						integrationId={source.integrationId}
+						callerIds={integrationCallerIds}
+						metaFilter={integrationMetaFilter}
+						callerMode="single"
+						allowIntegrationSelection={false}
+						initialCallers={source.callerId && source.callerName ? [{ id: source.callerId, name: source.callerName, photoId: source.callerPhotoId ?? null }] : []}
+						schemaCache={integrationSchemaCache}
+						disabled={creating}
+						onintegrationchange={() => {}}
+						oncalleridschange={(callerIds) => integrationCallerIds = callerIds}
+						onfilterchange={(metaFilter) => integrationMetaFilter = metaFilter}
+					/>
+				</div>
+			{/if}
+
 			<div class="space-y-3">
 				{#if !isWallet}
 					<div>
 						<span class="mb-1 block text-xs text-g6">Chain</span>
 						<div class="flex gap-1">
-							{#each chains as c}
-								<button onclick={() => (form.chain = c)} class="flex-1 cursor-pointer rounded-lg border py-1.5 text-xs font-medium transition-colors {form.chain === c ? 'border-tx text-tx' : 'border-bd text-g6 hover:text-g9'}">{c}</button>
+							{#each DISPLAY_CHAINS as c}
+								<button onclick={() => (form.chain = c)} class="flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg border py-1.5 text-xs font-medium transition-colors {form.chain === c ? 'border-tx text-tx' : 'border-bd text-g6 hover:text-g9'}">
+									<ChainIcon chain={c} class="h-3 w-3" />
+									{c}
+								</button>
 							{/each}
 						</div>
 					</div>

@@ -18,9 +18,16 @@ const routerMap: Record<string, RouterInfo> = {
 	RAYDIUM: { name: 'Raydium', icon: ri('raydium.svg'), color: '#5b7eff' },
 	RAYDIUM_CP: { name: 'Raydium CP', icon: ri('raydium.svg'), color: '#5b7eff' },
 	RAYDIUM_CLMM: { name: 'Raydium CLMM', icon: ri('raydium.svg'), color: '#5b7eff' },
+	WHIRLPOOL: { name: 'Orca Whirlpool', icon: ri('whirlpool.svg'), color: '#ffc83d' },
 	RAYDIUM_LAUNCH: { name: 'Raydium Launchlab', icon: ri('raydium-launchlab.svg'), color: '#5b7eff' },
-	UNISWAP_V2: { name: 'Uniswap V2', icon: ri('uniswap.svg'), color: '#ff007a' },
-	UNISWAP_V3: { name: 'Uniswap V3', icon: ri('uniswap.svg'), color: '#ff007a' },
+	// Official unicorn, with the version drawn on so v2/v3/v4 are not the same chip.
+	UNISWAP_V2: { name: 'Uniswap V2', icon: ri('uniswap-v2.svg'), color: '#ff007a' },
+	UNISWAP_V3: { name: 'Uniswap V3', icon: ri('uniswap-v3.svg'), color: '#ff007a' },
+	UNISWAP_V4: { name: 'Uniswap V4', icon: ri('uniswap-v4.svg'), color: '#ff007a' },
+	// flap.sh/icon.svg — the lime wing mark.
+	FLAP: { name: 'Flap', icon: ri('flap.svg'), color: '#d0ff00' },
+	// ponsfamily.com/pons.png — the glass P.
+	PONS: { name: 'Pons', icon: ri('pons.png'), color: '#b7f5c8' },
 	AERODROME_V2: { name: 'Aerodrome', icon: ri('uniswap.svg'), color: '#0052ff' },
 	MOONSHOT: { name: 'Moonshot', icon: ri('moonshot.svg'), color: '#f5c542' },
 	HEAVEN: { name: 'Heaven', icon: ri('heavenxyz.svg'), color: '#aaaacc' },

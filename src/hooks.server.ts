@@ -12,7 +12,7 @@ const API_KEY = privateEnv?.API_KEY ?? '';
 const DEFAULT_API_KEY_ORIGIN = 'https://api-backend-new.opendex.ws';
 const API_KEY_ORIGIN = (privateEnv?.API_KEY_ORIGIN ?? DEFAULT_API_KEY_ORIGIN).replace(/\/$/, '');
 
-/** Origin the proxy forwards to: the shared host in key mode, else the whitelabel base. */
+/** One API for every proxied request. Key mode uses API_KEY_ORIGIN. */
 function proxyOrigin(): string {
 	return API_KEY ? API_KEY_ORIGIN : API_BASE;
 }

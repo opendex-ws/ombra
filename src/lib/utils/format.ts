@@ -1,4 +1,75 @@
 import { apiUrl } from '$lib/api/config';
+import type { IntegrationSourceIdentity } from '$lib/custom-signals/contracts';
+
+export function isIntegrationSource(value: unknown): value is IntegrationSourceIdentity {
+  if (!value || typeof value !== 'object') return false;
+  const source = value as Record<string, unknown>;
+  return source.type === 'INTEGRATION'
+    && typeof source.id === 'string'
+    && typeof source.name === 'string'
+    && (source.photoId === null || typeof source.photoId === 'string')
+    && typeof source.integrationId === 'string'
+    && typeof source.integrationName === 'string'
+    && (source.integrationPhotoId === null || typeof source.integrationPhotoId === 'string');
+}
+
+export function integrationSourcePresentation(value: unknown): {
+  callerName: string;
+  callerPhotoUrl: string | null;
+  integrationName: string;
+  integrationPhotoUrl: string | null;
+} | null {
+  if (!isIntegrationSource(value)) return null;
+  return {
+    callerName: value.name,
+    callerPhotoUrl: avatarUrl(value.photoId),
+    integrationName: value.integrationName,
+    integrationPhotoUrl: avatarUrl(value.integrationPhotoId)
+  };
+}
+
+export function avatarInitial(value: string | null | undefined): string {
+  const name = value?.trim();
+  if (!name) return '?';
+
+  if (typeof Intl.Segmenter === 'function') {
+    const segment = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+      .segment(name)[Symbol.iterator]().next().value?.segment;
+    if (segment) return segment.toUpperCase();
+  }
+
+  return Array.from(name)[0]?.toUpperCase() ?? '?';
+}
+
+/** Stable chart grouping key. Display names are not identities. */
+export function integrationCallerMarkerKey(value: unknown): string | null {
+  if (!value || typeof value !== 'object') return null;
+  const source = value as Record<string, unknown>;
+  if (source.type !== 'INTEGRATION' || typeof source.integrationId !== 'string' || typeof source.id !== 'string') return null;
+  return `integration:${source.integrationId}:${source.id}`;
+}
+
+export type CallerMetaDisplayEntry = { key: string; value: string };
+
+export function formatCallerMetaValue(value: unknown): string {
+  if (Array.isArray(value)) return value.map((item) => formatCallerMetaValue(item)).join(', ');
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (value === null) return '';
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
+}
+
+/** Returns owner-defined metadata only. `integrationId` is server-owned routing data. */
+export function callerMetaDisplayEntries(value: unknown): CallerMetaDisplayEntry[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  return Object.entries(value as Record<string, unknown>)
+    .filter(([key]) => key !== 'integrationId')
+    .map(([key, item]) => ({ key, value: formatCallerMetaValue(item) }));
+}
 
 export function formatUsd(value: string | number | undefined | null): string {
   if (value === undefined || value === null || value === '') return '$0';
@@ -221,13 +292,14 @@ export function explorerTxUrl(chain: string, txHash: string): string {
     case 'ETH': return `https://etherscan.io/tx/${txHash}`;
     case 'BASE': return `https://basescan.org/tx/${txHash}`;
     case 'BSC': return `https://bscscan.com/tx/${txHash}`;
+    case 'RH': return `https://robinhoodchain.blockscout.com/tx/${txHash}`;
     default: return '#';
   }
 }
 
 import { isUsd } from '$lib/stores/currency.svelte';
 
-const CHAIN_SYMBOL: Record<string, string> = { SOL: 'SOL', ETH: 'ETH', BASE: 'ETH', BSC: 'BNB' };
+const CHAIN_SYMBOL: Record<string, string> = { SOL: 'SOL', ETH: 'ETH', BASE: 'ETH', BSC: 'BNB', RH: 'ETH' };
 
 function nativeSym(chain?: string): string {
   return CHAIN_SYMBOL[chain ?? 'SOL'] ?? 'SOL';
@@ -320,6 +392,7 @@ export function explorerAddressUrl(chain: string, address: string): string {
     case 'ETH': return `https://etherscan.io/address/${address}`;
     case 'BASE': return `https://basescan.org/address/${address}`;
     case 'BSC': return `https://bscscan.com/address/${address}`;
+    case 'RH': return `https://robinhoodchain.blockscout.com/address/${address}`;
     default: return '#';
   }
 }
@@ -339,6 +412,7 @@ export function pctBg(v: number | undefined | null): string {
 export function typeBadge(type: string): string {
   switch (type) {
     case 'CALLER': return 'bg-wh/20 text-tx';
+    case 'INTEGRATION': return 'bg-pnk/20 text-pnk';
     case 'TG': return 'bg-blu/20 text-blu';
     case 'LIST': return 'bg-yel/20 text-yel';
     case 'WALLET': return 'bg-grn/20 text-grn';
@@ -350,12 +424,18 @@ export function typeBadge(type: string): string {
 export function sourceBadge(type: string): string {
   switch (type) {
     case 'CALLER': return 'bg-wh/10 text-tx';
+    case 'INTEGRATION': return 'bg-pnk/20 text-pnk';
     case 'TG': return 'bg-blu/20 text-blu';
     case 'LIST': return 'bg-yel/20 text-yel';
     case 'WALLET': return 'bg-grn/20 text-grn';
     case 'THESIS': return 'bg-blu/20 text-blu-light';
     default: return 'bg-g7/20 text-g7';
   }
+}
+
+/** Token-call rows keep their established neutral badge for every built-in source. */
+export function tokenCallSourceBadge(type: string): string {
+  return type === 'INTEGRATION' ? sourceBadge(type) : 'bg-wh/10 text-g6';
 }
 
 export function parseTier(t: string): number {

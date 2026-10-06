@@ -16,6 +16,7 @@
 	import Share2 from 'lucide-svelte/icons/share-2';
 	import TargetCard from './TargetCard.svelte';
 	import ChainIcon from './ChainIcon.svelte';
+	import TokenChainBadge from './TokenChainBadge.svelte';
 	import CurrencyValue from './CurrencyValue.svelte';
 	import type { SellTargetRow, SellTargetKind } from '$lib/stores/trade.svelte';
 	import { onDestroy } from 'svelte';
@@ -77,14 +78,15 @@
 		Chain,
 		TradeTargetConfig,
 		TradeTargetTrigger,
-		GasPreset,
-		Bot
+		GasPreset
 	} from '$lib/api/types';
+	import { botSourceDisplayName, type Bot } from '$lib/utils/bot-settings';
 	import { positivePercentTargetTrigger } from '$lib/utils/trade-targets';
 	import { isNetProfit, netPnlMultiplier, netPnlNative, netPnlPct, netPnlUsd } from '$lib/utils/pnl';
 	import { completedTradeTimestamp } from '$lib/utils/completed-trades';
 	import { getExpandPositions, getHiddenTradeIds, isTradeHidden, toggleTradeHidden } from '$lib/stores/feSettings.svelte';
 	import { liveAccumulatedParams } from '$lib/utils/livecursor';
+	import { dipDetails, firstDip } from '$lib/utils/pending-trigger';
 
 	type BotInfo = { sourceType: string; sourceName: string };
 	let PnlShareCard = $state<any>(null);
@@ -93,8 +95,15 @@
 		if (!trade.automation?.hasBot || !trade.automation.bots?.length) return [];
 		return trade.automation.bots.map((b) => ({
 			sourceType: b.source.type,
-			sourceName: b.source.name
+			sourceName: botSourceDisplayName(b.source as Bot['source'])
 		}));
+	}
+
+	function explorerName(chain: string): string {
+		if (chain === 'SOL') return 'Solscan';
+		if (chain === 'ETH') return 'Etherscan';
+		if (chain === 'BASE') return 'Basescan';
+		return 'Explorer';
 	}
 
 	let {
@@ -107,6 +116,9 @@
 	type TargetKind = TradeTarget['kind'];
 
 	let selectedTrade = $state<TradeResponse | null>(null);
+	const detailDip = $derived.by(() =>
+		selectedTrade && 'pendingSwaps' in selectedTrade ? firstDip(selectedTrade.pendingSwaps) : null
+	);
 	let shareTrade = $state<CompletedTrade | null>(null);
 	let showShareCard = $state(false);
 	let editingTrade = $state<ActiveTrade | null>(null);
@@ -719,14 +731,17 @@
 						onclick={() => navigateToTrade(trade)}
 					>
 						<div class="flex cursor-pointer items-center gap-2 p-2.5">
+						<div class="relative h-7 w-7 shrink-0">
 							<img
 								src={tokenImage(trade.chain, trade.tokenAddress)}
 								alt=""
-								class="h-7 w-7 shrink-0 rounded-lg ring-1 ring-bd"
+								class="h-7 w-7 rounded-lg ring-1 ring-bd"
 								onerror={(e) => {
 									(e.currentTarget as HTMLImageElement).style.display = 'none';
 								}}
 							/>
+							<TokenChainBadge chain={trade.chain} class="h-2.5 w-2.5" />
+						</div>
 							<div class="min-w-0 flex-1">
 								<div class="flex items-center gap-1.5">
 									<span class="truncate text-sm font-bold text-tx">{trade.tokenSymbol}</span>
@@ -748,8 +763,6 @@
 									>
 								</div>
 								<div class="flex items-center gap-1.5 text-[10px] text-g5">
-									<ChainIcon chain={trade.chain} class="h-3 w-3 text-g5" />
-									<span>·</span>
 									<span class="cursor-help" title={fullDateTime(displayedTradeTimestamp(trade))}
 										>{timeAgo(displayedTradeTimestamp(trade), getNow())}</span
 									>
@@ -1109,7 +1122,7 @@
 												{#each activeTrade.pendingSwaps as pending (pending.id)}
 													{#if pending.side === 'BUY' && 'strategy' in pending}
 														<div
-															class="flex items-center gap-1.5 rounded-lg bg-blu-light/8 px-2.5 py-1.5"
+															class="flex items-center gap-1.5 rounded-lg bg-blu/10 px-2.5 py-1.5"
 														>
 															<span class="text-[11px] font-bold text-blu-light">BUY</span>
 															<span
@@ -1122,7 +1135,11 @@
 															</span>
 															<span class="text-[11px] font-semibold text-blu-light/60">
 																{#if pending.strategy.type === 'DIP'}
-																	· DIP: {pending.strategy.dipPct.toFixed(1)}%
+																	{@const dip = dipDetails(pending)}
+																	· DIP {pending.strategy.dipPct.toFixed(1)}%
+																	{#if dip?.trigger}
+																		<span class="text-blu-light">→ {formatMarketCap(dip.trigger.marketCap.usdStr)} MC</span>
+																	{/if}
 																{:else if pending.strategy.type === 'LIMIT'}
 																	AT {formatPriceText(pending.strategy.priceUsd)}
 																{:else}
@@ -1142,7 +1159,7 @@
 														</div>
 													{:else}
 														<div
-															class="flex items-center gap-1.5 rounded-lg bg-red/8 px-2.5 py-1.5"
+															class="flex items-center gap-1.5 rounded-lg bg-red/10 px-2.5 py-1.5"
 														>
 															<span class="text-[11px] font-bold text-red">SELL</span>
 															<span class="text-[13px] font-bold text-red"
@@ -1351,6 +1368,7 @@
 			>
 				<div class="flex items-center justify-between border-b border-bd px-4 md:px-5 py-3 md:py-4">
 					<div class="flex items-center gap-3">
+						<div class="relative h-9 w-9 shrink-0">
 						<img
 							src={tokenImage(trade.chain, trade.tokenAddress)}
 							alt=""
@@ -1359,10 +1377,11 @@
 								(e.currentTarget as HTMLImageElement).style.display = 'none';
 							}}
 						/>
+						<TokenChainBadge chain={trade.chain} class="h-3 w-3" />
+						</div>
 						<div>
 							<div class="text-base font-bold text-tx">{trade.tokenSymbol}</div>
 							<div class="flex items-center gap-1.5 text-xs text-g5">
-								<ChainIcon chain={trade.chain} class="h-3.5 w-3.5 text-g7" />
 								<span>{shortAddress(trade.tokenAddress)}</span>
 								<span>#{trade.id}</span>
 							</div>
@@ -1455,6 +1474,43 @@
 						<div class="text-xs {pnlColor(trade)}">{netPnlPct(trade).toFixed(1)}%</div>
 					</div>
 				</div>
+
+				{#if detailDip}
+					{@const dip = detailDip}
+					<div class="border-b border-bd px-4 py-3 md:px-5">
+						<div class="mb-2 text-xs font-semibold uppercase tracking-wider text-g6">Buy at dip</div>
+						<div class="grid grid-cols-3 gap-3 rounded-xl border border-blu/20 bg-s2 px-3.5 py-2.5">
+							<div>
+								<div class="text-[10px] font-medium uppercase tracking-wider text-g5">Dip</div>
+								<div class="mt-0.5 text-sm font-bold text-blu-light">−{dip.dipPct.toFixed(1)}%</div>
+							</div>
+							<div>
+								<div class="text-[10px] font-medium uppercase tracking-wider text-g5">Target price</div>
+								{#if dip.trigger}
+									<CurrencyValue
+										usd={dip.trigger.price.usdStr}
+										native={dip.trigger.price.nativeStr}
+										chain={trade.chain}
+										mode="price"
+										class="mt-0.5 text-sm font-bold text-tx"
+										iconClass="h-3.5 w-3.5"
+									/>
+								{:else}
+									<div class="mt-0.5 text-sm text-g5">—</div>
+								{/if}
+							</div>
+							<div>
+								<div class="text-[10px] font-medium uppercase tracking-wider text-g5">Target MC</div>
+								<div class="mt-0.5 text-sm font-bold text-tx">
+									{dip.trigger ? formatMarketCap(dip.trigger.marketCap.usdStr) : '—'}
+								</div>
+							</div>
+						</div>
+						{#if !dip.trigger}
+							<p class="mt-1.5 text-[10px] text-g5">Waiting for a reference price to set the trigger.</p>
+						{/if}
+					</div>
+				{/if}
 
 				{#if detailHasTargets}
 					<div class="border-b border-bd px-5 py-3">
@@ -1577,13 +1633,7 @@
 												rel="noopener"
 												class="flex items-center gap-1 rounded-md bg-wh/5 px-2 py-1 text-[11px] font-medium text-g7 transition-all hover:bg-wh/10 hover:text-grn"
 											>
-												View on {trade.chain === 'SOL'
-													? 'Solscan'
-													: trade.chain === 'ETH'
-														? 'Etherscan'
-														: trade.chain === 'BASE'
-															? 'Basescan'
-															: 'Explorer'}
+												View on {explorerName(trade.chain)}
 												<ExternalLink class="h-3 w-3" strokeWidth={2} />
 											</a>
 										</div>
@@ -1646,6 +1696,7 @@
 			>
 				<div class="flex items-center justify-between border-b border-bd px-4 md:px-5 py-3 md:py-4">
 					<div class="flex items-center gap-3">
+						<div class="relative h-9 w-9 shrink-0">
 						<img
 							src={tokenImage(eTrade.chain, eTrade.tokenAddress)}
 							alt=""
@@ -1654,6 +1705,8 @@
 								(e.currentTarget as HTMLImageElement).style.display = 'none';
 							}}
 						/>
+						<TokenChainBadge chain={eTrade.chain} class="h-3 w-3" />
+						</div>
 						<div>
 							<div class="text-base font-bold text-tx">Edit Position</div>
 							<div class="text-xs text-g5">{eTrade.tokenSymbol} · #{eTrade.id}</div>
@@ -1812,6 +1865,7 @@
 			>
 				<div class="mb-5 flex items-center justify-between">
 					<div class="flex items-center gap-3">
+						<div class="relative h-9 w-9 shrink-0">
 						<img
 							src={tokenImage(st.chain, st.tokenAddress)}
 							alt=""
@@ -1820,6 +1874,8 @@
 								(e.currentTarget as HTMLImageElement).style.display = 'none';
 							}}
 						/>
+						<TokenChainBadge chain={st.chain} class="h-3 w-3" />
+						</div>
 						<div>
 							<div class="text-sm font-bold text-tx">Sell {st.tokenSymbol}</div>
 							<div class="text-xs text-g5">{remaining} tokens remaining</div>

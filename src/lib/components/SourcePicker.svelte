@@ -71,15 +71,15 @@
 	const tabConfigs = $derived<TabConfig[]>(tabs.map(t => ({ key: t, label: tabLabels[t] })));
 
 	function getSourceName(item: WatchlistSourceItem): string {
-		return (item as { name: string }).name;
+		return item.name;
 	}
 
 	function getSourceId(item: WatchlistSourceItem): string {
-		return (item as { id: string }).id;
+		return item.id;
 	}
 
 	function getSourceType(item: WatchlistSourceItem): CallerSource {
-		return (item as { type: CallerSource }).type;
+		return item.type;
 	}
 
 	/** Thesis authors are identified by wallet, so they carry an avatar plus the
