@@ -16,7 +16,24 @@ describe('entity icon registry', () => {
 				slug === 'direct' ||
 				slug === 'padre' ||
 				slug === 'generic-bot' ||
-				slug === 'solana-mev-bot'
+				slug === 'solana-mev-bot' ||
+				slug === 'uni-mix' ||
+				slug === 'uni-pool' ||
+				slug === 'uni-router' ||
+				slug === 'uni-v3' ||
+				slug === 'uni-v4' ||
+				slug === 'uniswap' ||
+				slug === 'wrapper' ||
+				slug === 'velora' ||
+				slug === 'zerox' ||
+				slug === 'entrypoint' ||
+				slug === 'intent' ||
+				slug === 'rh-fwd' ||
+				slug === 'rh-route' ||
+				slug === 'rh-router' ||
+				slug === 'swapshell' ||
+				slug === 'uniwall' ||
+				slug === '1inch'
 					? 'svg'
 					: 'webp';
 			expect(existsSync(resolve('static/entity-icons', `${slug}.${extension}`)), slug).toBe(true);

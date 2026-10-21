@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chainBrandArt } from '$lib/utils/chain-brand';
+import { chainBrandArt, chainDisplayName } from '$lib/utils/chain-brand';
 
 describe('chainBrandArt', () => {
 	it('returns brand art for the supported chains', () => {
@@ -16,5 +16,20 @@ describe('chainBrandArt', () => {
 		expect(chainBrandArt('')).toBeNull();
 		expect(chainBrandArt(null)).toBeNull();
 		expect(chainBrandArt(undefined)).toBeNull();
+	});
+});
+
+describe('chainDisplayName', () => {
+	it('uses the full name for Solana and Robinhood', () => {
+		expect(chainDisplayName('SOL')).toBe('Solana');
+		expect(chainDisplayName('sol')).toBe('Solana');
+		expect(chainDisplayName('RH')).toBe('Robinhood');
+		expect(chainDisplayName('rh')).toBe('Robinhood');
+	});
+
+	it('keeps an unknown code so the caption is not blank', () => {
+		expect(chainDisplayName('ETH')).toBe('ETH');
+		expect(chainDisplayName('')).toBe('');
+		expect(chainDisplayName(null)).toBe('');
 	});
 });

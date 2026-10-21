@@ -42,7 +42,7 @@ describe('swap feed filters', () => {
 		const s = await loadStore();
 		s.initFeSettings();
 		expect(s.getSwapFeedFilters()).toEqual({
-			feedMode: 'all', side: '', minUsd: 10, maxUsd: null, labels: [], sources: []
+			feedMode: 'all', side: '', minUsd: 10, maxUsd: null, labels: [], sources: [], chain: 'All'
 		});
 	});
 

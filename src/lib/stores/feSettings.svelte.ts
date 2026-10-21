@@ -19,6 +19,8 @@ interface FeSettings {
 		maxUsd: number | null;
 		labels: string[];
 		sources: string[];
+		/** Labeled-swap chain. `All` reads Solana and Robinhood. */
+		chain: FeedChain;
 	};
 	/** Swaps tab: one-line rows instead of the full card. */
 	swapFeedCompact: boolean;
@@ -82,7 +84,7 @@ const defaults: FeSettings = {
 	twitterFeedPopout: false,
 	twitterFeedFloat: { x: 80, y: 80, w: 380, h: 520 },
 	socialFeedTab: 'swaps',
-	swapFeedFilters: { feedMode: 'all', side: '', minUsd: 10, maxUsd: null, labels: [], sources: [] },
+	swapFeedFilters: { feedMode: 'all', side: '', minUsd: 10, maxUsd: null, labels: [], sources: [], chain: 'All' },
 	swapFeedCompact: false,
 	swapFeedPopout: false,
 	swapFeedFloat: { x: 480, y: 120, w: 400, h: 520 },
@@ -136,6 +138,8 @@ function hydrate() {
 		if (from < 2) delete parsed.socialFeedTab;
 		const hadFeedChain = Object.prototype.hasOwnProperty.call(parsed, 'feedChain');
 		settings = { ...defaults, ...parsed, settingsVersion: SETTINGS_VERSION };
+		settings.swapFeedFilters = { ...defaults.swapFeedFilters, ...parsed.swapFeedFilters };
+		if (!isFeedChain(settings.swapFeedFilters.chain)) settings.swapFeedFilters.chain = 'All';
 		if (!isFeedChain(settings.feedChain)) settings.feedChain = 'All';
 		// Older blobs only stored a chain per Memescope column. When those
 		// columns agree, that choice is the shared Scanner/Memescope toggle.

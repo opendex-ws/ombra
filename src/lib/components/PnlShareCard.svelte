@@ -4,6 +4,7 @@
 	import X from 'lucide-svelte/icons/x';
 	import Download from 'lucide-svelte/icons/download';
 	import { formatUsd, formatPriceText, ageFromSeconds } from '$lib/utils/format';
+	import { chainBrandArt, chainDisplayName } from '$lib/utils/chain-brand';
 	import { completedTradeTimestamp } from '$lib/utils/completed-trades';
 	import { loadTradeChart, type SparkPoint, type TradeChart } from '$lib/utils/pnl-chart';
 	import type { CompletedTrade } from '$lib/api/types';
@@ -113,16 +114,28 @@
 		if (bg.src) {
 			try { bgImg = await loadBgImage(bg.src); } catch {}
 		}
+		const chainIcon = await loadChainIcon(t.chain);
+		if (trade?.id !== t.id || selectedBg !== bgIdx || !show) return;
 		let chart: TradeChart | null = null;
 		if (showChart) {
 			// Paint without the chart first so the preview is never blank while the
 			// candles are in flight.
-			if (chartCache?.tradeId !== t.id) renderCard(t, bg, bgImg, null);
+			if (chartCache?.tradeId !== t.id) renderCard(t, bg, bgImg, null, chainIcon);
 			chart = await tradeChart(t);
 			// The user may have switched trade, background or toggle while we waited.
 			if (trade?.id !== t.id || selectedBg !== bgIdx || !showChart) return;
 		}
-		renderCard(t, bg, bgImg, chart);
+		renderCard(t, bg, bgImg, chart, chainIcon);
+	}
+
+	async function loadChainIcon(chain: string): Promise<HTMLImageElement | null> {
+		const src = chainBrandArt(chain);
+		if (!src) return null;
+		try {
+			return await loadBgImage(src);
+		} catch {
+			return null;
+		}
 	}
 
 	function drawProceduralBg(ctx: CanvasRenderingContext2D, w: number, h: number, bg: BgOption) {
@@ -389,7 +402,13 @@
 		ctx.textBaseline = 'alphabetic';
 	}
 
-	function renderCard(t: CompletedTrade, bg: BgOption, bgImg: HTMLImageElement | null, chart: TradeChart | null) {
+	function renderCard(
+		t: CompletedTrade,
+		bg: BgOption,
+		bgImg: HTMLImageElement | null,
+		chart: TradeChart | null,
+		chainIcon: HTMLImageElement | null
+	) {
 		const w = 1920;
 		const h = 1080;
 		const offscreen = document.createElement('canvas');
@@ -448,9 +467,25 @@
 		ctx.font = `26px ${font}`;
 		ctx.fillText(t.tokenName, pad, pad + 96);
 
-		ctx.fillStyle = 'rgba(255,255,255,0.25)';
-		ctx.font = `bold 22px ${font}`;
-		ctx.fillText(t.chain, pad, pad + 130);
+		const chainName = chainDisplayName(t.chain);
+		const mark = 48;
+		const markTop = pad + 108;
+		let chainTextX = pad;
+		if (chainIcon) {
+			ctx.save();
+			ctx.beginPath();
+			ctx.arc(pad + mark / 2, markTop + mark / 2, mark / 2, 0, Math.PI * 2);
+			ctx.clip();
+			ctx.drawImage(chainIcon, pad, markTop, mark, mark);
+			ctx.restore();
+			chainTextX = pad + mark + 14;
+		}
+		ctx.fillStyle = 'rgba(255,255,255,0.9)';
+		ctx.font = `600 32px ${font}`;
+		ctx.textAlign = 'left';
+		ctx.textBaseline = 'middle';
+		ctx.fillText(chainName, chainTextX, markTop + mark / 2);
+		ctx.textBaseline = 'alphabetic';
 
 		const pnlPctText = `${sign}${pnlPctVal.toFixed(1)}%`;
 		ctx.fillStyle = pnlColor;

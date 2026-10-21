@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { tokenImage } from '$lib/api/config';
+	import { hookBadge } from '$lib/utils/token-hook';
+	import TokenAvatar from './TokenAvatar.svelte';
 	import { onDestroy } from 'svelte';
 	import { onVisibility, FLASH_MS, FLASH_COOLDOWN_MS } from '$lib/utils/visibility';
 	import type { ScannerItem } from '$lib/api/types';
@@ -141,6 +142,7 @@
 		return getRouterIconForChain(bc.migratedFromPlatformType, token.chain ?? '');
 	});
 	let sec = $derived(token.audit);
+	let hook = $derived(hookBadge(sec?.hook, sec?.hookAddress));
 	let h = $derived(token.holders);
 	// Flatten the new nested social links to the URL strings the row displays.
 	let soc = $derived.by(() => {
@@ -208,8 +210,14 @@
 				? `background: conic-gradient(var(--t-grn) ${migPct * 3.6}deg, var(--t-bd2) ${migPct * 3.6}deg)`
 				: 'background: var(--t-bd)'}
 		>
-			{#if showImage && token.tokenAddress}
-				<img src={tokenImage(token.chain, token.tokenAddress)} alt="" class="h-full w-full rounded-[10px] object-cover" />
+			{#if showImage}
+				<TokenAvatar
+					chain={token.chain}
+					address={token.tokenAddress}
+					symbol={token.tokenSymbol}
+					class="h-full w-full rounded-[10px] object-cover"
+					fallbackClass="rounded-[10px] bg-s7 text-xs font-bold text-g6"
+				/>
 			{:else}
 				<div class="flex h-full w-full items-center justify-center rounded-[10px] bg-s7 text-xs font-bold text-g6">
 					{token.tokenSymbol?.[0] ?? '?'}
@@ -369,6 +377,7 @@
 	<div class="flex items-center justify-center gap-1">
 		<span class="inline-block h-2.5 w-2.5 rounded-full {!sec?.mintable ? 'bg-grn' : 'bg-red'}" title="Mint {!sec?.mintable ? 'disabled' : 'enabled'}"></span>
 		<span class="inline-block h-2.5 w-2.5 rounded-full {!sec?.freezable ? 'bg-grn' : 'bg-red'}" title="Freeze {!sec?.freezable ? 'disabled' : 'enabled'}"></span>
+		<span class="inline-block h-2.5 w-2.5 rounded-full {hook.dotClass}" title={hook.title}></span>
 		<span class="inline-block h-2.5 w-2.5 rounded-full {sec?.lpLocked ? 'bg-grn' : 'bg-red'}" title="{sec?.lpLocked ? 'LP locked' : 'LP not locked'}"></span>
 		<span class="inline-block h-2.5 w-2.5 rounded-full {sec?.honeypot ? 'bg-red' : 'bg-grn'}" title="{sec?.honeypot ? 'Honeypot detected' : 'Not a honeypot'}"></span>
 	</div>
@@ -382,6 +391,13 @@
 		class="pointer-events-none fixed z-[300] rounded-xl border border-bd bg-s4 p-1 shadow-2xl"
 		style="left: {previewPos.x}px; top: {previewPos.y}px; width: {PREVIEW_SIZE}px; height: {PREVIEW_SIZE}px;"
 	>
-		<img src={tokenImage(token.chain, token.tokenAddress, 256)} alt="" class="h-full w-full rounded-lg object-cover" />
+		<TokenAvatar
+			chain={token.chain}
+			address={token.tokenAddress}
+			symbol={token.tokenSymbol}
+			size={256}
+			class="h-full w-full rounded-lg object-cover"
+			fallbackClass="rounded-lg bg-s7 text-3xl font-bold text-g6"
+		/>
 	</div>
 {/if}

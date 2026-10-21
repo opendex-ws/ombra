@@ -73,6 +73,7 @@ let socket: WebSocket | null = null;
 let subscriptions = new Map<string, Subscription>();
 let serverSubscriptions = new Map<string, ServerSubscription>();
 let pendingAcks = new Map<string, string>();
+let pendingUpdates = new Map<string, string>();
 let subCounter = 0;
 let requestCounter = 0;
 let pingInterval: ReturnType<typeof setInterval> | null = null;
@@ -880,9 +881,28 @@ function connect() {
 			return;
 		}
 
+		if (msg.type === 'params_updated') {
+			const requestId = typeof msg.requestId === 'string' ? msg.requestId : '';
+			const serverKey = pendingUpdates.get(requestId);
+			pendingUpdates.delete(requestId);
+			const serverSub = serverKey ? serverSubscriptions.get(serverKey) : undefined;
+			wsLog('update_params:ack', { requestId, topic: serverSub?.topic, paramsKeys: paramsKeys(serverSub?.params) });
+			if (serverSub && serverSub.subId === msg.subId) {
+				serverSub.windows = msg.windows && typeof msg.windows === 'object' ? msg.windows : undefined;
+			}
+			return;
+		}
+
 		if (msg.type === 'auth_success') {
 			wsLog('auth:success', { userId: msg.userId });
 			currentUserId = msg.userId ?? null;
+			if (currentUserId) {
+				for (const sub of subscriptions.values()) {
+					if (sub.localOnly && sub.onSubscribed) {
+						try { sub.onSubscribed(); } catch {}
+					}
+				}
+			}
 			return;
 		}
 
@@ -893,6 +913,13 @@ function connect() {
 
 		if (msg.type === 'error') {
 			const requestId = typeof msg.requestId === 'string' ? msg.requestId : '';
+			const updateKey = requestId ? pendingUpdates.get(requestId) : undefined;
+			if (updateKey) {
+				pendingUpdates.delete(requestId);
+				wsLog('update_params:error', { requestId, reason: msg.reason, message: msg.message });
+				resubscribeServerSubscription(updateKey);
+				return;
+			}
 			const serverKey = requestId ? pendingAcks.get(requestId) : undefined;
 			if (requestId) pendingAcks.delete(requestId);
 			if (serverKey) {
@@ -970,6 +997,7 @@ function connect() {
 			serverSub.failed = false;
 		});
 		pendingAcks.clear();
+		pendingUpdates.clear();
 
 		scheduleReconnect(event.code);
 	};
@@ -1093,21 +1121,76 @@ export function getTopicWindows(topic: string, params?: Record<string, any>): Re
 	return serverSubscriptions.get(serverKeyFor(topic, params))?.windows;
 }
 
+function releaseServerSubscription(serverKey: string) {
+	if (hasLocalSubscribers(serverKey)) return;
+	const serverSub = serverSubscriptions.get(serverKey);
+	if (serverSub?.pendingRequestId) pendingAcks.delete(serverSub.pendingRequestId);
+	if (serverSub?.subId) {
+		safeSend(JSON.stringify({ type: 'unsubscribe', subId: serverSub.subId }));
+	}
+	serverSubscriptions.delete(serverKey);
+}
+
+function resubscribeServerSubscription(serverKey: string) {
+	const serverSub = serverSubscriptions.get(serverKey);
+	if (!serverSub) return;
+	if (serverSub.subId) safeSend(JSON.stringify({ type: 'unsubscribe', subId: serverSub.subId }));
+	serverSub.subId = undefined;
+	serverSub.displayTopic = undefined;
+	serverSub.windows = undefined;
+	sendSubscribe(serverKey, serverSub);
+}
+
+/**
+ * Point a subscription at new params. A server subscription that only this
+ * subscriber uses moves in place with `update_params` (same `subId`); frames are
+ * held back until `params_updated` acknowledges the new window. Otherwise, or
+ * before the first ack, it falls back to unsubscribe + subscribe.
+ */
+export function updateParams(key: string, params: Record<string, any>) {
+	const sub = subscriptions.get(key);
+	if (!sub?.serverKey) return;
+	const oldKey = sub.serverKey;
+	const newKey = serverKeyFor(sub.topic, params);
+	if (newKey === oldKey) return;
+
+	sub.params = params;
+	sub.serverKey = newKey;
+	const serverSub = serverSubscriptions.get(oldKey);
+	const inPlace =
+		!!serverSub?.subId
+		&& !serverSub.pendingRequestId
+		&& !hasLocalSubscribers(oldKey)
+		&& !serverSubscriptions.has(newKey)
+		&& socket?.readyState === WebSocket.OPEN;
+
+	if (inPlace && serverSub) {
+		serverSubscriptions.delete(oldKey);
+		serverSub.params = params;
+		serverSub.windows = undefined;
+		serverSubscriptions.set(newKey, serverSub);
+		const requestId = `ws_upd_${++requestCounter}`;
+		pendingUpdates.set(requestId, newKey);
+		wsLog('update_params:send', { requestId, topic: sub.topic, paramsKeys: paramsKeys(params) });
+		safeSend(JSON.stringify({ type: 'update_params', subId: serverSub.subId, params, requestId }));
+		return;
+	}
+
+	releaseServerSubscription(oldKey);
+	if (!serverSubscriptions.has(newKey)) {
+		serverSubscriptions.set(newKey, { topic: sub.topic, params });
+	}
+	const target = serverSubscriptions.get(newKey)!;
+	if (socket?.readyState === WebSocket.OPEN && !target.subId) sendSubscribe(newKey, target);
+}
+
 export function unsubscribe(key: string) {
 	const sub = subscriptions.get(key);
 	if (!sub) return;
 
-
 	subscriptions.delete(key);
 
-	if (sub.serverKey && !hasLocalSubscribers(sub.serverKey)) {
-		const serverSub = serverSubscriptions.get(sub.serverKey);
-		if (serverSub?.pendingRequestId) pendingAcks.delete(serverSub.pendingRequestId);
-		if (serverSub?.subId) {
-			safeSend(JSON.stringify({ type: 'unsubscribe', subId: serverSub.subId }));
-		}
-		serverSubscriptions.delete(sub.serverKey);
-	}
+	if (sub.serverKey) releaseServerSubscription(sub.serverKey);
 
 	if (subscriptions.size === 0) {
 		scheduleClose();

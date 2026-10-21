@@ -2,10 +2,11 @@
 	import { tokenImage } from '$lib/api/config';
 	import { onDestroy, untrack } from 'svelte';
 	import ChainIcon from './ChainIcon.svelte';
+	import TokenChainBadge from './TokenChainBadge.svelte';
 	import CurrencyValue from './CurrencyValue.svelte';
 	import { api } from '$lib/api/client';
 	import { portal } from '$lib/actions/portal';
-	import type { WatchlistCallItem, WatchlistFeedResponse, WatchlistRankingResponse, TgManagedChat, TgSenderEntry, TgTopicEntry, ErrorResponse, WatchlistSourceItem, TokenFilter, TokenMarketFilter, TokenSecurityFilter, TokenSocialFilter, TokenSourceFilter, TokenTaxFilter, Chain, WalletSourceIdentity, TokenActivityFilter, TokenActivityWindowFilter, TokenHolderFilter, ScannerGraduation, WatchlistRankItem } from '$lib/api/types';
+	import type { WatchlistCallItem, WatchlistFeedResponse, TgManagedChat, TgSenderEntry, TgTopicEntry, ErrorResponse, WatchlistSourceItem, TokenFilter, TokenMarketFilter, TokenSecurityFilter, TokenSocialFilter, TokenSourceFilter, TokenTaxFilter, Chain, WalletSourceIdentity, TokenActivityFilter, TokenActivityWindowFilter, TokenHolderFilter, ScannerGraduation, WatchlistRankItem } from '$lib/api/types';
 	import type { PlatformType } from '$lib/api/types';
 	import { getIsLoggedIn, getAuthToken, connectWallet } from '$lib/stores/auth.svelte';
 	import { isCursorRecoveryReason, subscribe, unsubscribe, authenticate, type WsErrorInfo } from '$lib/ws/client';
@@ -61,23 +62,17 @@
 	import type { HistoricalFilterFieldDefinition, ParsedCustomSignalSchema } from '$lib/custom-signals/schema';
 	import {
 		BUILT_IN_WATCHLIST_TABS,
-		buildIntegrationRankingQuery,
 		buildRuntimeWatchlistTabs,
 		fetchIntegrationCallers,
 		fetchIntegrationCallerRanking,
 		fetchIntegrationDiscovery,
-		fetchIntegrationRanking,
 		fetchIntegrationSchema,
 		fetchIntegrationWatchlistFeed,
 		integrationFeedRestQuery,
 		integrationFeedSubscriptionParams,
 		integrationIdFromTab,
-		integrationRankingTopic,
-		integrationRankingSubscriptionParams,
-		integrationRankingPageItems,
 		integrationTabKey,
 		type BuiltInWatchlistTab,
-		type IntegrationRankingQueryState,
 		type IntegrationCallerSourceItem,
 		type IntegrationFeedQuery,
 		type RuntimeWatchlistTab
@@ -691,182 +686,17 @@
 	let sourceRanking = $state<WatchlistRankItem | null>(null);
 	let sourceRankingLoading = $state(false);
 	let sourceRankingRequestId = 0;
-	let integrationRankingItems = $state<WatchlistRankItem[]>([]);
-	let integrationRankingLoading = $state(false);
-	let integrationRankingPagination = $state<CursorTriplet>({});
-	let integrationRankingRequestId = 0;
-	let integrationRankingWsKey: string | null = null;
-	let integrationRankingPendingWsKey: string | null = null;
-	let integrationRankingActiveWsIdentity = '';
-	let integrationRankingPendingWsIdentity = '';
-	let integrationRankingError = $state('');
 	let rankingCollapsed = $state(false);
 	const RANK_TIMEFRAMES = ['1d', '3d', '7d', '30d'] as const;
 	let rankTimeframe = $state<typeof RANK_TIMEFRAMES[number]>('30d');
-	let integrationRankBy = $state<IntegrationRankingQueryState['rankBy']>('performanceScore');
-	let integrationOrderBy = $state<IntegrationRankingQueryState['orderBy']>('desc');
-	let integrationWinRateMin = $state('');
-	let integrationWinRateMax = $state('');
-	let integrationCallsMin = $state('');
-	let integrationCallsMax = $state('');
-	let integrationScoreMin = $state('');
-	let integrationScoreMax = $state('');
-	let integrationRankingAppliedState = $state<IntegrationRankingQueryState>({
-		timeframe: '30d',
-		rankBy: 'performanceScore',
-		orderBy: 'desc'
-	});
-	const integrationRankOptions: { value: IntegrationRankingQueryState['rankBy']; label: string }[] = [
-		{ value: 'performanceScore', label: 'Score' },
-		{ value: 'winRatePct', label: 'Win rate' },
-		{ value: 'totalCalls', label: 'Calls' },
-		{ value: 'averageMultiplier', label: 'Average return' },
-		{ value: 'highestMultiplier', label: 'Highest return' }
-	];
-
-	function currentIntegrationRankingState(): IntegrationRankingQueryState {
-		return {
-			timeframe: rankTimeframe,
-			rankBy: integrationRankBy,
-			orderBy: integrationOrderBy,
-			winRatePctMin: integrationWinRateMin,
-			winRatePctMax: integrationWinRateMax,
-			totalCallsMin: integrationCallsMin,
-			totalCallsMax: integrationCallsMax,
-			performanceScoreMin: integrationScoreMin,
-			performanceScoreMax: integrationScoreMax
-		};
-	}
 
 	function cycleRankTimeframe() {
 		const idx = RANK_TIMEFRAMES.indexOf(rankTimeframe);
 		rankTimeframe = RANK_TIMEFRAMES[(idx + 1) % RANK_TIMEFRAMES.length];
-		if (activeIntegrationId() && !selectedCallerId) {
-			void fetchIntegrationRankingPage(
-				undefined,
-				{ ...integrationRankingAppliedState, timeframe: rankTimeframe },
-				true
-			);
-			return;
-		}
 		refreshActiveRanking();
 	}
 
-	function applyIntegrationRankingFilters() {
-		const next = currentIntegrationRankingState();
-		try {
-			buildIntegrationRankingQuery(next);
-			void fetchIntegrationRankingPage(undefined, next, true);
-		} catch (cause) {
-			integrationRankingError = cause instanceof Error ? cause.message : 'Invalid ranking filters';
-		}
-	}
-
-	function cleanupIntegrationRankingWs() {
-		if (integrationRankingWsKey) unsubscribe(integrationRankingWsKey);
-		if (integrationRankingPendingWsKey) unsubscribe(integrationRankingPendingWsKey);
-		integrationRankingWsKey = null;
-		integrationRankingPendingWsKey = null;
-		integrationRankingActiveWsIdentity = '';
-		integrationRankingPendingWsIdentity = '';
-	}
-
-	function rememberIntegrationRankingPage(page: CursorTriplet | undefined | null) {
-		integrationRankingPagination = {
-			cursor: page?.cursor ?? undefined,
-			prevCursor: page?.prevCursor ?? undefined,
-			nextCursor: page?.nextCursor ?? undefined
-		};
-	}
-
-	function setupIntegrationRankingWs(
-		integrationId: string,
-		query: Record<string, unknown>,
-		queryState: IntegrationRankingQueryState,
-		page: WatchlistRankingResponse
-	) {
-		if (!active || activeIntegrationId() !== integrationId || selectedCallerId) return;
-		const topic = integrationRankingTopic(integrationId);
-		const params = integrationRankingSubscriptionParams(query, page.cursor);
-		const identity = `${integrationId}:${JSON.stringify(params)}`;
-		if (integrationRankingPendingWsKey) {
-			unsubscribe(integrationRankingPendingWsKey);
-			integrationRankingPendingWsKey = null;
-			integrationRankingPendingWsIdentity = '';
-		}
-		const previousKey = integrationRankingWsKey;
-		let nextKey = '';
-		nextKey = subscribe(topic, (event, payload, frameTopic) => {
-			if (event !== 'WATCHLIST_RANKING' || frameTopic !== topic || integrationRankingWsKey !== nextKey || integrationRankingActiveWsIdentity !== identity || activeIntegrationId() !== integrationId || selectedCallerId) return;
-			const snapshot = payload as WatchlistRankingResponse;
-			integrationRankingItems = integrationRankingPageItems(snapshot);
-			rememberIntegrationRankingPage(snapshot);
-		}, params, {
-			onSubscribed: () => {
-				if (integrationRankingPendingWsKey !== nextKey || integrationRankingPendingWsIdentity !== identity || activeIntegrationId() !== integrationId || selectedCallerId) return;
-				integrationRankingWsKey = nextKey;
-				integrationRankingActiveWsIdentity = identity;
-				integrationRankingPendingWsKey = null;
-				integrationRankingPendingWsIdentity = '';
-				integrationRankingItems = integrationRankingPageItems(page);
-				rememberIntegrationRankingPage(page);
-				if (previousKey && previousKey !== nextKey) unsubscribe(previousKey);
-			},
-			onError: () => {
-				if (integrationRankingPendingWsKey !== nextKey || integrationRankingPendingWsIdentity !== identity) return;
-				unsubscribe(nextKey);
-				integrationRankingPendingWsKey = null;
-				integrationRankingPendingWsIdentity = '';
-			},
-			recovery: 'refetch',
-			onReconnect: () => {
-				if (integrationRankingWsKey !== nextKey || integrationRankingActiveWsIdentity !== identity) return;
-				void fetchIntegrationRankingPage(page.cursor, queryState);
-			}
-		});
-		integrationRankingPendingWsKey = nextKey;
-		integrationRankingPendingWsIdentity = identity;
-	}
-
-	async function fetchIntegrationRankingPage(
-		cursor?: string,
-		queryState: IntegrationRankingQueryState = integrationRankingAppliedState,
-		commitAppliedState = false
-	) {
-		const integrationId = activeIntegrationId();
-		if (!integrationId || selectedCallerId) {
-			integrationRankingRequestId++;
-			integrationRankingItems = [];
-			rememberIntegrationRankingPage(undefined);
-			cleanupIntegrationRankingWs();
-			return;
-		}
-		const requestId = ++integrationRankingRequestId;
-		integrationRankingLoading = true;
-		integrationRankingError = '';
-		try {
-			const query = buildIntegrationRankingQuery(queryState, cursor);
-			const data = await fetchIntegrationRanking(integrationId, query);
-			if (requestId !== integrationRankingRequestId || activeIntegrationId() !== integrationId || selectedCallerId) return;
-			cleanupIntegrationRankingWs();
-			integrationRankingItems = integrationRankingPageItems(data);
-			rememberIntegrationRankingPage(data);
-			if (commitAppliedState) integrationRankingAppliedState = { ...queryState };
-			setupIntegrationRankingWs(integrationId, query, queryState, data);
-		} catch (cause) {
-			if (requestId === integrationRankingRequestId) integrationRankingError = cause instanceof Error ? cause.message : 'Failed to load ranking';
-		} finally {
-			if (requestId === integrationRankingRequestId) {
-				integrationRankingLoading = false;
-			}
-		}
-	}
-
 	function refreshActiveRanking() {
-		if (activeIntegrationId() && !selectedCallerId) {
-			void fetchIntegrationRankingPage();
-			return;
-		}
 		void fetchSourceRanking();
 	}
 
@@ -878,7 +708,6 @@
 			sourceRankingLoading = false;
 			return;
 		}
-		cleanupIntegrationRankingWs();
 		const requestId = ++sourceRankingRequestId;
 		const integrationId = activeIntegrationId();
 		const selectionKey = `${integrationId ?? ''}:${sel.source}:${sel.id}:${rankTimeframe}`;
@@ -1147,7 +976,6 @@
 
 	function cleanupAll() {
 		cleanupCallWs();
-		cleanupIntegrationRankingWs();
 	}
 
 	function callFlashKey(call: WatchlistCallItem): string {
@@ -1317,16 +1145,6 @@
 		sourceRanking = null;
 		fetchCalls();
 		refreshActiveRanking();
-	}
-
-	function selectIntegrationRankingCaller(item: WatchlistRankItem) {
-		const callerId = String(item.source.id);
-		rankTimeframe = integrationRankingAppliedState.timeframe;
-		selectedCallerId = callerId;
-		feedSourceId = null;
-		cleanupIntegrationRankingWs();
-		fetchCalls();
-		fetchSourceRanking();
 	}
 
 	function closeSourceRanking() {
@@ -1626,6 +1444,12 @@
 		integrationHistoricalFields = [];
 		integrationFilterError = '';
 		sourceRanking = null;
+	}
+
+	function selectFeedChain(next: 'All' | Chain) {
+		feedChains = next === 'All' ? [] : [next];
+		fetchCalls();
+		refreshActiveRanking();
 	}
 
 	function applyFeedFilters() {
@@ -2274,15 +2098,10 @@
 
 			if (tabChanged || loginChanged) {
 				sourceRanking = null;
-				integrationRankingItems = [];
-				rememberIntegrationRankingPage(undefined);
 				fetchCalls();
 				refreshActiveRanking();
 			} else if (!callWsKey) {
 				setupCallWs(tab);
-			}
-			if (integrationId && !selectedCallerId && !integrationRankingWsKey && !integrationRankingLoading) {
-				void fetchIntegrationRankingPage();
 			}
 		});
 
@@ -2502,6 +2321,20 @@
 				</button>
 			{/if}
 
+			<div class="flex shrink-0 items-center gap-0.5 rounded-md bg-s4 p-0.5" title="Chain">
+				{#each [{ id: 'All' as const, label: 'All' }, { id: 'SOL' as const, label: 'SOL' }, { id: 'RH' as const, label: 'RH' }] as opt}
+					{@const selected = opt.id === 'All' ? feedChains.length !== 1 : feedChains.length === 1 && feedChains[0] === opt.id}
+					<button
+						onclick={() => selectFeedChain(opt.id)}
+						class="inline-flex cursor-pointer items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-semibold transition-colors {selected ? 'bg-grn/20 text-grn' : 'text-g5 hover:text-g8'}"
+						aria-pressed={selected}
+						title={opt.id === 'All' ? 'All chains' : opt.id === 'RH' ? 'Robinhood' : 'Solana'}
+					>
+						{#if opt.id !== 'All'}<ChainIcon chain={opt.id} class="h-2.5 w-2.5" />{/if}
+						{opt.label}
+					</button>
+				{/each}
+			</div>
 			<button
 				onclick={toggleFeedFilter}
 				class="relative flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors {showFeedFilter ? 'bg-tx/20 text-tx' : feedFilterCount > 0 ? 'bg-grn/10 text-grn' : 'bg-s7 text-g7 hover:bg-s6 hover:text-tx'}"
@@ -2676,68 +2509,6 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="flex flex-1 flex-col overflow-hidden transition-all {showFeedFilter ? 'blur-[2px] opacity-60 pointer-events-none' : ''}">
-		{#if activeIntegrationId() && !selectedCallerId}
-			<div class="border-b border-bd bg-s2 px-3 py-2.5">
-				<div class="flex items-center justify-between gap-2">
-					<div class="min-w-0">
-						<div class="text-[10px] font-medium uppercase tracking-wider text-g5">Caller ranking</div>
-						<div class="truncate text-xs text-g7">{tabs.find((tab) => tab.key === activeTab)?.label ?? 'Integration'}</div>
-					</div>
-					<div class="flex items-center gap-1">
-						<button type="button" onclick={() => void fetchIntegrationRankingPage(integrationRankingPagination.prevCursor ?? undefined)} disabled={!integrationRankingPagination.prevCursor || integrationRankingLoading} class="cursor-pointer rounded bg-s7 px-2 py-1 text-[10px] text-g6 hover:text-tx disabled:cursor-default disabled:opacity-40">Previous</button>
-						<button type="button" onclick={() => void fetchIntegrationRankingPage(integrationRankingPagination.nextCursor ?? undefined)} disabled={!integrationRankingPagination.nextCursor || integrationRankingLoading} class="cursor-pointer rounded bg-s7 px-2 py-1 text-[10px] text-g6 hover:text-tx disabled:cursor-default disabled:opacity-40">Next</button>
-					</div>
-				</div>
-				<details class="mt-2 rounded-lg border border-bd bg-s1 px-2.5 py-2">
-					<summary class="cursor-pointer text-[10px] font-medium uppercase tracking-wider text-g5">Ranking filters</summary>
-					<div class="mt-2 grid grid-cols-2 gap-2">
-						<label class="space-y-1"><span class="block text-[10px] text-g5">Timeframe</span><select bind:value={rankTimeframe} class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx">{#each RANK_TIMEFRAMES as timeframe}<option value={timeframe}>{timeframe}</option>{/each}</select></label>
-						<label class="space-y-1"><span class="block text-[10px] text-g5">Rank by</span><select bind:value={integrationRankBy} class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx">{#each integrationRankOptions as option}<option value={option.value}>{option.label}</option>{/each}</select></label>
-						<label class="space-y-1"><span class="block text-[10px] text-g5">Order</span><select bind:value={integrationOrderBy} class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx"><option value="desc">Descending</option><option value="asc">Ascending</option></select></label>
-						<div></div>
-						<label class="space-y-1"><span class="block text-[10px] text-g5">Win rate min</span><input bind:value={integrationWinRateMin} type="number" min="0" max="100" aria-label="Minimum win rate" class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx" /></label>
-						<label class="space-y-1"><span class="block text-[10px] text-g5">Win rate max</span><input bind:value={integrationWinRateMax} type="number" min="0" max="100" aria-label="Maximum win rate" class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx" /></label>
-						<label class="space-y-1"><span class="block text-[10px] text-g5">Calls min</span><input bind:value={integrationCallsMin} type="number" min="0" max="2147483647" step="1" aria-label="Minimum total calls" class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx" /></label>
-						<label class="space-y-1"><span class="block text-[10px] text-g5">Calls max</span><input bind:value={integrationCallsMax} type="number" min="0" max="2147483647" step="1" aria-label="Maximum total calls" class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx" /></label>
-						<label class="space-y-1"><span class="block text-[10px] text-g5">Score min</span><input bind:value={integrationScoreMin} type="number" min="0" max="30" step="1" aria-label="Minimum performance score" class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx" /></label>
-						<label class="space-y-1"><span class="block text-[10px] text-g5">Score max</span><input bind:value={integrationScoreMax} type="number" min="0" max="30" step="1" aria-label="Maximum performance score" class="w-full rounded border border-bd bg-s4 px-2 py-1 text-xs text-tx" /></label>
-					</div>
-					<button type="button" onclick={applyIntegrationRankingFilters} disabled={integrationRankingLoading} class="btn-secondary mt-2 px-3 py-1.5 text-xs disabled:opacity-40">Apply ranking filters</button>
-					{#if integrationRankingError}<p role="alert" class="mt-2 text-xs text-red">{integrationRankingError}</p>{/if}
-				</details>
-				{#if integrationRankingLoading && integrationRankingItems.length === 0}
-					<div class="mt-2 h-10 animate-pulse rounded-lg bg-s7"></div>
-				{:else if integrationRankingItems.length === 0}
-					<p class="mt-2 text-xs text-g5">No ranked callers.</p>
-				{:else}
-					<div class="mt-2 flex gap-1.5 overflow-x-auto scrollbar-none" aria-label="Integration caller ranking">
-						{#each integrationRankingItems as item, index (item.source.id)}
-							<button
-								type="button"
-								onclick={() => selectIntegrationRankingCaller(item)}
-								class="flex min-w-[170px] cursor-pointer items-center gap-2 rounded-lg border border-bd bg-s1 px-2.5 py-2 text-left transition-colors hover:border-bd3"
-							>
-								<span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-s7 text-[10px] font-bold text-g6">
-									{#if 'photoId' in item.source && item.source.photoId && avatarUrl(item.source.photoId)}
-										<img src={avatarUrl(item.source.photoId) ?? ''} alt="" class="h-6 w-6 rounded-full object-cover" loading="lazy" />
-									{:else}
-										{index + 1}
-									{/if}
-								</span>
-								<span class="min-w-0 flex-1">
-									<span class="block truncate text-xs font-semibold text-tx">{item.source.name}</span>
-									<span class="mt-0.5 flex items-center gap-1.5 text-[10px] text-g5">
-										<span>{item.totalCalls} calls</span>
-										<span class={item.winRatePct >= 50 ? 'text-grn' : item.winRatePct > 0 ? 'text-yel' : 'text-red'}>{item.winRatePct.toFixed(0)}%</span>
-										<StarRating score={item.performanceScore} size={9} />
-									</span>
-								</span>
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		{/if}
 		{#if sourceRanking}
 			{@const r = sourceRanking}
 			{@const topCall = r.topCall ?? r.topCalls[0]}
@@ -2980,6 +2751,7 @@
 								<span class="absolute -top-1 left-1/2 z-20 -translate-x-1/2 rounded-full bg-blu px-1.5 py-px text-[8px] font-bold uppercase tracking-wide text-s0 shadow">New</span>
 							{/if}
 							<img src={b.image} alt="" class="absolute inset-0 h-full w-full rounded-full object-cover opacity-30" loading="lazy" onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+							<TokenChainBadge chain={b.chain} class="h-2.5 w-2.5" />
 							<span class="relative z-10 font-bold leading-none text-tx" style="font-size: {Math.max(9, sz * 0.18)}px;">{formatMultiplier(b.avgMultiplier)}</span>
 							{#if b.mcapStr && sz >= 56}
 								<span class="relative z-10 mt-0.5 leading-none text-g8" style="font-size: {Math.max(7, sz * 0.11)}px;">{formatMarketCap(b.mcapStr)}</span>
@@ -3028,53 +2800,72 @@
 					class="glass-hover absolute inset-x-0 border-b border-b-bd/40 px-3 py-2 transition-colors hover:bg-wh/5 [contain:layout_paint_style] {isActive ? 'border-l-2 border-l-grn bg-grn/10' : ''}"
 					style="top: {callsVirtual.offsetOf(callsVirtual.start + rowIndex)}px"
 				>
-					<div class="flex items-center justify-between gap-1.5">
+					<div class="grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-2 gap-y-1">
 						<a
 							href="/?chain={d.chain}&token={d.baseTokenAddress}"
 							onclick={onnavigate}
-							class="flex min-w-0 flex-1 self-stretch items-center gap-1.5"
+							class="relative h-5 w-5"
+							title={d.chain}
 						>
-							<span class="min-w-0 max-w-[55%] shrink truncate text-[13px] font-semibold text-tx" title={d.baseTokenSymbol ?? ''}>{d.baseTokenSymbol ?? '?'}</span>
-							<span class="min-w-0 truncate text-[11px] text-g6" title={d.baseTokenName ?? ''}>{d.baseTokenName ?? ''}</span>
+							<span class="flex h-5 w-5 items-center justify-center rounded-md bg-s7 text-[9px] font-bold text-g6 ring-1 ring-bd">{d.baseTokenSymbol?.[0]?.toUpperCase() ?? '?'}</span>
+							<img
+								src={tokenImage(d.chain, d.baseTokenAddress)}
+								alt=""
+								class="absolute inset-0 h-5 w-5 rounded-md object-cover ring-1 ring-bd"
+								loading="lazy"
+								onerror={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+							/>
+							<TokenChainBadge chain={d.chain} class="h-2.5 w-2.5" />
 						</a>
-						<div class="flex shrink-0 items-center gap-1">
-							{#if d.athMultiplier}
-								<span class="text-[13px] font-bold {multiplierColor(d.athMultiplier)} {flash === 'up' ? 'flash-up' : flash === 'down' ? 'flash-down' : ''}">
-									{formatMultiplier(d.athMultiplier)}
-								</span>
-							{/if}
-							{#if d.rugged}
-								<span class="rounded bg-red/20 px-1 py-px text-[9px] font-bold text-red">RUG</span>
-							{/if}
-							<button
-								type="button"
-								onclick={() => void openBotForCall(call)}
-								class="cursor-pointer flex h-5 w-5 items-center justify-center rounded-md {hasBot(call)
-									? getBotForCall(call)?.status === 'ACTIVE'
-										? 'bg-grn/20 text-grn'
-										: 'bg-red/20 text-red'
-									: 'bg-s7 text-g8 hover:bg-s6 hover:text-tx'}"
-								title={hasBot(call) ? getBotForCall(call)?.status === 'ACTIVE' ? 'Bot active' : 'Bot paused' : 'Create bot'}
-								aria-label={hasBot(call) ? 'Open bot' : 'Create bot'}
+						<div class="flex min-w-0 items-center justify-between gap-1.5">
+							<a
+								href="/?chain={d.chain}&token={d.baseTokenAddress}"
+								onclick={onnavigate}
+								class="flex min-w-0 flex-1 items-baseline gap-1.5"
 							>
-								<BotIcon class="h-3.5 w-3.5" strokeWidth={2.25} />
-							</button>
+								<span class="min-w-0 max-w-[55%] shrink truncate text-[13px] font-semibold text-tx" title={d.baseTokenSymbol ?? ''}>{d.baseTokenSymbol ?? '?'}</span>
+								<span class="min-w-0 truncate text-[11px] text-g6" title={d.baseTokenName ?? ''}>{d.baseTokenName ?? ''}</span>
+							</a>
+							<div class="flex shrink-0 items-center gap-1">
+								{#if d.athMultiplier}
+									<span class="text-[13px] font-bold tabular-nums {multiplierColor(d.athMultiplier)} {flash === 'up' ? 'flash-up' : flash === 'down' ? 'flash-down' : ''}">
+										{formatMultiplier(d.athMultiplier)}
+									</span>
+								{/if}
+								{#if d.rugged}
+									<span class="rounded bg-red/20 px-1 py-px text-[9px] font-bold text-red">RUG</span>
+								{/if}
+								<button
+									type="button"
+									onclick={() => void openBotForCall(call)}
+									class="cursor-pointer flex h-5 w-5 items-center justify-center rounded-md {hasBot(call)
+										? getBotForCall(call)?.status === 'ACTIVE'
+											? 'bg-grn/20 text-grn'
+											: 'bg-red/20 text-red'
+										: 'bg-s7 text-g8 hover:bg-s6 hover:text-tx'}"
+									title={hasBot(call) ? getBotForCall(call)?.status === 'ACTIVE' ? 'Bot active' : 'Bot paused' : 'Create bot'}
+									aria-label={hasBot(call) ? 'Open bot' : 'Create bot'}
+								>
+									<BotIcon class="h-3.5 w-3.5" strokeWidth={2.25} />
+								</button>
+							</div>
 						</div>
-					</div>
+						<div class="h-5 w-5">
+							{#if avatarUrl(pid)}
+								<img src={avatarUrl(pid)} alt="" class="h-5 w-5 rounded-full object-cover ring-1 ring-bd" />
+							{:else if callWalletAddr}
+								<img src={getWalletIconUrl(callWalletAddr)} alt="" class="h-5 w-5 rounded-full object-cover ring-1 ring-bd" />
+							{:else}
+								<div class="flex h-5 w-5 items-center justify-center rounded-full bg-s7 text-[9px] font-bold text-g11 ring-1 ring-bd">{'name' in m ? (m.name?.[0]?.toUpperCase() ?? '?') : '?'}</div>
+							{/if}
+						</div>
 					<a
 						href="/?chain={d.chain}&token={d.baseTokenAddress}"
 						onclick={onnavigate}
-						class="flex min-w-0 flex-col gap-0.5 pt-0.5"
+						class="col-start-2 flex min-w-0 flex-col gap-1"
 					>
 						<div class="group/caller flex items-center justify-between text-xs">
-						<div class="flex items-center gap-1 min-w-0">
-							{#if avatarUrl(pid)}
-								<img src={avatarUrl(pid)} alt="" class="h-5 w-5 shrink-0 rounded-full object-cover ring-1 ring-bd" />
-							{:else if callWalletAddr}
-								<img src={getWalletIconUrl(callWalletAddr)} alt="" class="h-5 w-5 shrink-0 rounded-full ring-1 ring-bd" />
-							{:else}
-								<div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-s7 text-[9px] font-bold text-g11 ring-1 ring-bd">{'name' in m ? (m.name?.[0]?.toUpperCase() ?? '?') : '?'}</div>
-							{/if}
+						<div class="flex min-w-0 items-center">
 							{#if m.type === 'WALLET' && 'walletAddress' in m && 'chain' in m}
 								<span
 									class="group/wallet flex items-center gap-1 text-g7 hover:text-grn hover:underline transition-colors cursor-pointer"
@@ -3129,7 +2920,12 @@
 								{/if}
 							</div>
 						{/if}
-						<div class="flex items-center gap-1.5 overflow-hidden text-[11px] font-semibold tabular-nums">
+					</a>
+					<a
+						href="/?chain={d.chain}&token={d.baseTokenAddress}"
+						onclick={onnavigate}
+						class="col-span-2 flex min-w-0 items-center gap-1.5 overflow-hidden text-[11px] font-semibold tabular-nums"
+					>
 							<span class="inline-flex min-w-0 items-center gap-0.5 text-g8" title="Called at">
 								<Megaphone class="h-3 w-3 shrink-0" strokeWidth={2.25} />
 								<CurrencyValue usd={d.marketCapAtCallUsd} native={d.marketCapAtCallNative} chain={d.chain} mode="value" iconClass="h-2.5 w-2.5 text-g8" />
@@ -3149,8 +2945,8 @@
 									<CurrencyValue usd={d.athMarketCapUsd} native={d.athMarketCapNative} chain={d.chain} mode="value" iconClass="h-2.5 w-2.5 text-g7" />
 								</span>
 							{/if}
-						</div>
 					</a>
+					</div>
 				</div>
 				{/each}
 				</div>

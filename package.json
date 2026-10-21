@@ -37,6 +37,7 @@
     "bs58": "6.0.0",
     "jsqr": "1.4.0",
     "lightweight-charts": "5.2.0",
+    "liveline-svelte": "0.0.3",
     "lucide-svelte": "1.0.1",
     "openapi-fetch": "0.17.0",
     "qrcode": "1.5.4",

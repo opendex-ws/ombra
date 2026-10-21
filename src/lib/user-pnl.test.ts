@@ -54,7 +54,12 @@ describe('breakdown rows', () => {
 	});
 
 	it('reads chain and dex rows', () => {
-		expect(chainRows(base({ byChain: [{ chain: 'SOL', ...metrics(3) }] } as never))[0].label).toBe('SOL');
+		const sol = chainRows(base({ byChain: [{ chain: 'SOL', ...metrics(3) }] } as never))[0];
+		expect(sol.key).toBe('SOL');
+		expect(sol.label).toBe('Solana');
+		const rh = chainRows(base({ byChain: [{ chain: 'RH', ...metrics(1) }] } as never))[0];
+		expect(rh.key).toBe('RH');
+		expect(rh.label).toBe('Robinhood');
 		expect(dexRows(base({ byDexProtocol: [{ chain: 'SOL', platformType: 'WHIRLPOOL', ...metrics(3) }] } as never))[0].label).toBe('WHIRLPOOL');
 	});
 

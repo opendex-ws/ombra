@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { HOOK_FILTERS, hookSecurityFilter, type HookFilterKey, type TriState } from '$lib/utils/token-hook';
 	import { untrack } from 'svelte';
 	import { portal } from '$lib/actions/portal';
 	import { api } from '$lib/api/client';
@@ -46,6 +47,7 @@
 	let ulIsRenounced = $state<boolean | null>(null);
 	let ulLpLocked = $state<boolean | null>(null);
 	let ulFreezeDisabled = $state<boolean | null>(null);
+	let ulHook = $state<Record<HookFilterKey, TriState>>({ hooked: null, unknownHook: null, unsafeHook: null });
 	let ulMintDisabled = $state<boolean | null>(null);
 	let ulNotHoneypot = $state<boolean | null>(null);
 	let ulIsVerified = $state<boolean | null>(null);
@@ -188,6 +190,7 @@
 		ulIsRenounced = null;
 		ulLpLocked = null;
 		ulFreezeDisabled = null;
+		ulHook = { hooked: null, unknownHook: null, unsafeHook: null };
 		ulMintDisabled = null;
 		ulNotHoneypot = null;
 		ulIsVerified = null;
@@ -264,6 +267,11 @@
 		ulIsRenounced = f.security?.renounced ?? null;
 		ulLpLocked = f.security?.lpLocked ?? null;
 		ulFreezeDisabled = f.security?.freezable === false ? true : null;
+		ulHook = {
+			hooked: f.security?.hooked ?? null,
+			unknownHook: f.security?.unknownHook ?? null,
+			unsafeHook: f.security?.unsafeHook ?? null
+		};
 		ulMintDisabled = f.security?.mintable === false ? true : null;
 		ulNotHoneypot = f.security?.honeypot === false ? true : null;
 		ulIsVerified = f.security?.contractVerified ?? null;
@@ -341,6 +349,7 @@
 		if (ulNotHoneypot !== null) sec.honeypot = ulNotHoneypot === true ? false : null;
 		if (ulIsVerified !== null) sec.contractVerified = ulIsVerified;
 		if (ulProxy !== null) sec.proxy = ulProxy === true ? false : null;
+		Object.assign(sec, hookSecurityFilter(ulHook));
 		if (Object.keys(sec).length > 0) filter.security = sec;
 		const tax: TokenTaxFilter = {};
 		if (ulMaxBuyTax) tax.buyTaxPct = { max: parseFloat(ulMaxBuyTax) };
@@ -676,6 +685,28 @@
 						{@render ulChip('Mint Off', () => ulMintDisabled, (v: boolean | null) => { ulMintDisabled = v; })}
 						{@render ulChip('Not Proxy', () => ulProxy, (v: boolean | null) => { ulProxy = v; })}
 						{@render ulChip('DEX Paid', () => ulDexPaid, (v: boolean | null) => { ulDexPaid = v; })}
+					</div>
+					<div class="space-y-1.5 border-t border-bd/40 pt-2">
+						<span class="block text-[10px] font-medium uppercase tracking-wider text-g5">Transfer hook</span>
+						{#each HOOK_FILTERS as hf (hf.key)}
+							<div class="flex items-center gap-2" title={hf.title}>
+								<span class="min-w-0 flex-1 truncate text-[11px] text-g7">{hf.label}</span>
+								<div class="flex shrink-0 gap-0.5 rounded-lg border border-bd bg-s4 p-0.5">
+									{#each [[null, 'Any'], [true, 'Only'], [false, 'Hide']] as [v, text] (text)}
+										<button
+											type="button"
+											aria-pressed={ulHook[hf.key] === v}
+											class="cursor-pointer rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors {ulHook[hf.key] === v
+												? 'bg-wh/10 text-tx'
+												: 'text-g5 hover:text-g9'}"
+											onclick={() => (ulHook = { ...ulHook, [hf.key]: v as TriState })}
+										>
+											{text}
+										</button>
+									{/each}
+								</div>
+							</div>
+						{/each}
 					</div>
 				</div>
 

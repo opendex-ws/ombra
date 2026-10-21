@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tokenImage } from '$lib/api/config';
+	import TokenAvatar from './TokenAvatar.svelte';
 	import { onVisibility, FLASH_MS, FLASH_COOLDOWN_MS } from '$lib/utils/visibility';
 	import type { ScannerItem } from '$lib/api/types';
 	import type { RowFlashType } from '$lib/utils/scanner-ws';
@@ -92,13 +92,13 @@
 				? `background: conic-gradient(var(--t-grn) ${migPct * 3.6}deg, var(--t-bd2) ${migPct * 3.6}deg)`
 				: 'background: var(--t-s5)'}
 	>
-		{#if token.tokenAddress}
-			<img src={tokenImage(token.chain, token.tokenAddress)} alt="" class="h-full w-full rounded-[6px] object-cover" />
-		{:else}
-			<div class="flex h-full w-full items-center justify-center rounded-[6px] bg-s4 text-[11px] font-bold text-g6">
-				{token.tokenSymbol?.[0] ?? '?'}
-			</div>
-		{/if}
+		<TokenAvatar
+			chain={token.chain}
+			address={token.tokenAddress}
+			symbol={token.tokenSymbol}
+			class="h-full w-full rounded-[6px] object-cover"
+			fallbackClass="rounded-[6px] bg-s4 text-[11px] font-bold text-g6"
+		/>
 		<TokenChainBadge chain={token.chain} class="h-3 w-3" />
 		{#if isGraduated}
 			<span class="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-s6 px-0.5 py-px text-[7px] font-bold leading-none text-yel ring-1 ring-yel/20">GRAD</span>

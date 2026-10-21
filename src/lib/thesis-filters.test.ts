@@ -70,6 +70,9 @@ describe('thesis live-frame filters', () => {
 		expect(matchesFilters({ ...item, source: 'FOMO' }, { sources: new Set(['FOMO']) })).toBe(true);
 		expect(matchesFilters({ ...item, source: null }, { sources: new Set(['PUMPFUN']) })).toBe(false);
 		expect(matchesFilters(item, { chain: 'SOL' })).toBe(true);
+		expect(matchesFilters({ ...item, chain: 'RH' }, {})).toBe(true);
+		expect(matchesFilters({ ...item, chain: 'RH' }, { chain: 'SOL' })).toBe(false);
+		expect(matchesFilters({ ...item, chain: 'RH' }, { chain: 'RH' })).toBe(true);
 	});
 
 	it('passes everything through when unfiltered', () => {

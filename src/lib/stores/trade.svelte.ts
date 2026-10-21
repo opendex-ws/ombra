@@ -22,6 +22,7 @@ import type {
 import { getIsLoggedIn } from '$lib/stores/auth.svelte';
 import { isUsd } from '$lib/stores/currency.svelte';
 import { addToast, updateToast, type ToastDetail } from '$lib/stores/toast.svelte';
+import { nextSwapSuccessToast, type SwapToastSlot } from '$lib/stores/trade-toast';
 import {
 	formatNumber,
 	formatUsd,
@@ -740,12 +741,12 @@ interface UserTradeUpdateData {
 	trade?: unknown;
 }
 
-// Maps a confirmed swap's id → its "Swap Confirmed" toast id, so the later
-// SWAP_FINALIZED frame (which carries the executed amounts) can upgrade the same
-// toast in place instead of firing a second one. Bounded to avoid unbounded growth.
-const confirmedSwapToasts = new Map<number, number>();
-function rememberConfirmedToast(swapId: number, toastId: number) {
-	confirmedSwapToasts.set(swapId, toastId);
+// One success toast per swap id. SWAP_FINALIZED may arrive before SWAP_CONFIRMED;
+// the second event updates the toast the first event created. Bounded so the map
+// cannot grow without limit.
+const confirmedSwapToasts = new Map<number, SwapToastSlot>();
+function rememberConfirmedToast(swapId: number, slot: SwapToastSlot) {
+	confirmedSwapToasts.set(swapId, slot);
 	if (confirmedSwapToasts.size > 100) {
 		const oldest = confirmedSwapToasts.keys().next().value;
 		if (oldest !== undefined) confirmedSwapToasts.delete(oldest);
@@ -1058,7 +1059,12 @@ function buildPreset(): TradePreset | null {
 	};
 }
 
-export async function executeBuy(chain: Chain, tokenAddress: string, presetSlot?: string | null) {
+export async function executeBuy(
+	chain: Chain,
+	tokenAddress: string,
+	presetSlot?: string | null,
+	buyWith: 'NATIVE' | 'FIAT' = getBuyWith()
+) {
 	const managed = getManagedWalletForChain(chain);
 	if (!managed) {
 		const msg = `No managed wallet found for ${chain}. Check your profile wallets.`;
@@ -1082,7 +1088,7 @@ export async function executeBuy(chain: Chain, tokenAddress: string, presetSlot?
 			? {
 					preset: slot as TradePresetSlot,
 					amount: { type: amountType, value: amountVal },
-					buyWith: getBuyWith(),
+					buyWith,
 					// The form mirrors the loaded preset, so this is the user's current
 					// visible order type. Omitting it would make the API fall back to the
 					// preset's stored strategy (e.g. DIP) even when MARKET is selected.
@@ -1090,7 +1096,7 @@ export async function executeBuy(chain: Chain, tokenAddress: string, presetSlot?
 				}
 			: {
 					amount: { type: amountType, value: amountVal },
-					buyWith: getBuyWith(),
+					buyWith,
 					strategy: buildStrategy(),
 					settings: buildSettings()
 				};
@@ -1426,6 +1432,30 @@ export function handleTradeUpdate(
 		return details;
 	}
 
+	function publishSwapSuccess(summary: string | undefined) {
+		const swapId = detail?.swapId;
+		const existing = swapId != null ? confirmedSwapToasts.get(swapId) : undefined;
+		if (!summary) {
+			if (existing || type === 'SWAP_FINALIZED') return;
+			addToast('success', `Swap Confirmed${tokenLabel}`, undefined, 5000, tradeDetails());
+			return;
+		}
+		const step = nextSwapSuccessToast(existing, summary);
+		if (step.op === 'add') {
+			const toastId = addToast(
+				'success',
+				`Swap Confirmed${tokenLabel}`,
+				step.message,
+				5000,
+				tradeDetails()
+			);
+			if (swapId != null) rememberConfirmedToast(swapId, { toastId, message: step.message });
+			return;
+		}
+		updateToast(step.toastId, { message: step.message, details: tradeDetails() });
+		if (swapId != null) rememberConfirmedToast(swapId, { toastId: step.toastId, message: step.message });
+	}
+
 	switch (type) {
 		case 'SWAP_SUBMITTED':
 			addToast(
@@ -1456,34 +1486,8 @@ export function handleTradeUpdate(
 			break;
 		case 'SWAP_CONFIRMED':
 		case 'SWAP_QUICK_CONFIRM':
-			{
-				const toastId = addToast(
-					'success',
-					`Swap Confirmed${tokenLabel}`,
-					executedSummary(),
-					5000,
-					tradeDetails()
-				);
-				if (detail?.swapId != null) rememberConfirmedToast(detail.swapId, toastId);
-			}
-			break;
 		case 'SWAP_FINALIZED':
-			// Finalize carries the executed amounts; upgrade the existing "Swap
-			// Confirmed" toast in place (so the user sees the real figures) rather than
-			// stacking a second toast. Fall back to a fresh toast if the confirmed one
-			// is gone (dismissed / this client subscribed mid-flight).
-			{
-				const summary = executedSummary();
-				if (!summary) break;
-				const existingId =
-					detail?.swapId != null ? confirmedSwapToasts.get(detail.swapId) : undefined;
-				if (existingId !== undefined) {
-					updateToast(existingId, { message: summary, details: tradeDetails() });
-					if (detail?.swapId != null) confirmedSwapToasts.delete(detail.swapId);
-				} else {
-					addToast('success', `Swap Confirmed${tokenLabel}`, summary, 5000, tradeDetails());
-				}
-			}
+			publishSwapSuccess(executedSummary());
 			break;
 		case 'SWAP_FAILED':
 			{

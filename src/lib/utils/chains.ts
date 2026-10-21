@@ -1,6 +1,7 @@
 import type { Chain } from '$lib/api/types';
 
 export const DISPLAY_CHAINS = ['SOL', 'RH'] as unknown as readonly Chain[];
+export const WALLET_DISPLAY_CHAINS = ['SOL', 'RH', 'ETH', 'BASE', 'BSC', 'POLY'] as const;
 
 export const SCANNER_CHAIN_FILTERS: Array<'All' | Chain> = ['All', ...DISPLAY_CHAINS];
 

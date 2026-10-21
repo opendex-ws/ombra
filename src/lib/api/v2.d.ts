@@ -133,7 +133,7 @@ export interface paths {
         };
         /**
          * Get avatar image
-         * @description Retrieves the avatar image identified by the required opaque `photoId`. A successful response contains image data rather than JSON metadata.
+         * @description Returns image bytes for an avatar photo ID. Collection assets use IDs such as `collections:logos/prestocks/spacex.png` or `collections:mint:<mint>`. Pass the complete ID, including its prefix and path.
          */
         get: operations["avatar"];
         put?: never;
@@ -1084,6 +1084,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/scanner/collections/{chainName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all curated scanner assets.
+         * @description Returns one current catalog view with asset identity, an avatar image ID, the
+         *     preferred variant, and every available variant. Statistics and market data are not included.
+         *     Results keep catalog order and are not
+         *     paginated. Send the returned ETag in `If-None-Match` to avoid downloading an unchanged view.
+         *     Only `SOL` (Solana) is supported. Chain names are case-sensitive; other values return 404.
+         */
+        get: operations["all"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/scanner/collections/{chainName}/{category}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List curated scanner assets in one category.
+         * @description Returns the same asset shape as the complete catalog, filtered to the selected collection.
+         *     Results keep catalog order and are not paginated. Send the returned ETag in `If-None-Match`
+         *     to avoid downloading an unchanged category view.
+         *     Only `SOL` (Solana) is supported. Chain names are case-sensitive; other values return 404.
+         */
+        get: operations["by_category"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/scanner/stats": {
         parameters: {
             query?: never;
@@ -1802,6 +1849,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v2/trade/{chain}/{token}/quote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a trade quote
+         * @description The expected output of a BUY or SELL of `amount` now, through the route the
+         *     router would take, with the platform fee. Without authentication the fee is
+         *     the base fee (or the organization's, on an organization host); with it, the
+         *     user's own fee and execution slot.
+         *
+         *     The quote is an estimate from a snapshot of pool state. Network fees are
+         *     not included (see `fee-estimate`). Solana only.
+         */
+        get: operations["trade_quote"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v2/trade/{chain}/{token}/sell": {
         parameters: {
             query?: never;
@@ -2482,7 +2555,7 @@ export interface paths {
         put?: never;
         /**
          * Prepare a wallet withdrawal
-         * @description Requires Bearer authentication. Validates a native or token withdrawal on SOL and returns a prepared transaction. The transaction is not broadcast, and the wallet balance is unchanged.
+         * @description Requires Bearer authentication. Validates a native or token withdrawal on SOL or RH and returns a prepared transaction. The transaction is not broadcast, and the wallet balance is unchanged.
          */
         post: operations["prepare_wallet_withdrawal"];
         delete?: never;
@@ -2502,7 +2575,7 @@ export interface paths {
         put?: never;
         /**
          * Confirm a wallet withdrawal
-         * @description Validates, signs when required, and broadcasts a prepared withdrawal on SOL. Inspect `status` because a successful submission can still be `pending`.
+         * @description Validates, signs when required, and broadcasts a prepared withdrawal on SOL or RH. Inspect `status` because a successful submission can still be `pending`.
          */
         post: operations["confirm_wallet_withdrawal"];
         delete?: never;
@@ -2570,6 +2643,60 @@ export interface paths {
          * @description Requires bearer authentication. Removes the authenticated user's follow relationship with the specified user. Returns `204 No Content` with no response body; returns `404` if no such follow relationship exists.
          */
         delete: operations["user_unfollow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/venue/funding/operations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get one of the authenticated user's funding operations */
+        get: operations["venue_funding_operation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/venue/funding/operations/{id}/source-transaction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit the signed source transaction for a funding operation
+         * @description The transaction must match the stored quote and its source wallet. The server stores the signed transaction before submission and recovers repeat requests from the saved result.
+         */
+        post: operations["venue_funding_submit_source"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v2/venue/funding/status/{venue}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the authenticated user's venue funding status */
+        get: operations["venue_funding_status"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -6022,10 +6149,14 @@ export interface components {
         };
         /** @description Standard response body for API errors, containing a machine-readable error category and a human-readable explanation. */
         ErrorResponse: {
+            /** @description Optional specific error code, such as `venue_wallets_preparing`. */
+            code?: string | null;
             /** @description Machine-readable error category matching the HTTP status, such as `NOT_FOUND`. */
             error: string;
             /** @description Human-readable explanation of the error. Match on `error` instead. */
             message: string;
+            /** @description When `true`, retry after the response's Retry-After delay. */
+            retryable?: boolean | null;
         };
         /** @description Exact number with at most 20 integer digits and 18 fractional digits after removal of trailing fractional zeros. Exponent notation is accepted. Decimal strings are not accepted as metadata values or filter operands. */
         ExactDecimal: number;
@@ -6042,7 +6173,7 @@ export interface components {
         FeeEstimate: {
             /** @description Native/quote-token value. */
             automaticNative: number;
-            /** @description Exact string representation of the native/quote-token value. */
+            /** @description Exact source or precomputed native/quote-token string. Division-derived values are precision-limited. */
             automaticNativeStr: string;
             /** @description USD value. */
             automaticUsd: number;
@@ -6050,7 +6181,7 @@ export interface components {
             automaticUsdStr: string;
             /** @description Native/quote-token value. */
             highNative: number;
-            /** @description Exact string representation of the native/quote-token value. */
+            /** @description Exact source or precomputed native/quote-token string. Division-derived values are precision-limited. */
             highNativeStr: string;
             /** @description USD value. */
             highUsd: number;
@@ -6058,7 +6189,7 @@ export interface components {
             highUsdStr: string;
             /** @description Native/quote-token value. */
             lowNative: number;
-            /** @description Exact string representation of the native/quote-token value. */
+            /** @description Exact source or precomputed native/quote-token string. Division-derived values are precision-limited. */
             lowNativeStr: string;
             /** @description USD value. */
             lowUsd: number;
@@ -6066,7 +6197,7 @@ export interface components {
             lowUsdStr: string;
             /** @description Native/quote-token value. */
             mediumNative: number;
-            /** @description Exact string representation of the native/quote-token value. */
+            /** @description Exact source or precomputed native/quote-token string. Division-derived values are precision-limited. */
             mediumNativeStr: string;
             /** @description USD value. */
             mediumUsd: number;
@@ -6203,6 +6334,21 @@ export interface components {
             /** @description Who supplied the label. */
             provider: string;
         };
+        FundingOperation: {
+            error?: string | null;
+            expectedCreditAtomic?: string | null;
+            nextRetryAt?: string | null;
+            /** Format: uuid */
+            operationId: string;
+            phase: string;
+            sourceAmountAtomic?: string | null;
+            sourceTransaction?: string | null;
+            state: string;
+            updatedAt: string;
+            venue: string;
+            /** Format: int64 */
+            version: number;
+        };
         /** @description A bounded per-asset distribution of retained deposits by direct sender. */
         FundingSourceBreakdown: {
             /** @description Total transferred, in whole units of `asset`. */
@@ -6255,6 +6401,28 @@ export interface components {
             /** @description Signature of the transaction that moved the funds. */
             transactionSignature: string;
         };
+        FundingStatus: {
+            /** @description Public venue account: the Polymarket Beacon or HyperCore account. */
+            accountAddress?: string | null;
+            balanceAvailable: boolean;
+            /** @description New funding is blocked while identity or the destination needs recovery. */
+            blocked?: boolean;
+            depositWallet?: string | null;
+            enabled: boolean;
+            error?: string | null;
+            legacyWallet?: string | null;
+            nextRetryAt?: string | null;
+            /** Format: uuid */
+            operationId?: string | null;
+            operations: components["schemas"]["FundingOperation"][];
+            phase: string;
+            setupReady: boolean;
+            state: string;
+            updatedAt: string;
+            venue: string;
+            /** Format: int64 */
+            version: number;
+        };
         FundingSummary: {
             attributedOrigin: components["schemas"]["FundingLabelEvidence"] | null;
             attributedSource: components["schemas"]["FundingSourcePreview"] | null;
@@ -6271,6 +6439,8 @@ export interface components {
             /** @description Funding split by sender, largest first. */
             sourceBreakdown: components["schemas"]["FundingSourceBreakdown"][];
         };
+        /** @enum {string} */
+        FundingVenue: "polymarket" | "hyperliquid";
         /**
          * @description Selects the transaction's gas or priority level: AUTO, LOW, MEDIUM, or HIGH.
          * @enum {string}
@@ -6416,6 +6586,11 @@ export interface components {
             side?: string | null;
             /** @description Platforms to include. Omit for every platform. */
             sources?: string[] | null;
+            /**
+             * @description Chains whose FOMO-program swaps are included even when the wallet
+             *     has no label. Omit for the labeled-only feed. Values are `SOL` and `RH`.
+             */
+            unlabeledFomoChains?: string[] | null;
             /** @description Restrict to these wallet addresses. */
             wallets?: string[] | null;
         };
@@ -6452,7 +6627,7 @@ export interface components {
             /**
              * @description What the swap was worth. `minUsd` and `maxUsd` filter on this.
              *
-             *     Exact string representation of the native/quote-token value.
+             *     Exact source or precomputed native/quote-token string. Division-derived values are precision-limited.
              */
             amountNativeStr: string;
             /**
@@ -6474,8 +6649,15 @@ export interface components {
             chain: "SOL" | "RH";
             /** @description Identifier of the swap: `{txHash}:{logPlaceInBlock}`. */
             id: string;
-            /** @description Labels carried by that wallet. Never empty. */
+            /**
+             * @description Labels carried by that wallet. Empty when the swap was included
+             *     because `unlabeledFomoChains` listed its chain.
+             */
             labels: components["schemas"]["WalletLabelInfo"][];
+            /**
+             * @description `FOMO` when the swap's execution program is the FOMO program.
+             */
+            program?: string;
             /**
              * @description Whether the wallet bought or sold that token.
              * @enum {string}
@@ -6660,7 +6842,7 @@ export interface components {
                     combinedFee: {
                         /** @description Native/quote-token value. */
                         native: number;
-                        /** @description Exact string representation of the native/quote-token value. */
+                        /** @description Exact source or precomputed native/quote-token string. Division-derived values are precision-limited. */
                         nativeStr: string;
                         /** @description USD value. */
                         usd: number;
@@ -6670,7 +6852,7 @@ export interface components {
                     priorityFee: {
                         /** @description Native/quote-token value. */
                         native: number;
-                        /** @description Exact string representation of the native/quote-token value. */
+                        /** @description Exact source or precomputed native/quote-token string. Division-derived values are precision-limited. */
                         nativeStr: string;
                         /** @description USD value. */
                         usd: number;
@@ -6688,7 +6870,7 @@ export interface components {
                         /**
                          * @description Validator tip, also called a bribe. A valid zero is not missing data.
                          *
-                         *     Exact string representation of the native/quote-token value.
+                         *     Exact source or precomputed native/quote-token string. Division-derived values are precision-limited.
                          */
                         nativeStr: string;
                         /**
@@ -7042,22 +7224,24 @@ export interface components {
         };
         /** @description Custom priority fee in the chain's native-token units: non-negative, at most 12 decimal places, no enforced maximum. It sets the priority fee or tip, not a cap on the transaction's total fee. */
         NativePriorityFee: components["schemas"]["DecimalNumber"];
-        /** @description Request to prepare a native SOL withdrawal from the authenticated user's managed Solana wallet to a destination address. */
+        /** @description Prepare a native coin withdrawal from the managed wallet on SOL or RH. */
         NativeWalletWithdrawRequest: {
             /**
              * Format: double
-             * @description Amount of SOL to withdraw. At most 9 decimal places, and no more than the wallet holds.
+             * @description Native coin amount. Use at most 9 decimal places for SOL or 18 for RH.
              */
             amount: number;
             /**
-             * @description The withdrawal chain. Set this field to `SOL`.
+             * @description The withdrawal chain. Use `SOL` or `RH`.
              * @example SOL
              * @enum {unknown}
              */
             chain: components["schemas"]["Chain"];
-            /** @description Solana address that receives the SOL. */
+            /** @description Destination address on the selected chain. */
             destinationAddress: string;
-            /** @description Set `true` to withdraw native SOL instead of a token. `false` is rejected. */
+            /** Format: uuid */
+            fundingOperationId?: string | null;
+            /** @description Set `true` to withdraw the native coin. `false` is rejected. */
             withdrawNative: boolean;
         };
         /** @description Nullable result containing the developer address, aggregate statistics, one cursor-paginated page of eligible token summaries and market data, and pagination metadata when available. */
@@ -7285,7 +7469,7 @@ export interface components {
             marketCap: {
                 /** @description Native/quote-token value. */
                 native: number;
-                /** @description Exact string representation of the native/quote-token value. */
+                /** @description Exact source or precomputed native/quote-token string. Division-derived values are precision-limited. */
                 nativeStr: string;
                 /** @description USD value. */
                 usd: number;
@@ -7295,7 +7479,7 @@ export interface components {
             price: {
                 /** @description Native/quote-token value. */
                 native: number;
-                /** @description Exact string representation of the native/quote-token value. */
+                /** @description Exact source or precomputed native/quote-token string. Division-derived values are precision-limited. */
                 nativeStr: string;
                 /** @description USD value. */
                 usd: number;
@@ -8010,6 +8194,49 @@ export interface components {
             id: string;
             name: string;
             photoId?: string | null;
+        };
+        /** @description One curated asset and its available market variants. */
+        ScannerCollectionAsset: {
+            /** @description Stable catalog identity for the asset. */
+            assetId: string;
+            /**
+             * @description Public collection that contains this asset.
+             * @enum {string}
+             */
+            category: "crypto" | "currencies" | "treasuries" | "etfs" | "metals" | "stocks";
+            imageUrl: string | null;
+            name: string | null;
+            primaryVariant: components["schemas"]["ScannerCollectionVariant"] | null;
+            symbol: string | null;
+            /** @description Every available representation of the asset, in catalog source order. */
+            variants: components["schemas"]["ScannerCollectionVariant"][];
+        };
+        /**
+         * @description A public scanner collection. Values are stable URL slugs.
+         * @enum {string}
+         */
+        ScannerCollectionCategory: "crypto" | "currencies" | "treasuries" | "etfs" | "metals" | "stocks";
+        /** @description One tradable or issued representation of a curated asset. */
+        ScannerCollectionVariant: {
+            issuer: string | null;
+            issuerUrl: string | null;
+            kind: string | null;
+            label: string | null;
+            liquidityTier: string | null;
+            name: string | null;
+            stockVariantTier: string | null;
+            symbol: string | null;
+            /** @description Additional catalog labels for discovery and display. */
+            tags: string[];
+            tokenAddress: string | null;
+            trustTier: string | null;
+            /** @description Stable catalog identity for this variant. */
+            variantId: string;
+        };
+        /** @description The current curated asset catalog. Assets keep the catalog source order. */
+        ScannerCollectionsResponse: {
+            /** @description All assets in the requested collection. The list is not paginated. */
+            assets: components["schemas"]["ScannerCollectionAsset"][];
         };
         /**
          * @description Feed-wide fee totals. These aggregate across every token in the result set,
@@ -8759,6 +8986,16 @@ export interface components {
             name: string;
             photoId?: string | null;
             walletAddress: components["schemas"]["WalletAddress"];
+        };
+        SourceTransactionRequest: {
+            /** @description Base64 Solana transaction signed by the quoted source wallet. */
+            signedTransaction: string;
+        };
+        SourceTransactionResponse: {
+            /** Format: uuid */
+            operationId: string;
+            signature: string;
+            status: string;
         };
         /** @description Copy-trade wallet source entry identified by its display name, wallet address, unique identifier, and chain. */
         SourceWalletEntry: {
@@ -9952,6 +10189,14 @@ export interface components {
             freezable: boolean;
             /** @description Whether selling the token is blocked. False when no honeypot data is available. */
             honeypot: boolean;
+            /**
+             * @description Token-2022 transfer hook. `NONE`: no hook. `SAFE`: reviewed, a holder
+             *     can always sell into the pool. `UNSAFE`: reviewed, can block sells
+             *     (likely honeypot). `UNKNOWN`: not reviewed.
+             * @enum {string}
+             */
+            hook: "NONE" | "UNKNOWN" | "SAFE" | "UNSAFE";
+            hookAddress: string | null;
             /** @description Whether any of the pair's LP tokens are burned. */
             lpBurned: boolean;
             /** @description Whether the pair's liquidity is safely locked, meaning at least 90% is locked or burned. Bonding-curve pairs are always safe. */
@@ -10603,6 +10848,11 @@ export interface components {
             freezable?: boolean | null;
             /** @description Set `false` to exclude tokens that are honeypots or whose status is unknown. `true` is rejected. */
             honeypot?: boolean | null;
+            /**
+             * @description Token-2022 transfer hook. `true` keeps only hooked tokens, `false`
+             *     only tokens without a hook.
+             */
+            hooked?: boolean | null;
             /** @description Set `true` to require some burned LP tokens. */
             lpBurned?: boolean | null;
             /** @description Set `true` to require at least 90% of liquidity locked or burned. Bonding-curve pairs always pass, and a pair with no lock data never does. */
@@ -10613,6 +10863,16 @@ export interface components {
             proxy?: boolean | null;
             /** @description Set `true` to require renounced contract ownership. `false` adds no constraint, and non-EVM tokens always pass. */
             renounced?: boolean | null;
+            /**
+             * @description `true` keeps only tokens whose hook is UNKNOWN (not reviewed),
+             *     `false` hides them.
+             */
+            unknownHook?: boolean | null;
+            /**
+             * @description `true` keeps only tokens whose hook is UNSAFE (can block sells),
+             *     `false` hides them.
+             */
+            unsafeHook?: boolean | null;
         };
         /** @description Complete token snapshot with shared identity, market, status, statistics, holder, social, audit, favourite-state, automatic-slippage, and all-time-high data. */
         TokenSnapshot: components["schemas"]["TokenSnapshotBase"] & components["schemas"]["TokenMarketAth"] & {
@@ -11132,22 +11392,24 @@ export interface components {
             /** @description Chain for the address. Interpret the accompanying address according to this network. */
             chain: components["schemas"]["Chain"];
         };
-        /** @description Request to prepare a token withdrawal from the authenticated user’s managed wallet. Provide the chain, token address, positive decimal token amount, and destination address. Withdrawal preparation is currently implemented only for Solana. */
+        /** @description Prepare a token withdrawal from the managed wallet on SOL or RH. */
         TokenWalletWithdrawRequest: {
             /**
              * Format: double
-             * @description Amount to withdraw, in whole tokens. No finer than the token's decimals, and no more than the wallet holds.
+             * @description Requested token amount before any fee deduction. Use the token decimal precision.
              */
             amount: number;
             /**
-             * @description The chain for the token and destination address. Set this field to `SOL`.
+             * @description The chain for the token and destination address. Use `SOL` or `RH`.
              * @example SOL
              * @enum {unknown}
              */
             chain: components["schemas"]["Chain"];
-            /** @description Solana address that receives the tokens. Its associated token account is created if needed. */
+            /** @description Destination address on the selected chain. */
             destinationAddress: string;
-            /** @description Mint address of the SPL Token or Token-2022 to withdraw. Withdrawing the whole balance closes the source token account. */
+            /** Format: uuid */
+            fundingOperationId?: string | null;
+            /** @description SPL token mint on SOL or ERC-20 contract address on RH. */
             tokenAddress: string;
         };
         /** @description Metadata for a token-scoped watchlist call or update event, identifying the chain and token address associated with the feed. */
@@ -11354,6 +11616,117 @@ export interface components {
             S2: components["schemas"]["TradePreset"] | null;
             /** @description Preset saved in slot `S3`, or `null` when the slot is empty. */
             S3: components["schemas"]["TradePreset"] | null;
+        };
+        /**
+         * @description Units of a quote's `amount`.
+         * @enum {string}
+         */
+        TradeQuoteAmountType: "NATIVE" | "USD";
+        TradeQuoteLeg: {
+            inputSymbol: string | null;
+            /**
+             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
+             * @example So11111111111111111111111111111111111111112
+             */
+            inputToken: string;
+            outputSymbol: string | null;
+            /**
+             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
+             * @example So11111111111111111111111111111111111111112
+             */
+            outputToken: string;
+            /**
+             * @description address. Format depends on chain: base58 for Solana, hex 0x-prefixed for EVM chains.
+             * @example So11111111111111111111111111111111111111112
+             */
+            pool: string;
+            venue: ("UNISWAP_V2" | "UNISWAP_V3" | "RAYDIUM" | "RAYDIUM_CP" | "PUMPFUN" | "MOONSHOT" | "METEORA_DYN" | "METEORA_DLMM" | "RAYDIUM_CLMM" | "PUMPSWAP" | "RAYDIUM_LAUNCH" | "METEORA_BONDING_CURVE" | "METEORA_DYN_V2" | "HEAVEN" | "WHIRLPOOL" | "UNISWAP_V4" | "FLAP" | "PONS" | "LETS_BONK" | "BELIEVE" | "BAGS" | "PRINTR" | "STONKFUN" | "OTCDESKS" | "PURPS" | "EMBERCURVE") | null;
+        };
+        /**
+         * @description The route the router would take now for this size. An estimate from a
+         *     snapshot of pool state, not a commitment: the executed trade can differ.
+         *     Token amounts are decimal-adjusted (whole tokens, e.g. `1.5` SOL), not raw
+         *     base units.
+         */
+        TradeQuoteResponse: {
+            /** @description What the user spends, in whole input-token units (decimal-adjusted, not raw base units), rounded to 12 fractional digits. */
+            amountIn: number;
+            /** @description Exact decimal string for `amountIn`. */
+            amountInStr: string;
+            /** @description What the user receives before slippage, in whole output-token units (decimal-adjusted, not raw base units), net of the platform fee when the fee comes out of the output. Rounded to 12 fractional digits. */
+            expectedOut: number;
+            /** @description Exact decimal string for `expectedOut`. */
+            expectedOutStr: string;
+            /**
+             * @description The token the user spends.
+             * @example So11111111111111111111111111111111111111112
+             */
+            inputToken: string;
+            /** @description The route's legs in execution order. */
+            legs: components["schemas"]["TradeQuoteLeg"][];
+            /** @description `expectedOut` less `slippagePct`, in whole output-token units. Absent when no `slippagePct` was given. */
+            minAmountOut?: number;
+            /** @description Exact decimal string for `minAmountOut`. Absent when no `slippagePct` was given. */
+            minAmountOutStr?: string;
+            /**
+             * @description The token the user receives.
+             * @example So11111111111111111111111111111111111111112
+             */
+            outputToken: string;
+            /**
+             * @description The pool of the quoted token that the route trades.
+             * @example So11111111111111111111111111111111111111112
+             */
+            pairAddress: string;
+            /**
+             * @description The platform fee. When the input is the native token it is paid on top
+             *     of `amountIn`.
+             */
+            platformFee: {
+                /** @description Platform fee in the chain's native token (SOL). */
+                native: number;
+                /** @description Exact decimal string for `platformFee.native`. */
+                nativeStr: string;
+                /** @description Platform fee in USD, at the current native-token price. */
+                usd: number;
+                /** @description Exact decimal string for `platformFee.usd`. */
+                usdStr: string;
+            };
+            /** @description Price impact of the route against the pools' spot prices, in percentage points (`0.45` means 0.45%), rounded to 2 fractional digits. Pool fees are not included. */
+            priceImpactPct: number;
+            /** @enum {string} */
+            side: "BUY" | "SELL";
+        };
+        /**
+         * @description Why a tick has no quote: the same codes as the REST endpoint's errors
+         *     (`NO_ROUTE`, `NO_OUTPUT`, `INSUFFICIENT_LIQUIDITY`, `TOO_MANY_ACCOUNTS`,
+         *     `UNTRADEABLE_MINT`, `SERVICE_UNAVAILABLE`,...).
+         */
+        TradeQuoteStreamError: {
+            code: string;
+            message: string;
+        };
+        /**
+         * @description One frame of a quote stream, sent every tick: the current quote, or why
+         *     there is none right now. The subscription stays open either way.
+         */
+        TradeQuoteStreamFrame: {
+            error?: components["schemas"]["TradeQuoteStreamError"];
+            quote?: components["schemas"]["TradeQuoteResponse"];
+        };
+        /**
+         * @description Params of a `quote:{chain}:{token}` subscription, and of `update_params`
+         *     on one: the same inputs as `GET /v2/trade/{chain}/{token}/quote`.
+         */
+        TradeQuoteSubscriptionParams: {
+            /** @description BUY: in `amountType` units. SELL: in token units. A number or a decimal string. */
+            amount: string;
+            amountType?: null | components["schemas"]["TradeQuoteAmountType"];
+            currency?: null | components["schemas"]["BuyWith"];
+            /** @description BUY spends `amount` to get the token. SELL spends `amount` of the token. */
+            side: components["schemas"]["TradeSide"];
+            /** @description Percentage: `1.0` = 1%. Sets `minAmountOut`. A number or a decimal string. */
+            slippagePct?: string | null;
         };
         /** @description Execution settings for buy and sell transactions, including gas, slippage, anti-MEV transport, and profit-taking or stop-loss targets. */
         TradeSettings: {
@@ -13366,6 +13739,8 @@ export interface components {
         };
         /** @description Request to submit a prepared withdrawal. Send the exact `transactionToSign` value. Send `signature` only when the prepare response has `signatureModel=client`. */
         WalletWithdrawConfirmRequest: {
+            /** Format: uuid */
+            fundingOperationId?: string | null;
             /** @description Optional linked-wallet signature over `transactionToSign`. It is required only when the prepare response has `signatureModel=client`. */
             signature?: string | null;
             /** @description The `transactionToSign` string from the prepare step, sent back unchanged. */
@@ -13383,19 +13758,60 @@ export interface components {
          * @enum {string}
          */
         WalletWithdrawConfirmStatus: "confirmed" | "pending";
+        /** @description EVM funding quote. The wallet pays gas when it has enough native coin. Otherwise, the sponsor charges the estimated network cost in the fee token, plus 30%, rounded up. */
+        WalletWithdrawFunding: {
+            /**
+             * Format: int64
+             * @description Quote expiry as Unix time in seconds. Prepare again after this time.
+             */
+            expiresAt: number;
+            /** @description Quoted fee as a decimal string in token base units. Zero when the wallet pays gas. */
+            feeAmountBaseUnits: string;
+            /** @description Fee token contract address. Absent when the wallet pays gas. RH sponsorship uses USDG. */
+            feeTokenAddress?: string | null;
+            /** @description Who supplies native gas for the withdrawal. */
+            mode: components["schemas"]["WalletWithdrawFundingMode"];
+            /** @description Recipient amount as a decimal string in asset base units, after any fee deduction. */
+            recipientAmountBaseUnits: string;
+            /** @description Whether the first sponsored withdrawal includes account setup. No extra signature is required. */
+            requiresSetup: boolean;
+        };
+        /**
+         * @description `wallet` uses native coin from the source wallet. `sponsored` charges the fee token.
+         * @enum {string}
+         */
+        WalletWithdrawFundingMode: "wallet" | "sponsored";
         /** @description Withdrawal request in one of two mutually exclusive forms: a native asset with `chain`, `withdrawNative` set to `true`, `amount`, and `destinationAddress`; or a token with `chain`, `tokenAddress`, `amount`, and `destinationAddress`. */
         WalletWithdrawRequest: components["schemas"]["NativeWalletWithdrawRequest"] | components["schemas"]["TokenWalletWithdrawRequest"];
-        /** @description Prepared withdrawal for SOL. It includes the exact transaction payload, the managed source wallet, and the required signature model. The withdrawal is not broadcast during this step. */
+        /** @description Prepared withdrawal for SOL or RH. It includes the exact transaction payload, the managed source wallet, and the required signature model. The withdrawal is not broadcast during this step. */
         WalletWithdrawResponse: {
+            destinationAmountAtomic?: string | null;
+            /** @description Venue credit from the final quote for the exact prepared net transfer. */
+            expectedCreditAtomic?: string | null;
+            /** @description Final Relay deposit owner after the prepared net-amount quote. */
+            finalDestinationAddress?: string | null;
+            /** @description Funding quote for an EVM withdrawal. Absent for Solana. */
+            funding?: null | components["schemas"]["WalletWithdrawFunding"];
+            /** Format: uuid */
+            fundingOperationId?: string | null;
             /**
              * Format: int64
              * @description Last Solana block height at which `transactionToSign` is still valid. Confirming after it returns HTTP 409.
              */
             lastValidBlockHeight?: number | null;
+            minimumCreditAtomic?: string | null;
+            networkFeeAsset?: string | null;
+            networkFeeAtomic?: string | null;
+            /** @description SOL rent for a destination USDC account, separate from the network fee. */
+            networkRentAtomic?: string | null;
             /** @description Selects who must sign `transactionToSign` before confirmation. */
             signatureModel: components["schemas"]["WalletWithdrawSignatureModel"];
-            /** @description Address of the managed wallet sending the withdrawal, which is also the transaction signer. */
+            /** @description Address of the managed wallet that supplies the withdrawal amount. */
             sourceAddress: string;
+            /** @description Sponsor charge in Solana USDC atomic units, separate for SOL funding. */
+            sponsorFeeAtomic?: string | null;
+            /** @description Debit in the selected source asset. Fees in another asset are separate. */
+            totalDebitAtomic?: string | null;
             /** @description Exact payload for the prepared withdrawal. Send it back unchanged. Sign it first only when `signatureModel` is `client`. */
             transactionToSign: string;
         };
@@ -14512,7 +14928,7 @@ export interface components {
          * WsBroadcastEvent
          * @description A live WebSocket message received after subscribing to a v2 topic. Use `event` to identify the payload type and `topic` to identify the subscription that produced the message.
          */
-        WsBroadcastEvent: components["schemas"]["WsBroadcastPegPricesEvent"] | components["schemas"]["WsBroadcastScannerOverviewEvent"] | components["schemas"]["WsBroadcastFeeEstimateEvent"] | components["schemas"]["WsBroadcastTwitterEventEvent"] | components["schemas"]["WsBroadcastLabeledWalletSwapEvent"] | components["schemas"]["WsBroadcastThesisEvent"] | components["schemas"]["WsBroadcastTokenCandleEvent"] | components["schemas"]["WsBroadcastTokenPriceEvent"] | components["schemas"]["WsBroadcastTokenStatsEvent"] | components["schemas"]["WsBroadcastTokenSwapsEvent"] | components["schemas"]["WsBroadcastTokenHolderCountEvent"] | components["schemas"]["WsBroadcastTokenHolderBalancesEvent"] | components["schemas"]["WsBroadcastTokenHoldersChangeEvent"] | components["schemas"]["WsBroadcastTokenHoldersEvent"] | components["schemas"]["WsBroadcastTokenTopTradersEvent"] | components["schemas"]["WsBroadcastTokenMigrationEvent"] | components["schemas"]["WsBroadcastChartMarkersEvent"] | components["schemas"]["WsBroadcastTokenDevTokensEvent"] | components["schemas"]["WsBroadcastTokenSafetyEvent"] | components["schemas"]["WsBroadcastTraderRankingEvent"] | components["schemas"]["WsBroadcastTraderOverviewEvent"] | components["schemas"]["WsBroadcastUserPnlEvent"] | components["schemas"]["WsBroadcastTraderSwapsEvent"] | components["schemas"]["WsBroadcastTraderTokenPnlEvent"] | components["schemas"]["WsBroadcastTraderTokenSwapsEvent"] | components["schemas"]["WsBroadcastTraderTokenPnlDetailEvent"] | components["schemas"]["WsBroadcastBotsLogsEvent"] | components["schemas"]["WsBroadcastBotsBalanceChangesEvent"] | components["schemas"]["WsBroadcastBotsEvent"] | components["schemas"]["WsBroadcastBotsStatsEvent"] | components["schemas"]["WsBroadcastBotsTradesEvent"] | components["schemas"]["WsBroadcastTradePresetsEvent"] | components["schemas"]["WsBroadcastUserSettingsEvent"] | components["schemas"]["WsBroadcastUserProfileEvent"] | components["schemas"]["WsBroadcastUserFavouritesEvent"] | components["schemas"]["WsBroadcastReferralCodeEvent"] | components["schemas"]["WsBroadcastReferralCommissionsSummaryEvent"] | components["schemas"]["WsBroadcastRewardsClaimedConfirmedEvent"] | components["schemas"]["WsBroadcastUserTgStatusEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatsEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatSendersEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatTopicsEvent"] | components["schemas"]["WsBroadcastTradeBuyCreatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuyCreatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellCreatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellCreatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuySubmittedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuySubmittedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellSubmittedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellSubmittedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapFinalizedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapFinalizedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradePriceUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetMetUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetMetUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSettingsUpdatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSettingsUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetAddedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetAddedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetUpdatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetRemovedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetRemovedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeAbortConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeAbortConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeCancelConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeCancelConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapQuickConfirmUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeUpdateErrorUserTradeUpdateErrorEvent"] | components["schemas"]["WsBroadcastUserBalanceEvent"] | components["schemas"]["WsBroadcastUserDepositEvent"] | components["schemas"]["WsBroadcastUserWithdrawEvent"] | components["schemas"]["WsBroadcastUserTradesEvent"] | components["schemas"]["WsBroadcastUserTgQrLoginEvent"] | components["schemas"]["WsBroadcastUserTgActionEvent"] | components["schemas"]["WsBroadcastWatchlistCallEvent"] | components["schemas"]["WsBroadcastWatchlistUpdateEvent"] | components["schemas"]["WsBroadcastWatchlistFeedEvent"] | components["schemas"]["WsBroadcastWatchlistSourcesEvent"] | components["schemas"]["WsBroadcastWatchlistRankingEvent"] | components["schemas"]["WsBroadcastTokenFeedCallEvent"] | components["schemas"]["WsBroadcastTokenFeedUpdateEvent"] | components["schemas"]["WsBroadcastTokenFeedEvent"] | components["schemas"]["WsBroadcastScannerTokensEvent"] | components["schemas"]["WsBroadcastScannerUpdateEvent"] | components["schemas"]["WsBroadcastCustomSignalWatchlistFeedEvent"] | components["schemas"]["WsBroadcastCustomSignalWatchlistRankingEvent"];
+        WsBroadcastEvent: components["schemas"]["WsBroadcastPegPricesEvent"] | components["schemas"]["WsBroadcastScannerOverviewEvent"] | components["schemas"]["WsBroadcastFeeEstimateEvent"] | components["schemas"]["WsBroadcastTwitterEventEvent"] | components["schemas"]["WsBroadcastLabeledWalletSwapEvent"] | components["schemas"]["WsBroadcastThesisEvent"] | components["schemas"]["WsBroadcastTokenCandleEvent"] | components["schemas"]["WsBroadcastTokenPriceEvent"] | components["schemas"]["WsBroadcastTokenStatsEvent"] | components["schemas"]["WsBroadcastTokenSwapsEvent"] | components["schemas"]["WsBroadcastTokenHolderCountEvent"] | components["schemas"]["WsBroadcastTokenHolderBalancesEvent"] | components["schemas"]["WsBroadcastTokenHoldersChangeEvent"] | components["schemas"]["WsBroadcastTokenHoldersEvent"] | components["schemas"]["WsBroadcastTokenTopTradersEvent"] | components["schemas"]["WsBroadcastTokenMigrationEvent"] | components["schemas"]["WsBroadcastChartMarkersEvent"] | components["schemas"]["WsBroadcastTokenDevTokensEvent"] | components["schemas"]["WsBroadcastTokenSafetyEvent"] | components["schemas"]["WsBroadcastTraderRankingEvent"] | components["schemas"]["WsBroadcastTraderOverviewEvent"] | components["schemas"]["WsBroadcastUserPnlEvent"] | components["schemas"]["WsBroadcastTradeQuoteEvent"] | components["schemas"]["WsBroadcastTraderSwapsEvent"] | components["schemas"]["WsBroadcastTraderTokenPnlEvent"] | components["schemas"]["WsBroadcastTraderTokenSwapsEvent"] | components["schemas"]["WsBroadcastTraderTokenPnlDetailEvent"] | components["schemas"]["WsBroadcastBotsLogsEvent"] | components["schemas"]["WsBroadcastBotsBalanceChangesEvent"] | components["schemas"]["WsBroadcastBotsEvent"] | components["schemas"]["WsBroadcastBotsStatsEvent"] | components["schemas"]["WsBroadcastBotsTradesEvent"] | components["schemas"]["WsBroadcastTradePresetsEvent"] | components["schemas"]["WsBroadcastUserSettingsEvent"] | components["schemas"]["WsBroadcastUserProfileEvent"] | components["schemas"]["WsBroadcastUserFavouritesEvent"] | components["schemas"]["WsBroadcastReferralCodeEvent"] | components["schemas"]["WsBroadcastReferralCommissionsSummaryEvent"] | components["schemas"]["WsBroadcastRewardsClaimedConfirmedEvent"] | components["schemas"]["WsBroadcastUserTgStatusEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatsEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatSendersEvent"] | components["schemas"]["WsBroadcastWatchlistTgChatTopicsEvent"] | components["schemas"]["WsBroadcastTradeBuyCreatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuyCreatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellCreatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellCreatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuySubmittedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeBuySubmittedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellSubmittedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSellSubmittedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapFinalizedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapFinalizedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradePriceUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetMetUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetMetUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSettingsUpdatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeSettingsUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetAddedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetAddedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetUpdatedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetUpdatedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetRemovedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeTargetRemovedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeAbortConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeAbortConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeCancelConfirmedUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeCancelConfirmedUserTradesUpdateEvent"] | components["schemas"]["WsBroadcastTradeSwapQuickConfirmUserTradeUpdateEvent"] | components["schemas"]["WsBroadcastTradeUpdateErrorUserTradeUpdateErrorEvent"] | components["schemas"]["WsBroadcastUserBalanceEvent"] | components["schemas"]["WsBroadcastUserDepositEvent"] | components["schemas"]["WsBroadcastUserWithdrawEvent"] | components["schemas"]["WsBroadcastVenueFundingStatusEvent"] | components["schemas"]["WsBroadcastUserTradesEvent"] | components["schemas"]["WsBroadcastUserTgQrLoginEvent"] | components["schemas"]["WsBroadcastUserTgActionEvent"] | components["schemas"]["WsBroadcastWatchlistCallEvent"] | components["schemas"]["WsBroadcastWatchlistUpdateEvent"] | components["schemas"]["WsBroadcastWatchlistFeedEvent"] | components["schemas"]["WsBroadcastWatchlistSourcesEvent"] | components["schemas"]["WsBroadcastWatchlistRankingEvent"] | components["schemas"]["WsBroadcastTokenFeedCallEvent"] | components["schemas"]["WsBroadcastTokenFeedUpdateEvent"] | components["schemas"]["WsBroadcastTokenFeedEvent"] | components["schemas"]["WsBroadcastScannerTokensEvent"] | components["schemas"]["WsBroadcastScannerUpdateEvent"] | components["schemas"]["WsBroadcastCustomSignalWatchlistFeedEvent"] | components["schemas"]["WsBroadcastCustomSignalWatchlistRankingEvent"];
         /**
          * WsBroadcastFeeEstimateEvent
          * @description WebSocket message carrying `FEE_ESTIMATE` event data.
@@ -15260,6 +15676,21 @@ export interface components {
                 tradeUpdate: "PRICE_UPDATED";
             };
             /** @description Authenticated user-trades topic in the form `trades:{userId}`, where `userId` is a UUID. */
+            topic: string;
+        };
+        /**
+         * WsBroadcastTradeQuoteEvent
+         * @description WebSocket message carrying `TRADE_QUOTE` event data.
+         */
+        WsBroadcastTradeQuoteEvent: {
+            data: components["schemas"]["TradeQuoteStreamFrame"];
+            /**
+             * @description Event type. Always `TRADE_QUOTE`.
+             * @enum {string}
+             */
+            event: "TRADE_QUOTE";
+            meta: components["schemas"]["LivecursorWindowMeta"];
+            /** @description Quote-stream topic emitted as `quote:{chain}:{token}`. */
             topic: string;
         };
         /**
@@ -16261,6 +16692,20 @@ export interface components {
             topic: string;
         };
         /**
+         * WsBroadcastVenueFundingStatusEvent
+         * @description WebSocket message carrying `VENUE_FUNDING_STATUS` event data.
+         */
+        WsBroadcastVenueFundingStatusEvent: {
+            data: components["schemas"]["FundingStatus"];
+            /**
+             * @description Event type. Always `VENUE_FUNDING_STATUS`.
+             * @enum {string}
+             */
+            event: "VENUE_FUNDING_STATUS";
+            /** @description Authenticated user topic emitted as `user:{userId}`. */
+            topic: string;
+        };
+        /**
          * WsBroadcastWatchlistCallEvent
          * @description WebSocket broadcast frame for a watchlist call or call update. The event is always `WATCHLIST_CALL`; use `meta.eventType` to distinguish a new call from an update.
          */
@@ -16400,7 +16845,7 @@ export interface components {
          * WsClientMessage
          * @description Client-to-server WebSocket control message. Set `type` to `auth`, `unauth`, `subscribe`, `unsubscribe`, `update_source`, `tg_qr_login`, or `ping`; the selected command determines the required payload fields.
          */
-        WsClientMessage: components["schemas"]["WsAuthCommand"] | components["schemas"]["WsUnauthCommand"] | components["schemas"]["WsSubscribeCommand"] | components["schemas"]["WsUnsubscribeCommand"] | components["schemas"]["WsUpdateSourceCommand"] | components["schemas"]["WsTgQrLoginCommand"] | components["schemas"]["WsPingCommand"];
+        WsClientMessage: components["schemas"]["WsAuthCommand"] | components["schemas"]["WsUnauthCommand"] | components["schemas"]["WsSubscribeCommand"] | components["schemas"]["WsUnsubscribeCommand"] | components["schemas"]["WsUpdateSourceCommand"] | components["schemas"]["WsUpdateParamsCommand"] | components["schemas"]["WsTgQrLoginCommand"] | components["schemas"]["WsPingCommand"];
         /**
          * type=error
          * @description Reports a WebSocket control-frame error. The frame always has type `error` and includes a human-readable `message`; `reason` and `requestId` may also be included.
@@ -16430,7 +16875,26 @@ export interface components {
          * @description Identifies the feature and payload represented by a server-sent WebSocket frame. This case-sensitive uppercase value is one of the defined event names, such as `TOKEN_PRICE`, `WATCHLIST_UPDATE`, `USER_BALANCE`, or `TWITTER_EVENT`.
          * @enum {string}
          */
-        WsEventType: "PEG_PRICES" | "SCANNER_OVERVIEW" | "FEE_ESTIMATE" | "TOKEN_CANDLE" | "TOKEN_DEV_TOKENS" | "TOKEN_SAFETY" | "TOKEN_PRICE" | "TOKEN_STATS" | "TOKEN_SWAPS" | "TOKEN_HOLDER_COUNT" | "TOKEN_HOLDER_BALANCES" | "TOKEN_HOLDERS_CHANGE" | "TOKEN_HOLDERS" | "TOKEN_TOP_TRADERS" | "TOKEN_MIGRATION" | "CHART_MARKERS" | "TRADER_RANKING" | "TRADER_OVERVIEW" | "TRADER_SWAPS" | "TRADER_TOKEN_PNL" | "TRADER_TOKEN_SWAPS" | "TRADER_TOKEN_PNL_DETAIL" | "USER_TRADE_UPDATE" | "USER_TRADE_UPDATE_ERROR" | "WATCHLIST_CALL" | "WATCHLIST_UPDATE" | "WATCHLIST_FEED" | "WATCHLIST_SOURCES" | "WATCHLIST_RANKING" | "TOKEN_FEED_CALL" | "TOKEN_FEED_UPDATE" | "TOKEN_FEED" | "USER_BALANCE" | "USER_DEPOSIT" | "USER_WITHDRAW" | "USER_TRADES_UPDATE" | "USER_TRADES" | "USER_TG_QR_LOGIN" | "USER_TG_ACTION" | "BOTS" | "BOTS_LOGS" | "BOTS_STATS" | "BOTS_BALANCE_CHANGES" | "BOTS_TRADES" | "TRADE_PRESETS" | "USER_SETTINGS" | "USER_PROFILE" | "USER_PNL" | "USER_FAVOURITES" | "REFERRAL_CODE" | "REFERRAL_COMMISSIONS_SUMMARY" | "REWARDS_CLAIMED_CONFIRMED" | "USER_TG_STATUS" | "WATCHLIST_TG_CHATS" | "WATCHLIST_TG_CHAT_SENDERS" | "WATCHLIST_TG_CHAT_TOPICS" | "SCANNER_TOKENS" | "SCANNER_UPDATE" | "TWITTER_EVENT" | "LABELED_WALLET_SWAP" | "THESIS";
+        WsEventType: "PEG_PRICES" | "SCANNER_OVERVIEW" | "FEE_ESTIMATE" | "TOKEN_CANDLE" | "TOKEN_DEV_TOKENS" | "TOKEN_SAFETY" | "TOKEN_PRICE" | "TOKEN_STATS" | "TOKEN_SWAPS" | "TOKEN_HOLDER_COUNT" | "TOKEN_HOLDER_BALANCES" | "TOKEN_HOLDERS_CHANGE" | "TOKEN_HOLDERS" | "TOKEN_TOP_TRADERS" | "TOKEN_MIGRATION" | "CHART_MARKERS" | "TRADER_RANKING" | "TRADER_OVERVIEW" | "TRADER_SWAPS" | "TRADER_TOKEN_PNL" | "TRADER_TOKEN_SWAPS" | "TRADER_TOKEN_PNL_DETAIL" | "USER_TRADE_UPDATE" | "USER_TRADE_UPDATE_ERROR" | "WATCHLIST_CALL" | "WATCHLIST_UPDATE" | "WATCHLIST_FEED" | "WATCHLIST_SOURCES" | "WATCHLIST_RANKING" | "TOKEN_FEED_CALL" | "TOKEN_FEED_UPDATE" | "TOKEN_FEED" | "USER_BALANCE" | "USER_DEPOSIT" | "USER_WITHDRAW" | "VENUE_FUNDING_STATUS" | "USER_TRADES_UPDATE" | "USER_TRADES" | "USER_TG_QR_LOGIN" | "USER_TG_ACTION" | "BOTS" | "BOTS_LOGS" | "BOTS_STATS" | "BOTS_BALANCE_CHANGES" | "BOTS_TRADES" | "TRADE_PRESETS" | "USER_SETTINGS" | "USER_PROFILE" | "USER_PNL" | "TRADE_QUOTE" | "USER_FAVOURITES" | "REFERRAL_CODE" | "REFERRAL_COMMISSIONS_SUMMARY" | "REWARDS_CLAIMED_CONFIRMED" | "USER_TG_STATUS" | "WATCHLIST_TG_CHATS" | "WATCHLIST_TG_CHAT_SENDERS" | "WATCHLIST_TG_CHAT_TOPICS" | "SCANNER_TOKENS" | "SCANNER_UPDATE" | "TWITTER_EVENT" | "LABELED_WALLET_SWAP" | "THESIS";
+        /**
+         * type=params_updated
+         * @description Acknowledges `update_params`: the subscription's new window.
+         */
+        WsParamsUpdatedControl: {
+            requestId?: string;
+            subId: string;
+            /** @enum {string} */
+            type: "params_updated";
+            windows?: {
+                [key: string]: {
+                    endCursor?: string | null;
+                    mode: components["schemas"]["SubscribedWindowMode"];
+                    startCursor?: string | null;
+                    view?: null | components["schemas"]["ScannerView"];
+                    windowId: string;
+                };
+            };
+        };
         /**
          * type=ping
          * @description Client-to-server keep-alive message. The server replies with a `pong` after all data queued before this ping has been written.
@@ -16466,7 +16930,7 @@ export interface components {
          * WsServerControlMessage
          * @description A direct server-to-client WebSocket control message. Use `type` to identify subscription, source-update, unsubscription, authentication, unauthentication, error, or application `pong` responses.
          */
-        WsServerControlMessage: components["schemas"]["WsSubscribedControl"] | components["schemas"]["WsSourceUpdatedControl"] | components["schemas"]["WsUnsubscribedControl"] | components["schemas"]["WsAuthSuccessControl"] | components["schemas"]["WsAuthErrorControl"] | components["schemas"]["WsUnauthSuccessControl"] | components["schemas"]["WsErrorControl"] | components["schemas"]["WsPongControl"];
+        WsServerControlMessage: components["schemas"]["WsSubscribedControl"] | components["schemas"]["WsSourceUpdatedControl"] | components["schemas"]["WsParamsUpdatedControl"] | components["schemas"]["WsUnsubscribedControl"] | components["schemas"]["WsAuthSuccessControl"] | components["schemas"]["WsAuthErrorControl"] | components["schemas"]["WsUnauthSuccessControl"] | components["schemas"]["WsErrorControl"] | components["schemas"]["WsPongControl"];
         /**
          * WsServerMessage
          * @description A server-to-client message on the v2 WebSocket. It is either a direct control response or an asynchronous broadcast event, which may arrive without a new client request.
@@ -16704,7 +17168,7 @@ export interface components {
          * WsSubscribeCommand
          * @description Client-to-server WebSocket command that creates a subscription to a supported topic, with optional topic-specific parameters.
          */
-        WsSubscribeCommand: components["schemas"]["WsSubscribeUserPnlCommand"] | components["schemas"]["WsSubscribePageTerminalCommand"] | components["schemas"]["WsSubscribePageScannerCommand"] | components["schemas"]["WsSubscribePageSearchCommand"] | components["schemas"]["WsSubscribePageMemepoolCommand"] | components["schemas"]["WsSubscribePageWatchlistCommand"] | components["schemas"]["WsSubscribePageTradingCommand"] | components["schemas"]["WsSubscribePageBotsCommand"] | components["schemas"]["WsSubscribePageUserCommand"] | components["schemas"]["WsSubscribePageWalletCommand"] | components["schemas"]["WsSubscribeTradesActiveCommand"] | components["schemas"]["WsSubscribeTradesCompletedCommand"] | components["schemas"]["WsSubscribeTradePresetsCommand"] | components["schemas"]["WsSubscribeUserSettingsCommand"] | components["schemas"]["WsSubscribeUserWalletsCommand"] | components["schemas"]["WsSubscribeUserProfileCommand"] | components["schemas"]["WsSubscribeReferralCodeCommand"] | components["schemas"]["WsSubscribeReferralCommissionsSummaryCommand"] | components["schemas"]["WsSubscribeWatchlistTgLoginStatusCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatsCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatSendersCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatTopicsCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesAllCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesCallersCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesTgCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesListsCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingAllCommand"] | components["schemas"]["WsSubscribeWatchlistRankingCallersCommand"] | components["schemas"]["WsSubscribeWatchlistRankingTgCommand"] | components["schemas"]["WsSubscribeWatchlistRankingListsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingIntegrationCommand"] | components["schemas"]["WsSubscribeUserFavouritesCommand"] | components["schemas"]["WsSubscribeBotsListCommand"] | components["schemas"]["WsSubscribeBotsStatsCommand"] | components["schemas"]["WsSubscribeBotsTradesActiveCommand"] | components["schemas"]["WsSubscribeBotsTradesCompletedCommand"] | components["schemas"]["WsSubscribeBotTradesActiveCommand"] | components["schemas"]["WsSubscribeBotTradesCompletedCommand"] | components["schemas"]["WsSubscribeBotsLogsCommand"] | components["schemas"]["WsSubscribeBotLogsCommand"] | components["schemas"]["WsSubscribeBotsBalanceChangesCommand"] | components["schemas"]["WsSubscribeBotBalanceChangesCommand"] | components["schemas"]["WsSubscribeTraderRankingCommand"] | components["schemas"]["WsSubscribeTraderOverviewCommand"] | components["schemas"]["WsSubscribeTraderSwapsCommand"] | components["schemas"]["WsSubscribeTraderTokenPnlCommand"] | components["schemas"]["WsSubscribeTraderTokenSwapsCommand"] | components["schemas"]["WsSubscribeTraderTokenPnlDetailCommand"] | components["schemas"]["WsSubscribeTwitterFeedCommand"] | components["schemas"]["WsSubscribeTwitterPersonalCommand"] | components["schemas"]["WsSubscribeWalletsFeedCommand"] | components["schemas"]["WsSubscribeWalletsPersonalCommand"] | components["schemas"]["WsSubscribeWalletsThesisCommand"] | components["schemas"]["WsSubscribeWalletsThesisPersonalCommand"] | components["schemas"]["WsSubscribePegPricesCommand"] | components["schemas"]["WsSubscribeScannerStatsCommand"] | components["schemas"]["WsSubscribeFeeEstimateCommand"] | components["schemas"]["WsSubscribeTokenDevTokensCommand"] | components["schemas"]["WsSubscribeTokenSafetyCommand"] | components["schemas"]["WsSubscribeScannerTokensCommand"] | components["schemas"]["WsSubscribeScannerTrenchesCommand"] | components["schemas"]["WsSubscribeScannerLookupCommand"] | components["schemas"]["WsSubscribeTokenCandleDefaultCommand"] | components["schemas"]["WsSubscribeTokenCandleCommand"] | components["schemas"]["WsSubscribeTokenPriceCommand"] | components["schemas"]["WsSubscribeTokenStatsCommand"] | components["schemas"]["WsSubscribeTokenSwapsCommand"] | components["schemas"]["WsSubscribeTokenHoldersCommand"] | components["schemas"]["WsSubscribeTokenTopTradersCommand"] | components["schemas"]["WsSubscribeTokenMigrationCommand"] | components["schemas"]["WsSubscribeTokenChartMarkersCommand"] | components["schemas"]["WsSubscribeTokenFeedCommand"] | components["schemas"]["WsSubscribeTokenAllCommand"] | components["schemas"]["WsSubscribeWatchlistAllCommand"] | components["schemas"]["WsSubscribeWatchlistCallersCommand"] | components["schemas"]["WsSubscribeWatchlistCallersIdCommand"] | components["schemas"]["WsSubscribeWatchlistIntegrationsCommand"] | components["schemas"]["WsSubscribeWatchlistIntegrationsIdCommand"] | components["schemas"]["WsSubscribeWatchlistIntegrationsIdCallerCommand"] | components["schemas"]["WsSubscribeWatchlistListsCommand"] | components["schemas"]["WsSubscribeWatchlistListsIdCommand"] | components["schemas"]["WsSubscribeWatchlistWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistWalletsIdCommand"] | components["schemas"]["WsSubscribeWatchlistTgCommand"] | components["schemas"]["WsSubscribeWatchlistTgFilterCommand"];
+        WsSubscribeCommand: components["schemas"]["WsSubscribeUserPnlCommand"] | components["schemas"]["WsSubscribePageTerminalCommand"] | components["schemas"]["WsSubscribePageScannerCommand"] | components["schemas"]["WsSubscribePageSearchCommand"] | components["schemas"]["WsSubscribePageMemepoolCommand"] | components["schemas"]["WsSubscribePageWatchlistCommand"] | components["schemas"]["WsSubscribePageTradingCommand"] | components["schemas"]["WsSubscribePageBotsCommand"] | components["schemas"]["WsSubscribePageUserCommand"] | components["schemas"]["WsSubscribePageWalletCommand"] | components["schemas"]["WsSubscribeTradesActiveCommand"] | components["schemas"]["WsSubscribeTradesCompletedCommand"] | components["schemas"]["WsSubscribeTradePresetsCommand"] | components["schemas"]["WsSubscribeUserSettingsCommand"] | components["schemas"]["WsSubscribeUserWalletsCommand"] | components["schemas"]["WsSubscribeUserProfileCommand"] | components["schemas"]["WsSubscribeReferralCodeCommand"] | components["schemas"]["WsSubscribeReferralCommissionsSummaryCommand"] | components["schemas"]["WsSubscribeWatchlistTgLoginStatusCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatsCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatSendersCommand"] | components["schemas"]["WsSubscribeWatchlistTgChatTopicsCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesAllCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesCallersCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesTgCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesListsCommand"] | components["schemas"]["WsSubscribeWatchlistSourcesWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingAllCommand"] | components["schemas"]["WsSubscribeWatchlistRankingCallersCommand"] | components["schemas"]["WsSubscribeWatchlistRankingTgCommand"] | components["schemas"]["WsSubscribeWatchlistRankingListsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistRankingIntegrationCommand"] | components["schemas"]["WsSubscribeUserFavouritesCommand"] | components["schemas"]["WsSubscribeBotsListCommand"] | components["schemas"]["WsSubscribeBotsStatsCommand"] | components["schemas"]["WsSubscribeBotsTradesActiveCommand"] | components["schemas"]["WsSubscribeBotsTradesCompletedCommand"] | components["schemas"]["WsSubscribeBotTradesActiveCommand"] | components["schemas"]["WsSubscribeBotTradesCompletedCommand"] | components["schemas"]["WsSubscribeBotsLogsCommand"] | components["schemas"]["WsSubscribeBotLogsCommand"] | components["schemas"]["WsSubscribeBotsBalanceChangesCommand"] | components["schemas"]["WsSubscribeBotBalanceChangesCommand"] | components["schemas"]["WsSubscribeTraderRankingCommand"] | components["schemas"]["WsSubscribeTraderOverviewCommand"] | components["schemas"]["WsSubscribeTradeQuoteCommand"] | components["schemas"]["WsSubscribeTraderSwapsCommand"] | components["schemas"]["WsSubscribeTraderTokenPnlCommand"] | components["schemas"]["WsSubscribeTraderTokenSwapsCommand"] | components["schemas"]["WsSubscribeTraderTokenPnlDetailCommand"] | components["schemas"]["WsSubscribeTwitterFeedCommand"] | components["schemas"]["WsSubscribeTwitterPersonalCommand"] | components["schemas"]["WsSubscribeWalletsFeedCommand"] | components["schemas"]["WsSubscribeWalletsPersonalCommand"] | components["schemas"]["WsSubscribeWalletsThesisCommand"] | components["schemas"]["WsSubscribeWalletsThesisPersonalCommand"] | components["schemas"]["WsSubscribePegPricesCommand"] | components["schemas"]["WsSubscribeScannerStatsCommand"] | components["schemas"]["WsSubscribeFeeEstimateCommand"] | components["schemas"]["WsSubscribeTokenDevTokensCommand"] | components["schemas"]["WsSubscribeTokenSafetyCommand"] | components["schemas"]["WsSubscribeScannerTokensCommand"] | components["schemas"]["WsSubscribeScannerTrenchesCommand"] | components["schemas"]["WsSubscribeScannerLookupCommand"] | components["schemas"]["WsSubscribeTokenCandleDefaultCommand"] | components["schemas"]["WsSubscribeTokenCandleCommand"] | components["schemas"]["WsSubscribeTokenPriceCommand"] | components["schemas"]["WsSubscribeTokenStatsCommand"] | components["schemas"]["WsSubscribeTokenSwapsCommand"] | components["schemas"]["WsSubscribeTokenHoldersCommand"] | components["schemas"]["WsSubscribeTokenTopTradersCommand"] | components["schemas"]["WsSubscribeTokenMigrationCommand"] | components["schemas"]["WsSubscribeTokenChartMarkersCommand"] | components["schemas"]["WsSubscribeTokenFeedCommand"] | components["schemas"]["WsSubscribeTokenAllCommand"] | components["schemas"]["WsSubscribeWatchlistAllCommand"] | components["schemas"]["WsSubscribeWatchlistCallersCommand"] | components["schemas"]["WsSubscribeWatchlistCallersIdCommand"] | components["schemas"]["WsSubscribeWatchlistIntegrationsCommand"] | components["schemas"]["WsSubscribeWatchlistIntegrationsIdCommand"] | components["schemas"]["WsSubscribeWatchlistIntegrationsIdCallerCommand"] | components["schemas"]["WsSubscribeWatchlistListsCommand"] | components["schemas"]["WsSubscribeWatchlistListsIdCommand"] | components["schemas"]["WsSubscribeWatchlistWalletsCommand"] | components["schemas"]["WsSubscribeWatchlistWalletsIdCommand"] | components["schemas"]["WsSubscribeWatchlistTgCommand"] | components["schemas"]["WsSubscribeWatchlistTgFilterCommand"];
         /**
          * WsSubscribeFeeEstimateCommand
          * @description Subscribe command for `fee-estimate:{chain}`.
@@ -17287,6 +17751,21 @@ export interface components {
              * @description Set this WebSocket command type exactly to `subscribe`.
              * @enum {string}
              */
+            type: "subscribe";
+        };
+        /**
+         * WsSubscribeTradeQuoteCommand
+         * @description Subscribe command for `quote:{chain}:{token}`.
+         */
+        WsSubscribeTradeQuoteCommand: {
+            params: components["schemas"]["TradeQuoteSubscriptionParams"];
+            requestId?: string;
+            /**
+             * @description Topic matching `quote:{chain}:{token}`.
+             * @example quote:SOL:DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263
+             */
+            topic: string;
+            /** @enum {string} */
             type: "subscribe";
         };
         /**
@@ -18289,6 +18768,17 @@ export interface components {
              * @enum {string}
              */
             type: "unsubscribed";
+        };
+        /**
+         * type=update_params
+         * @description Replace a single-window subscription's params in place (a quote stream's amount). The subscription keeps its `subId`; frames after `params_updated` carry the new window.
+         */
+        WsUpdateParamsCommand: {
+            params: components["schemas"]["Value"];
+            requestId?: string;
+            subId: string;
+            /** @enum {string} */
+            type: "update_params";
         };
         /**
          * WsUpdateSourceActiveTradesCommand
@@ -19724,6 +20214,24 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Token signer failure; pairing remains available for retry */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Venue addresses or token signer unavailable; retry after the Retry-After delay */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
         };
     };
     auth_mobile_connect_status: {
@@ -19871,10 +20379,19 @@ export interface operations {
     };
     avatar: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Requested width, 1 to 256 pixels, rounded up to a supported size */
+                w?: number;
+                /** @description Requested height, 1 to 256 pixels, rounded up to a supported size */
+                h?: number;
+                /** @description Resize fit: cover or contain. Defaults to cover */
+                fit?: string;
+                /** @description Accepted image quality parameter, 1 to 100; output encoding uses the image service's standard quality */
+                q?: number;
+            };
             header?: never;
             path: {
-                /** @description Identifier of the avatar photo. It may contain slash-separated segments. */
+                /** @description Avatar photo ID, including its prefix and slash-separated path. For example, `collections:logos/prestocks/spacex.png` or `collections:mint:<mint>`. */
                 photoId: string;
             };
             cookie?: never;
@@ -19890,14 +20407,19 @@ export interface operations {
                     "image/*": unknown;
                 };
             };
-            /** @description If the image request or response cannot be completed within the service timeout, the endpoint returns HTTP 500. */
-            500: {
+            /** @description Invalid image ID or transform parameter */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
+                content?: never;
+            };
+            /** @description Image not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
                 };
+                content?: never;
             };
         };
     };
@@ -22017,6 +22539,131 @@ export interface operations {
             };
         };
     };
+    all: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ETag from an earlier response. The server returns 304 when this view has not changed. */
+                "If-None-Match"?: string | null;
+            };
+            path: {
+                /**
+                 * @description Chain name. Only SOL (Solana) is supported, case-sensitive. Other values return 404.
+                 * @example SOL
+                 */
+                chainName: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All curated assets in catalog order */
+            200: {
+                headers: {
+                    /** @description Always `public, no-cache`; clients may store the body but must revalidate it */
+                    "Cache-Control"?: string;
+                    /** @description Version identifier for this response view */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScannerCollectionsResponse"];
+                };
+            };
+            /** @description The requested view has not changed */
+            304: {
+                headers: {
+                    /** @description Always `public, no-cache` */
+                    "Cache-Control"?: string;
+                    /** @description Current version identifier for this response view */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The chain is not supported; use SOL */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The collections catalog is not yet available */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    by_category: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ETag from an earlier response for this category. The server returns 304 when this view has not changed. */
+                "If-None-Match"?: string | null;
+            };
+            path: {
+                /**
+                 * @description Chain name. Only SOL (Solana) is supported, case-sensitive. Other values return 404.
+                 * @example SOL
+                 */
+                chainName: string;
+                /** @description Collection slug: crypto, currencies, treasuries, etfs, metals, or stocks */
+                category: components["schemas"]["ScannerCollectionCategory"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Curated assets in the selected category, in catalog order */
+            200: {
+                headers: {
+                    /** @description Always `public, no-cache`; clients may store the body but must revalidate it */
+                    "Cache-Control"?: string;
+                    /** @description Version identifier for this category view */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScannerCollectionsResponse"];
+                };
+            };
+            /** @description The requested category view has not changed */
+            304: {
+                headers: {
+                    /** @description Always `public, no-cache` */
+                    "Cache-Control"?: string;
+                    /** @description Current version identifier for this category view */
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The category is not one of the six supported collection slugs */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The chain is not supported; use SOL */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The collections catalog is not yet available */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     stats: {
         parameters: {
             query?: never;
@@ -22076,6 +22723,13 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Scanner data is temporarily changing or unavailable; retry after one second */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     scanner_new_tokens: {
@@ -22100,6 +22754,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ScannerListResponse"];
                 };
+            };
+            /** @description Scanner data is temporarily changing or unavailable; retry after one second */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -22169,6 +22830,13 @@ export interface operations {
                     "application/json": components["schemas"]["ScannerListResponse"];
                 };
             };
+            /** @description Scanner data is temporarily changing or unavailable; retry after one second */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     scanner_top_volume_tokens: {
@@ -22196,6 +22864,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ScannerListResponse"];
                 };
+            };
+            /** @description Scanner data is temporarily changing or unavailable; retry after one second */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -22225,6 +22900,13 @@ export interface operations {
                     "application/json": components["schemas"]["ScannerListResponse"];
                 };
             };
+            /** @description Scanner data is temporarily changing or unavailable; retry after one second */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     scanner_tokens_by_timeframe: {
@@ -22253,6 +22935,13 @@ export interface operations {
                     "application/json": components["schemas"]["ScannerListResponse"];
                 };
             };
+            /** @description Scanner data is temporarily changing or unavailable; retry after one second */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     scanner_trenches_graduated: {
@@ -22277,6 +22966,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ScannerListResponse"];
                 };
+            };
+            /** @description Scanner data is temporarily changing or unavailable; retry after one second */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -22303,6 +22999,13 @@ export interface operations {
                     "application/json": components["schemas"]["ScannerListResponse"];
                 };
             };
+            /** @description Scanner data is temporarily changing or unavailable; retry after one second */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     scanner_trenches_new: {
@@ -22327,6 +23030,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ScannerListResponse"];
                 };
+            };
+            /** @description Scanner data is temporarily changing or unavailable; retry after one second */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -23298,6 +24008,78 @@ export interface operations {
             };
             /** @description Invalid trigger */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    trade_quote: {
+        parameters: {
+            query: {
+                /** @description BUY spends `amount` to get the token. SELL spends `amount` of the token. */
+                side: components["schemas"]["TradeSide"];
+                /** @description BUY: in `amountType` units. SELL: in token units. */
+                amount: components["schemas"]["StringEncodedDecimal"];
+                /** @description Units of `amount` for a BUY. Defaults to `NATIVE`. SELL amounts are always in token units. */
+                amountType?: components["schemas"]["TradeQuoteAmountType"];
+                /** @description What the user pays with (BUY) or is paid in (SELL). Defaults to `NATIVE`. */
+                currency?: components["schemas"]["BuyWith"];
+                /** @description Percentage: `1.0` = 1%. Sets `minAmountOut`. */
+                slippagePct?: components["schemas"]["StringEncodedDecimal"];
+            };
+            header?: never;
+            path: {
+                /** @description target chain */
+                chain: components["schemas"]["Chain"];
+                /** @description Token contract address */
+                token: components["schemas"]["Address"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The quote */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TradeQuoteResponse"];
+                };
+            };
+            /** @description Invalid request or unsupported chain */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unknown token */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No route for this token and size; `error` is NO_ROUTE, NO_OUTPUT, INSUFFICIENT_LIQUIDITY, TOO_MANY_ACCOUNTS or UNTRADEABLE_MINT */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The router is unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -24720,14 +25502,14 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send exactly one request variant for `SOL`. Native requests require `withdrawNative=true`, `amount`, and `destinationAddress`. Token requests require `tokenAddress`, `amount`, and `destinationAddress`. Amounts and addresses must be valid for the selected chain, and unknown fields are rejected. */
+        /** @description Send exactly one request variant for `SOL` or `RH`. Native requests require `withdrawNative=true`, `amount`, and `destinationAddress`. Token requests require `tokenAddress`, `amount`, and `destinationAddress`. Amounts and addresses must be valid for the selected chain, and unknown fields are rejected. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["WalletWithdrawRequest"];
             };
         };
         responses: {
-            /** @description Returns the prepared transaction, managed source wallet, and `signatureModel`. Solana responses also include the last valid block height. The transaction is not broadcast. */
+            /** @description Returns the prepared transaction, managed source wallet, and `signatureModel`. Solana responses also include the last valid block height. RH responses include the funding mode, quoted fee, recipient amount, and expiry. The withdrawal is not broadcast. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -24752,6 +25534,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
+            /** @description Funding operation is busy, terminal, or changed; prepare and review again. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description The withdrawal request or transaction preparation is invalid. Common causes include an invalid request shape, `withdrawNative`=`false`, malformed Solana or token addresses, a non-positive or over-precise amount, insufficient on-chain balance, an unsupported token, or failed transaction simulation. The response contains an ErrorResponse. */
             422: {
                 headers: {
@@ -24761,7 +25552,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The requested withdrawal chain is not supported. The supported chain is SOL. The response contains an ErrorResponse. */
+            /** @description The requested withdrawal chain is not supported. Use SOL or RH. */
             501: {
                 headers: {
                     [name: string]: unknown;
@@ -24788,7 +25579,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description Send the unchanged `transactionToSign` with no additional properties. Include `signature` only for `signatureModel=client`. The signature must use the linked wallet and the selected chain format. Do not parse or reserialize `transactionToSign`. */
+        /** @description Send the unchanged `transactionToSign` with no additional properties. Include `signature` only for `signatureModel=client`. Use the linked sign-in wallet format, regardless of the withdrawal chain. Solana sign-in uses Ed25519; EVM sign-in uses `personal_sign`. Do not parse or reserialize `transactionToSign`. */
         requestBody: {
             content: {
                 "application/json": components["schemas"]["WalletWithdrawConfirmRequest"];
@@ -24811,7 +25602,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The linked Solana sign-in wallet is unavailable, or the supplied 64-byte Ed25519 signature is well-formed but does not verify against that wallet and the exact `transactionToSign` bytes. Malformed hexadecimal or a decoded signature with a length other than 64 bytes returns HTTP 422 instead. */
+            /** @description The linked sign-in wallet is unavailable, or its signature does not authorize the exact prepared request. Use Ed25519 for Solana sign-in or `personal_sign` for EVM sign-in. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -24829,7 +25620,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The request or withdrawal transaction is malformed or invalid. This includes a signature that is not hexadecimal or does not decode to exactly 64 bytes, invalid transaction data, an unsupported Solana transaction shape, or on-chain execution failure. A well-formed 64-byte signature that fails Ed25519 verification returns HTTP 403 instead. */
+            /** @description The withdrawal request, transaction, or signature format is invalid, the quote has expired, or on-chain execution failed. A valid signature format with invalid approval returns 403. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -25030,6 +25821,177 @@ export interface operations {
             };
         };
     };
+    venue_funding_operation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Funding operation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current operation state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundingOperation"];
+                };
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Operation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Funding state is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    venue_funding_submit_source: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Funding operation ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceTransactionRequest"];
+            };
+        };
+        responses: {
+            /** @description Source submission or recovery status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceTransactionResponse"];
+                };
+            };
+            /** @description Invalid source transaction */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Operation does not permit this source transaction */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Operation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Operation expired or request conflicts */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Body exceeds 2 MiB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Transaction does not match the quote */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Funding execution is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    venue_funding_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Venue to check */
+                venue: components["schemas"]["FundingVenue"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current funding and setup state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundingStatus"];
+                };
+            };
+            /** @description Invalid venue */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication failed. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Funding state is unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     wallets_feed: {
         parameters: {
             query?: {
@@ -25058,6 +26020,11 @@ export interface operations {
                 side?: string;
                 /** @description Maximum rows to return. Capped at 500. */
                 limit?: number;
+                /**
+                 * @description Chains whose FOMO-program swaps are included even when the wallet
+                 *     has no label. A row is added only when this request's `chain` is in the list.
+                 */
+                unlabeledFomoChains?: string[];
             };
             header?: never;
             path?: never;

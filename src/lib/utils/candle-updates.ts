@@ -142,14 +142,13 @@ export function applyCandleBatch(
 			candles.splice(classification.index, 0, point.candle);
 			volumes.splice(classification.index, 0, point.volume);
 			areas.splice(classification.index, 0, point.area);
+			// Later bars in this batch classify against the index, and the splice just
+			// shifted every index after the insert point; refresh it before moving on.
+			index.clear();
+			for (let i = 0; i < candles.length; i++) index.set(candles[i].time, i);
 			rebuiltIndex = true;
 		}
 		changes.push({ ...classification, point });
-	}
-
-	if (rebuiltIndex) {
-		index.clear();
-		for (let i = 0; i < candles.length; i++) index.set(candles[i].time, i);
 	}
 
 	return { changes, rebuiltIndex };

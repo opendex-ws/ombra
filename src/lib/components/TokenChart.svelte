@@ -5,6 +5,7 @@
 	import type { Chain, CandleFrame, WatchlistCallItem } from '$lib/api/types';
 	import type { CustomSignalCallerMeta, IntegrationSourceIdentity } from '$lib/custom-signals/contracts';
 	import { subscribe, unsubscribe } from '$lib/ws/client';
+	import { TAIL_REFETCH_COUNT, isCandleRequestCurrent, selectTailUpdates, shouldRefetchAfterHidden, type CandleRequestKey } from '$lib/utils/candle-refetch';
 	import { formatPriceText, formatUsd, avatarUrl, avatarInitial, shortAddress, formatCompactCount, ageFromSeconds, integrationCallerMarkerKey, integrationSourcePresentation, tokenCallSourceBadge } from '$lib/utils/format';
 	import { getWalletIconUrl, getWalletIconImage, getWalletAddress } from '$lib/utils/walleticon';
 	import { SwapPrimitive, MigrationPrimitive, drawChefHat, type SwapIndicatorData, type SwapInfo } from '$lib/utils/chart-primitives';
@@ -293,6 +294,11 @@
 	let candleFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 	const candleDiagnostics = createCandleDiagnostics(dev);
 	let documentVisible = $state(true);
+	// Soft tail refetch (closes gaps left by frames dropped while the tab was hidden).
+	let hiddenAt: number | null = null;
+	let tailRequestId = 0;
+	let tailRefetching = false;
+	let liveTouchedDuringRefetch = new Set<number>();
 	let canonicalVersion = 0;
 	let projectedVersion = 0;
 	let projectionDirty = false;
@@ -1448,6 +1454,42 @@
 		}
 	}
 
+	function tailKey(id: number): CandleRequestKey {
+		return { id: id + loadGeneration * 1e9, chain: chain as string, address, frame: selectedFrame, mode: cacheMode() };
+	}
+
+	/**
+	 * Refetches the newest bars and feeds the missing/changed ones through the same
+	 * pending-candle drain as live frames, so zoom/scroll and the chart are untouched.
+	 */
+	async function softRefetchTail() {
+		if (disposed || tailRefetching || loading || !initialLoadDone || document.hidden || allCandleData.length === 0) return;
+		const id = ++tailRequestId;
+		const request = tailKey(id);
+		const mcap = showMarketCap;
+		tailRefetching = true;
+		liveTouchedDuringRefetch = new Set();
+		try {
+			const { data: res } = await api.GET('/v2/token/{chain}/{address}/candles', {
+				params: {
+					path: { chain: request.chain as Chain, address: request.address },
+					query: { timeframe: request.frame as CandleFrame, count: TAIL_REFETCH_COUNT, mode: mcap ? 'marketCap' : undefined }
+				}
+			});
+			if (disposed || document.hidden || !isCandleRequestCurrent(request, tailKey(tailRequestId))) return;
+			const updates = selectTailUpdates((res?.candles ?? []) as RawCandleUpdate[], allCandleData, candleIndexByTime, liveTouchedDuringRefetch);
+			if (updates.length === 0) return;
+			// Frames already waiting in pendingCandles are newer than this snapshot.
+			for (const update of updates) if (!pendingCandles.has(update.time)) pendingCandles.set(update.time, update);
+			scheduleCandleDrain();
+		} catch (e) {
+			console.error('Failed to refetch recent candles:', e);
+		} finally {
+			tailRefetching = false;
+			liveTouchedDuringRefetch = new Set();
+		}
+	}
+
 	function setupCandleWs(c: string, a: string, frame: string, generation: number) {
 		cleanupCandleWs();
 		const wsTf = frameToWsTopic[frame] ?? frame;
@@ -1460,9 +1502,20 @@
 			const candles = payload.candles;
 			if (!Array.isArray(candles)) return;
 			candleDiagnostics.add('rawCandles', candles.length);
-			for (const data of candles as RawCandleUpdate[]) pendingCandles.set(data.time, data);
+			for (const data of candles as RawCandleUpdate[]) {
+				pendingCandles.set(data.time, data);
+				if (tailRefetching) liveTouchedDuringRefetch.add(data.time);
+			}
 			candleDiagnostics.max('maxPendingCandles', pendingCandles.size);
 			scheduleCandleDrain();
+		}, undefined, {
+			recovery: 'refetch',
+			// Refetch recovery skips the automatic resubscribe, so redo it here.
+			onReconnect: () => {
+				if (disposed || generation !== loadGeneration) return;
+				setupCandleWs(c, a, frame, generation);
+				void softRefetchTail();
+			}
 		});
 	}
 
@@ -1766,7 +1819,15 @@
 		documentVisible = !document.hidden;
 		const onVisibilityChange = () => {
 			documentVisible = !document.hidden;
+			if (document.hidden) {
+				hiddenAt ??= Date.now();
+				return;
+			}
+			const wasHiddenAt = hiddenAt;
+			hiddenAt = null;
+			if (shouldRefetchAfterHidden(wasHiddenAt, Date.now())) void softRefetchTail();
 		};
+		if (document.hidden) hiddenAt = Date.now();
 		document.addEventListener('visibilitychange', onVisibilityChange);
 		(async () => {
 		const { createChart, CandlestickSeries, HistogramSeries, AreaSeries, createSeriesMarkers, LineStyle } = await import('lightweight-charts');

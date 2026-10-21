@@ -12,6 +12,7 @@
 	import { api, type QueryOf } from '$lib/api/client';
 	import { tokenImage } from '$lib/api/config';
 	import TokenChainBadge from './TokenChainBadge.svelte';
+	import ChainIcon from './ChainIcon.svelte';
 	import { subscribe, unsubscribe } from '$lib/ws/client';
 	import type { Chain, ThesisItem, ThesisResponse, ThesisSource, WalletLabelSummary } from '$lib/api/types';
 	import { formatUsd, timeAgo, fullDateTime, shortAddress, formatCompactCount, avatarUrl } from '$lib/utils/format';
@@ -59,6 +60,9 @@
 	let nextCursor = $state<string | undefined>(undefined);
 	let totalCount = $state<number | null>(null);
 	let feedMode = $state<'all' | 'mine'>('all');
+	// The social tab is not pinned to a token, so it can read both chains.
+	// A token popover passes `chain` and stays on that chain.
+	let feedChain = $state<'All' | 'SOL' | 'RH'>('All');
 	let minMarketcapUsd = $state('');
 	let selectedSources = $state<Set<ThesisSource>>(new Set());
 	let showFilters = $state(false);
@@ -180,8 +184,19 @@
 		for (const item of theses) seen.add(item.id);
 	}
 
-	function restQuery(cursor?: string): QueryOf<'/v2/wallets/thesis'> {
-		const q: QueryOf<'/v2/wallets/thesis'> = { chain: chain as Chain };
+	/** Empty means every chain. A token popover keeps the chain it was opened on. */
+	function chainScope(): string {
+		if (tokenAddress) return chain;
+		return feedChain === 'All' ? '' : feedChain;
+	}
+
+	function chainsToRead(): string[] {
+		const scope = chainScope();
+		return scope ? [scope] : ['SOL', 'RH'];
+	}
+
+	function restQuery(forChain: string, cursor?: string): QueryOf<'/v2/wallets/thesis'> {
+		const q: QueryOf<'/v2/wallets/thesis'> = { chain: forChain as Chain };
 		if (tokenAddress) q.tokenAddress = tokenAddress;
 		if (feedMode === 'mine') q.curated = true;
 		if (selectedSources.size > 0) q.sources = [...selectedSources].sort();
@@ -192,30 +207,61 @@
 		return q;
 	}
 
+	let chainCursors: Record<string, string | undefined> = {};
+
+	async function loadPage(forChain: string, cursor?: string): Promise<ThesisResponse | undefined> {
+		try {
+			const { data } = (await api.GET('/v2/wallets/thesis', {
+				params: { query: restQuery(forChain, cursor) }
+			})) as { data?: ThesisResponse };
+			return data;
+		} catch {
+			return undefined;
+		}
+	}
+
+	function mergeTheses(rows: ThesisItem[]): ThesisItem[] {
+		const byId = new Map<string, ThesisItem>();
+		for (const row of rows) byId.set(row.id, row);
+		return [...byId.values()].sort((a, b) => b.createdAtTimestamp - a.createdAtTimestamp);
+	}
+
 	async function load(cursor?: string) {
 		const request = ++loadRequest;
+		const targets = chainsToRead();
 		if (cursor) loadingMore = true;
 		else loading = true;
 		try {
-			const { data } = (await api.GET('/v2/wallets/thesis', {
-				params: { query: restQuery(cursor) }
-			})) as { data?: ThesisResponse };
+			const pages = await Promise.all(targets.map((forChain) => {
+				const pageCursor = cursor ? chainCursors[forChain] : undefined;
+				if (cursor && !pageCursor) return Promise.resolve(undefined);
+				return loadPage(forChain, pageCursor);
+			}));
 			if (request !== loadRequest) return;
-			const rows = data?.theses ?? [];
+			const rows = pages.flatMap((page) => page?.theses ?? []);
 			if (cursor) {
 				const present = new Set(theses.map((item) => item.id));
 				const page = rows.filter((row) => !present.has(row.id));
-				theses = [...theses, ...page].slice(0, MAX_LOADED_THESES);
+				theses = mergeTheses([...theses, ...page]).slice(0, MAX_LOADED_THESES);
 			} else {
 				seen.clear();
-				theses = rows;
+				chainCursors = {};
+				theses = mergeTheses(rows).slice(0, MAX_LOADED_THESES);
 			}
 			for (const row of rows) seen.add(row.id);
 			applySubscribedFlags(rows);
 			pruneSeen();
-			nextCursor = data?.nextCursor;
-			totalCount = data?.totalCount ?? null;
-			oncount(totalCount);
+			targets.forEach((forChain, index) => {
+				const page = pages[index];
+				if (!page) return;
+				chainCursors[forChain] = page.nextCursor;
+			});
+			nextCursor = targets.some((forChain) => chainCursors[forChain]) ? 'more' : undefined;
+			if (!cursor) {
+				const totals = pages.map((page) => page?.totalCount).filter((count): count is number => count != null);
+				totalCount = totals.length > 0 ? totals.reduce((sum, count) => sum + count, 0) : null;
+				oncount(totalCount);
+			}
 		} catch {
 			if (request === loadRequest && !cursor) theses = [];
 		} finally {
@@ -234,7 +280,8 @@
 	 */
 	function matchesFilters(item: ThesisItem): boolean {
 		if (tokenAddress && item.token.address !== tokenAddress) return false;
-		if (chain && item.chain !== chain) return false;
+		const scope = chainScope();
+		if (scope && item.chain !== scope) return false;
 		if (selectedSources.size > 0 && !(item.source && selectedSources.has(item.source))) return false;
 		if (selectedLabels.size > 0) {
 			const wanted = [...selectedLabels].map((l) => l.toLowerCase());
@@ -261,7 +308,8 @@
 		const topic = feedMode === 'mine' ? 'wallets:thesis:personal' : 'wallets:thesis';
 		const params: Record<string, unknown> = {};
 		if (tokenAddress) params.tokenAddress = tokenAddress;
-		params.chains = [chain];
+		const scope = chainScope();
+		if (scope) params.chains = [scope];
 		if (selectedSources.size > 0) params.sources = [...selectedSources].sort();
 		if (selectedLabels.size > 0) params.labels = [...selectedLabels].sort();
 		const floor = Number(minMarketcapUsd);
@@ -298,6 +346,7 @@
 		const isActive = active;
 		const key = JSON.stringify([
 			chain,
+			feedChain,
 			tokenAddress,
 			feedMode,
 			[...selectedSources].sort(),
@@ -435,6 +484,20 @@
 						onclick={() => (feedMode = mode.id)}
 						class="cursor-pointer rounded px-2.5 py-1 text-[11px] font-semibold transition-colors md:px-1.5 md:py-px md:text-[10px] {feedMode === mode.id ? 'bg-grn/20 text-grn' : 'bg-s4 text-g5 hover:text-g8'}"
 					>{mode.label}</button>
+				{/each}
+			{/if}
+			{#if !tokenAddress}
+				<span class="mx-0.5 h-3 w-px shrink-0 bg-bd"></span>
+				{#each [{ id: 'All' as const, label: 'All' }, { id: 'SOL' as const, label: 'SOL' }, { id: 'RH' as const, label: 'RH' }] as c}
+					<button
+						onclick={() => (feedChain = c.id)}
+						class="inline-flex cursor-pointer items-center gap-0.5 rounded px-2.5 py-1 text-[11px] font-semibold transition-colors md:px-1.5 md:py-px md:text-[10px] {feedChain === c.id ? 'bg-grn/20 text-grn' : 'bg-s4 text-g5 hover:text-g8'}"
+						aria-pressed={feedChain === c.id}
+						title={c.id === 'All' ? 'Solana and Robinhood' : c.id === 'RH' ? 'Robinhood' : 'Solana'}
+					>
+						{#if c.id !== 'All'}<ChainIcon chain={c.id} class="h-3 w-3" />{/if}
+						{c.label}
+					</button>
 				{/each}
 			{/if}
 			<div class="ml-auto flex shrink-0 items-center gap-1">
@@ -594,11 +657,11 @@
 									class="flex max-w-[45%] shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-s4 px-1.5 py-1 transition-colors hover:bg-s7"
 									title="Open {item.token.name ?? (ticker || shortAddress(item.token.address))}"
 								>
-									<span class="relative h-5 w-5 shrink-0">
+									<span class="relative h-5 w-5 shrink-0 overflow-hidden rounded-md">
 									<img
 										src={tokenImage(item.chain, item.token.address)}
 										alt=""
-										class="h-5 w-5 rounded ring-1 ring-bd"
+										class="h-5 w-5 rounded-md object-cover ring-1 ring-bd"
 										onerror={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
 									/>
 									<TokenChainBadge chain={item.chain} class="h-2.5 w-2.5" />

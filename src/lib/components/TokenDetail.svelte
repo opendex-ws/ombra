@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tokenImage } from '$lib/api/config';
+	import TokenAvatar from './TokenAvatar.svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { dev } from '$app/environment';
 	import { portal } from '$lib/actions/portal';
@@ -1509,11 +1510,14 @@
 					class="relative h-8 w-8 shrink-0 cursor-pointer rounded-lg p-[2px]"
 					style={isGraduated ? 'background: var(--t-yel)' : migPct > 0 ? `background: conic-gradient(var(--t-grn) ${migPct * 3.6}deg, var(--t-bd2) ${migPct * 3.6}deg)` : 'background: var(--t-s5)'}
 				>
-					{#if token.tokenAddress}
-						<img src={tokenImage(token.chain, token.tokenAddress)} alt="" class="h-full w-full rounded-[6px] object-cover" />
-					{:else}
-						<div class="flex h-full w-full items-center justify-center rounded-[6px] bg-s7 text-sm font-bold text-tx">{(token.tokenSymbol ?? '?').slice(0, 2)}</div>
-					{/if}
+					<TokenAvatar
+						chain={token.chain}
+						address={token.tokenAddress}
+						symbol={token.tokenSymbol}
+						letters={2}
+						class="h-full w-full rounded-[6px] object-cover"
+						fallbackClass="rounded-[6px] bg-s7 text-sm font-bold text-tx"
+					/>
 					<TokenChainBadge chain={chain} class="h-3 w-3" />
 					{#if isGraduated}
 						<span class="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-s6 px-1 text-[8px] font-bold text-yel ring-1 ring-yel/20">GRAD</span>
@@ -1587,7 +1591,15 @@
 						class="absolute h-[200px] w-[200px] rounded-xl border border-bd bg-s5 p-1 shadow-2xl"
 						style="left: {mobileImagePreview.x}px; top: {mobileImagePreview.y}px"
 					>
-						<img src={tokenImage(token.chain, token.tokenAddress, 256)} alt="" class="h-full w-full rounded-lg object-cover" />
+						<TokenAvatar
+							chain={token.chain}
+							address={token.tokenAddress}
+							symbol={token.tokenSymbol}
+							letters={2}
+							size={256}
+							class="h-full w-full rounded-lg object-cover"
+							fallbackClass="rounded-lg bg-s7 text-3xl font-bold text-tx"
+						/>
 					</div>
 				</div>
 			{/if}
@@ -1674,16 +1686,26 @@
 									? `background: conic-gradient(var(--t-grn) ${migPct * 3.6}deg, var(--t-bd2) ${migPct * 3.6}deg)`
 									: 'background: var(--t-s5)'}
 						>
+								<TokenAvatar
+									chain={token.chain}
+									address={token.tokenAddress}
+									symbol={token.tokenSymbol}
+									letters={2}
+									class="h-full w-full rounded-[9px] object-cover"
+									fallbackClass="rounded-[9px] bg-s7 text-lg font-bold text-tx"
+								/>
 								{#if token.tokenAddress}
-								{@const tokenImageUrl = tokenImage(token.chain, token.tokenAddress)}
-								<img src={tokenImageUrl} alt="" class="h-full w-full rounded-[9px] object-cover" />
-								<div class="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden h-[200px] w-[200px] rounded-xl border border-bd bg-s4 p-1 shadow-2xl group-hover:block">
-									<img src={tokenImage(token.chain, token.tokenAddress, 256)} alt="" class="h-full w-full rounded-lg object-cover" />
-								</div>
-							{:else}
-								<div class="flex h-full w-full items-center justify-center rounded-[9px] bg-s7">
-									<span class="text-lg font-bold text-tx">{(token.tokenSymbol ?? '?').slice(0, 2)}</span>
-								</div>
+									<div class="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden h-[200px] w-[200px] rounded-xl border border-bd bg-s4 p-1 shadow-2xl group-hover:block">
+										<TokenAvatar
+											chain={token.chain}
+											address={token.tokenAddress}
+											symbol={token.tokenSymbol}
+											letters={2}
+											size={256}
+											class="h-full w-full rounded-lg object-cover"
+											fallbackClass="rounded-lg bg-s7 text-3xl font-bold text-tx"
+										/>
+									</div>
 								{/if}
 							<TokenChainBadge chain={chain} class="h-3.5 w-3.5" />
 							{#if isGraduated}

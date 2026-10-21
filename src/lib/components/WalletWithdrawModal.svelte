@@ -26,6 +26,8 @@
 	let submitting = $state(false);
 	let error = $state('');
 
+	const evm = $derived(chain === 'RH');
+
 	async function post<T>(path: string, body: unknown): Promise<T> {
 		const token = getAuthToken();
 		if (!token) throw new Error('Sign in before withdrawing');
@@ -99,7 +101,7 @@
 		<div class="mb-5 flex items-start justify-between">
 			<div>
 				<h2 class="text-base font-semibold text-tx">Withdraw {asset.token.symbol}</h2>
-				<p class="mt-1 text-xs text-g6">From your managed SOL wallet</p>
+				<p class="mt-1 text-xs text-g6">{evm ? 'From your managed Robinhood wallet' : 'From your managed SOL wallet'}</p>
 			</div>
 			<button
 				aria-label="Close"
@@ -140,7 +142,7 @@
 					id="withdraw-destination"
 					type="text"
 					bind:value={destinationAddress}
-					placeholder="Solana address"
+					placeholder={evm ? '0x address' : 'Solana address'}
 					class="mt-1 w-full rounded-lg border border-bd bg-s4 px-2.5 py-1.5 text-xs text-tx outline-none"
 				/>
 			</div>

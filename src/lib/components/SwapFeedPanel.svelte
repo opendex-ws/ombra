@@ -14,6 +14,7 @@
 	import { api, type QueryOf } from '$lib/api/client';
 	import { tokenImage } from '$lib/api/config';
 	import TokenChainBadge from './TokenChainBadge.svelte';
+	import ChainIcon from './ChainIcon.svelte';
 	import { subscribe, unsubscribe } from '$lib/ws/client';
 	import type {
 		Chain,
@@ -28,7 +29,7 @@
 	import { getWalletIconUrl } from '$lib/utils/walleticon';
 	import { getNow } from '$lib/stores/tick.svelte';
 	import { getIsLoggedIn } from '$lib/stores/auth.svelte';
-	import { getMoneyFlow, getSwapFeedFilters, setSwapFeedFilters, getSwapFeedCompact, toggleSwapFeedCompact } from '$lib/stores/feSettings.svelte';
+	import { getMoneyFlow, getSwapFeedFilters, setSwapFeedFilters, getSwapFeedCompact, toggleSwapFeedCompact, type FeedChain } from '$lib/stores/feSettings.svelte';
 	import MoneyFlowGraph from './MoneyFlowGraph.svelte';
 	import { createFlowAccumulator, type FlowSwap } from '$lib/utils/money-flow';
 	import Waypoints from 'lucide-svelte/icons/waypoints';
@@ -61,6 +62,8 @@
 	const savedFilters = getSwapFeedFilters();
 	let feedMode = $state<'all' | 'mine'>(savedFilters.feedMode);
 	let side = $state<'' | 'BUY' | 'SELL'>(savedFilters.side);
+	// REST defaults `chain` to SOL, so an omitted chain hides Robinhood.
+	let chain = $state<FeedChain>(savedFilters.chain === 'SOL' || savedFilters.chain === 'RH' ? savedFilters.chain : 'All');
 	// The spec defaults this to 10 and warns that an unfiltered subscription is
 	// the one most likely to flood a client.
 	let minUsd = $state(savedFilters.minUsd);
@@ -98,10 +101,12 @@
 
 	const filterCount = $derived(selectedLabels.size + selectedSources.size);
 
-	function brandSource(labels: { source?: WalletLabelSource | null }[] | undefined): 'FOMO' | 'PUMPFUN' | null {
-		if (!labels?.length) return null;
-		if (labels.some((l) => l.source === 'FOMO')) return 'FOMO';
-		if (labels.some((l) => l.source === 'PUMPFUN')) return 'PUMPFUN';
+	function brandSource(
+		labels: { source?: WalletLabelSource | null }[] | undefined,
+		program?: string | null
+	): 'FOMO' | 'PUMPFUN' | null {
+		if (labels?.some((l) => l.source === 'FOMO') || program === 'FOMO') return 'FOMO';
+		if (labels?.some((l) => l.source === 'PUMPFUN')) return 'PUMPFUN';
 		return null;
 	}
 
@@ -201,12 +206,13 @@
 		for (const swap of swaps) seen.add(swap.id);
 	}
 
-	function queryParams(): QueryOf<'/v2/wallets/feed'> {
+	function queryParams(forChain: 'SOL' | 'RH'): QueryOf<'/v2/wallets/feed'> {
 		const q: QueryOf<'/v2/wallets/feed'> = {
 			minutes: SEED_MINUTES,
 			limit: MAX_SWAPS,
 			minUsd,
-			maxUsd: maxUsd ?? undefined
+			maxUsd: maxUsd ?? undefined,
+			chain: forChain
 		};
 		if (side) q.side = side;
 		// Without this the Mine seed came back unfiltered while the WS delivered
@@ -214,7 +220,25 @@
 		if (feedMode === 'mine') q.curated = true;
 		if (selectedLabels.size > 0) q.labels = [...selectedLabels].sort();
 		if (selectedSources.size > 0) q.sources = [...selectedSources].sort();
+		if (feedMode !== 'mine' && forChain === 'RH') q.unlabeledFomoChains = ['RH'];
 		return q;
+	}
+
+	function feedChains(): Array<'SOL' | 'RH'> {
+		return chain === 'All' ? ['SOL', 'RH'] : [chain];
+	}
+
+	function parseFeedRows(data: unknown): LabeledWalletSwap[] {
+		const payload = data as LabeledWalletSwap[] | { swaps?: LabeledWalletSwap[] } | undefined;
+		return (Array.isArray(payload) ? payload : (payload?.swaps ?? [])) as LabeledWalletSwap[];
+	}
+
+	function mergeNewest(groups: LabeledWalletSwap[][]): LabeledWalletSwap[] {
+		const byId = new Map<string, LabeledWalletSwap>();
+		for (const rows of groups) {
+			for (const row of rows) byId.set(row.id, row);
+		}
+		return [...byId.values()].sort((a, b) => b.timestamp - a.timestamp).slice(0, MAX_SWAPS);
 	}
 
 	/**
@@ -353,28 +377,45 @@
 
 	function matchesSources(swap: LabeledWalletSwap): boolean {
 		if (selectedSources.size === 0) return true;
-		return (swap.labels ?? []).some((l) => l.source && selectedSources.has(l.source));
+		if ((swap.labels ?? []).some((l) => l.source && selectedSources.has(l.source))) return true;
+		return swap.program === 'FOMO' && selectedSources.has('FOMO');
 	}
 
+	function matchesChain(swap: LabeledWalletSwap): boolean {
+		return chain === 'All' || swap.chain === chain;
+	}
+
+	let seedRequest = 0;
+
 	async function loadSeed() {
+		const request = ++seedRequest;
+		const wanted = feedChains();
 		loading = true;
 		try {
-			const { data } = await api.GET('/v2/wallets/feed', { params: { query: queryParams() } });
-			// Bare array today; an envelope (`{ swaps }`) is planned, to match
-			// `/token/{chain}/{address}/swaps`. Accept both across that rollout.
-			const payload = data as LabeledWalletSwap[] | { swaps?: LabeledWalletSwap[] } | undefined;
-			const rows = (Array.isArray(payload) ? payload : (payload?.swaps ?? [])) as LabeledWalletSwap[];
+			const groups = await Promise.all(wanted.map(async (forChain) => {
+				try {
+					const { data } = await api.GET('/v2/wallets/feed', { params: { query: queryParams(forChain) } });
+					// Bare array today; an envelope (`{ swaps }`) is planned, to match
+					// `/token/{chain}/{address}/swaps`. Accept both across that rollout.
+					return parseFeedRows(data);
+				} catch {
+					return [] as LabeledWalletSwap[];
+				}
+			}));
+			if (request !== seedRequest) return;
+			const rows = mergeNewest(groups);
 			seen.clear();
 			heldSwaps = [];
 			for (const row of rows) seen.add(row.id);
 			applySubscribedFlags(rows);
 			accumulateFlow(rows);
-			swaps = rows.slice(0, MAX_SWAPS);
+			swaps = rows;
 		} catch {
+			if (request !== seedRequest) return;
 			heldSwaps = [];
 			swaps = [];
 		} finally {
-			loading = false;
+			if (request === seedRequest) loading = false;
 		}
 	}
 
@@ -389,6 +430,8 @@
 		const params: Record<string, unknown> = { minUsd };
 		if (maxUsd !== null) params.maxUsd = maxUsd;
 		if (side) params.side = side;
+		if (chain !== 'All') params.chains = [chain];
+		if (feedMode !== 'mine' && chain !== 'SOL') params.unlabeledFomoChains = ['RH'];
 		if (selectedLabels.size > 0) params.labels = [...selectedLabels].sort();
 		wsKey = subscribe(topic, (event, data) => {
 			if (event !== 'LABELED_WALLET_SWAP' || !data) return;
@@ -399,7 +442,7 @@
 			for (const swap of batch) {
 				// `sources` is a REST-only filter — the WS topic takes no such param,
 				// so the live stream is narrowed here or it drifts from the seed.
-				if (!matchesSources(swap)) continue;
+				if (!matchesChain(swap) || !matchesSources(swap)) continue;
 				// id is `{txHash}:{logPlaceInBlock}` — stable, so it dedupes the
 				// overlap between the REST seed and the live stream.
 				if (seen.has(swap.id)) continue;
@@ -414,6 +457,7 @@
 		// Re-seed and re-subscribe whenever a filter changes.
 		void feedMode;
 		void side;
+		void chain;
 		void minUsd;
 		void maxUsd;
 		void selectedLabels;
@@ -446,6 +490,7 @@
 		const next = {
 			feedMode,
 			side,
+			chain,
 			minUsd,
 			maxUsd,
 			labels: [...selectedLabels],
@@ -578,7 +623,7 @@
 				{/if}
 			</div>
 		</div>
-		<div class="flex items-center gap-1">
+		<div class="flex flex-wrap items-center gap-1">
 			<button
 				onclick={() => (showLabelFilter = !showLabelFilter)}
 				class="relative shrink-0 cursor-pointer p-1.5 transition-colors md:p-0.5 {showLabelFilter ? 'text-tx' : filterCount > 0 ? 'text-grn' : 'text-g4 hover:text-tx'}"
@@ -589,6 +634,17 @@
 					<span class="absolute -right-1 -top-1 flex h-3 min-w-3 items-center justify-center rounded-full bg-grn px-0.5 text-[8px] font-bold text-s0">{filterCount}</span>
 				{/if}
 			</button>
+			{#each [{ id: 'All' as const, label: 'All' }, { id: 'SOL' as const, label: 'SOL' }, { id: 'RH' as const, label: 'RH' }] as c}
+				<button
+					onclick={() => (chain = c.id)}
+					class="inline-flex shrink-0 cursor-pointer items-center gap-0.5 rounded px-2.5 py-1 text-[11px] font-semibold transition-colors md:px-1.5 md:py-px md:text-[10px] {chain === c.id ? 'bg-grn/20 text-grn' : 'bg-s4 text-g5 hover:text-g8'}"
+					aria-pressed={chain === c.id}
+					title={c.id === 'All' ? 'Solana and Robinhood' : c.id === 'RH' ? 'Robinhood' : 'Solana'}
+				>
+					{#if c.id !== 'All'}<ChainIcon chain={c.id} class="h-3 w-3" />{/if}
+					{c.label}
+				</button>
+			{/each}
 			<span class="ml-1 shrink-0 text-[10px] text-g5">$</span>
 			<input
 				type="text"
@@ -752,7 +808,7 @@
 							title={fullDateTime(swap.timestamp)}
 						>
 							<button type="button" class="shrink-0 cursor-pointer" onclick={() => openWallet(swap)} title="{shortAddress(swap.walletAddress)} — open trader">
-								{@render sourceAvatar(swap.labels[0]?.photoId, swap.walletAddress, brandSource(swap.labels), 'h-4 w-4', 'h-2.5 w-2.5')}
+								{@render sourceAvatar(swap.labels[0]?.photoId, swap.walletAddress, brandSource(swap.labels, swap.program), 'h-4 w-4', 'h-2.5 w-2.5')}
 							</button>
 							<button type="button" class="shrink-0 max-w-[30%] cursor-pointer truncate font-semibold text-tx hover:underline" onclick={() => openWallet(swap)} title="{who} — open trader">{who}</button>
 							<span class="shrink-0 {buy ? 'text-grn' : 'text-red'}">{buy ? 'bought' : 'sold'}</span>
@@ -778,7 +834,7 @@
 									class="block cursor-pointer"
 									title="{shortAddress(swap.walletAddress)} — open trader"
 								>
-									{@render sourceAvatar(swap.labels[0]?.photoId, swap.walletAddress, brandSource(swap.labels), 'h-7 w-7', 'h-3.5 w-3.5')}
+									{@render sourceAvatar(swap.labels[0]?.photoId, swap.walletAddress, brandSource(swap.labels, swap.program), 'h-7 w-7', 'h-3.5 w-3.5')}
 								</button>
 								{#if getIsLoggedIn()}
 									{@const isFollowing = following.has(swap.walletAddress)}

@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OMBRA — Predict sidebar (mockup)</title>
+<style>
+  :root{
+    --s0:#0a0a0a; --s1:#111111; --s2:#161616; --s4:#1e1e1e; --s5:#242424; --s6:#2c2c2c; --s7:#363636;
+    --bd:#262626; --bd3:#3a3a3a;
+    --g5:#6b6b6b; --g6:#8a8a8a; --g7:#a3a3a3; --g8:#bdbdbd; --g9:#d4d4d4; --tx:#e0e0e0;
+    --grn:#00ff88; --red:#ff4466; --blu:#0088cc; --yel:#ffcc00; --org:#ff8833;
+    --radius:10px; --row:34px;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--s0);color:var(--tx);font-size:13px;-webkit-font-smoothing:antialiased}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+  .app{display:grid;grid-template-columns:344px minmax(0,1fr);height:100vh;overflow:hidden}
+
+  /* ---------- sidebar ---------- */
+  .sidebar{display:flex;flex-direction:column;min-height:0;background:var(--s1);border-right:1px solid var(--bd)}
+  .sb-head{display:flex;align-items:center;gap:8px;height:38px;padding:0 12px;border-bottom:1px solid var(--bd);flex:0 0 auto}
+  .sb-head .title{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--g6)}
+  .sb-head .right{margin-left:auto;display:flex;gap:4px}
+  .icon-btn{display:grid;place-items:center;width:24px;height:24px;border-radius:6px;border:1px solid var(--bd);background:var(--s2);color:var(--g6);cursor:pointer}
+  .icon-btn:hover{background:var(--s5);color:var(--tx)}
+
+  /* category switcher */
+  .cats{display:flex;gap:6px;padding:8px 10px;overflow-x:auto;border-bottom:1px solid var(--bd);flex:0 0 auto;scrollbar-width:none}
+  .cats::-webkit-scrollbar{display:none}
+  .cat{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:5px 9px;border-radius:8px;border:1px solid var(--bd);background:transparent;color:var(--g6);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;white-space:nowrap}
+  .cat:hover{border-color:var(--bd3);color:var(--g9)}
+  .cat.on{background:var(--s4);border-color:var(--tx);color:var(--tx)}
+  .cat .n{font-size:10px;color:var(--g5);font-weight:600}
+  .cat.on .n{color:var(--g7)}
+
+  /* sub rail */
+  .sub{border-bottom:1px solid var(--bd);padding:8px 10px;flex:0 0 auto;max-height:230px;overflow-y:auto}
+  .sub-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.14em;color:var(--g5);margin:2px 2px 6px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{padding:4px 9px;border-radius:7px;border:1px solid var(--bd);background:transparent;color:var(--g6);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;white-space:nowrap}
+  .chip:hover{border-color:var(--bd3);color:var(--g9)}
+  .chip.on{background:var(--s4);border-color:var(--tx);color:var(--tx)}
+
+  .navlist{display:flex;flex-direction:column;gap:1px}
+  .navrow{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;border:0;background:transparent;color:var(--g7);font-size:12.5px;text-align:left;cursor:pointer}
+  .navrow:hover{background:var(--s2);color:var(--tx)}
+  .navrow.on{background:var(--s4);color:var(--tx);font-weight:600}
+  .navrow .lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .navrow .n{font-size:11px;color:var(--g5);font-weight:600}
+  .navrow.on .n{color:var(--g7)}
+  .navrow.child{padding-left:26px;font-size:12px;color:var(--g6)}
+  .navrow .chev{color:var(--g5);font-size:10px}
+
+  /* coins */
+  .coins{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  .coins::-webkit-scrollbar{display:none}
+  .coin{flex:0 0 auto;padding:5px 11px;border-radius:999px;border:1px solid var(--bd);background:transparent;color:var(--g7);font-size:12px;font-weight:600;cursor:pointer}
+  .coin.on{background:var(--tx);border-color:var(--tx);color:var(--s0)}
+
+  /* filters + list */
+  .filters{display:flex;gap:6px;padding:8px 10px;overflow-x:auto;border-bottom:1px solid var(--bd);flex:0 0 auto;scrollbar-width:none}
+  .filters::-webkit-scrollbar{display:none}
+  .list{flex:1;min-height:0;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:8px}
+  .card{border:1px solid var(--bd);background:var(--s2);border-radius:10px;padding:8px 10px;cursor:pointer}
+  .card:hover{border-color:var(--bd3);background:var(--s1)}
+  .card .top{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+  .card .ico{width:18px;height:18px;border-radius:5px;background:var(--s6);display:grid;place-items:center;font-size:9px;font-weight:700;color:var(--g7);flex:0 0 auto}
+  .card .name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}
+  .card .tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--g5)}
+  .card .vol{font-size:10px;color:var(--g5)}
+  .card .mid{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .card .price{font-size:13px;font-weight:600}
+  .card .time{font-size:11px;font-weight:600;color:var(--g8)}
+  .sides{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:6px}
+  .side{display:flex;justify-content:space-between;align-items:center;height:26px;padding:0 7px;border-radius:7px;font-size:10px;font-weight:600}
+  .side.up{border:1px solid color-mix(in srgb,var(--grn) 22%,transparent);background:color-mix(in srgb,var(--grn) 10%,transparent);color:var(--grn)}
+  .side.down{border:1px solid color-mix(in srgb,var(--red) 22%,transparent);background:color-mix(in srgb,var(--red) 10%,transparent);color:var(--red)}
+
+  /* main preview */
+  .main{display:flex;flex-direction:column;min-height:0;background:var(--s0)}
+  .mhead{height:40px;display:flex;align-items:center;gap:10px;padding:0 14px;border-bottom:1px solid var(--bd);flex:0 0 auto}
+  .mhead .mh-title{font-size:13px;font-weight:600}
+  .mhead .badge{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--g5)}
+  .mbody{flex:1;min-height:0;padding:18px;display:grid;grid-template-columns:1.4fr 1fr;gap:14px;align-content:start}
+  .panel{border:1px solid var(--bd);background:var(--s1);border-radius:12px;padding:14px;min-height:180px}
+  .panel h3{margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--g5)}
+  .hint{color:var(--g6);font-size:12px;line-height:1.6}
+  .stat-row{display:flex;gap:10px;flex-wrap:wrap}
+  .stat{border:1px solid var(--bd);background:var(--s2);border-radius:10px;padding:8px 12px;min-width:96px}
+  .stat .k{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--g5)}
+  .stat .v{font-size:16px;font-weight:600;margin-top:2px}
+  /* sports hub */
+  .hub{padding:16px 18px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-content:start}
+  .hub-sec{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--g6);display:flex;align-items:center;gap:7px;margin:4px 0 10px}
+  .dot-live{width:7px;height:7px;border-radius:50%;background:var(--red)}
+  .grp{margin-bottom:16px}
+  .grp-head{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;margin-bottom:8px;padding:0 4px}
+  .grp-head .cols{margin-left:auto;display:flex;gap:6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--g5)}
+  .grp-head .cols span{width:76px;text-align:center}
+  .game{border:1px solid var(--bd);background:var(--s2);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+  .game-top{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:11px;color:var(--g5)}
+  .game-top .live{color:var(--red);font-weight:700}
+  .game-top .link{margin-left:auto;color:var(--g6);font-size:11px}
+  .team{display:flex;align-items:center;gap:10px;padding:4px 0}
+  .team .badge{width:26px;height:26px;border-radius:7px;background:var(--s6);display:grid;place-items:center;font-size:10px;font-weight:700;color:var(--g7);flex:0 0 auto}
+  .team .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:600}
+  .odds{display:flex;gap:6px;flex:0 0 auto}
+  .ob{width:76px;height:30px;border-radius:8px;border:1px solid var(--bd);background:var(--s1);color:var(--g8);font-size:12px;font-weight:600;cursor:pointer;display:grid;place-items:center}
+  .ob:hover{border-color:var(--bd3);color:var(--tx)}
+  .ob.on{border-color:var(--tx);color:var(--tx);background:var(--s4)}
+  .ob.na{color:var(--g5);cursor:default}
+  .ticket{border:1px solid var(--bd);background:var(--s1);border-radius:12px;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:220px;text-align:center;position:sticky;top:0}
+  .cal{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .cal .d{border:1px solid var(--bd);background:var(--s2);border-radius:10px;padding:8px;min-height:110px}
+  .cal .d .dh{font-size:10px;color:var(--g5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+  .cal .row{display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--bd)}
+  .mov{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)}
+  .mov .rk{width:16px;color:var(--g5);font-size:11px}
+  .mov .q{flex:1;font-size:12px}
+  .mov .p{font-weight:600}
+  .green{color:var(--grn)} .red{color:var(--red)} .dim{color:var(--g5)}
+  .scroll::-webkit-scrollbar{width:8px} .scroll::-webkit-scrollbar-thumb{background:var(--s6);border-radius:8px}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="sb-head">
+      <span class="title">Discover</span>
+      <div class="right">
+        <button class="icon-btn" title="Collapse">‹</button>
+        <button class="icon-btn" title="Cards">▦</button>
+        <button class="icon-btn" title="List">≡</button>
+      </div>
+    </div>
+
+    <div class="cats" id="cats"></div>
+    <div class="sub scroll" id="sub"></div>
+
+    <div class="filters">
+      <button class="chip on">24h</button><button class="chip">Vol</button><button class="chip">Liq</button>
+      <button class="chip">End</button><button class="chip">Comp</button><button class="chip">New</button>
+    </div>
+
+    <div class="list scroll" id="list"></div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <main class="main">
+    <div class="mhead">
+      <span class="mh-title" id="mTitle">Crypto</span>
+      <span class="badge" id="mBadge">Chainlink TWAP 60s · 5M</span>
+      <span class="badge" style="margin-left:auto">PREVIEW OF THE CATEGORY FEATURE PANEL</span>
+    </div>
+    <div class="mbody" id="main"></div>
+  </main>
+</div>
+
+<script>
+const CATS = [
+  { id:'hot',      label:'Hot',       n:'12K' },
+  { id:'new',      label:'New',       n:'84' },
+  { id:'crypto',   label:'Crypto',    n:'2.1K' },
+  { id:'politics', label:'Politics',  n:'3.5K' },
+  { id:'sports',   label:'Sports',    n:'1.8K' },
+  { id:'esports',  label:'Esports',   n:'642' },
+  { id:'finance',  label:'Finance',   n:'1.2K' },
+  { id:'geopol',   label:'Geopolitics', n:'512' },
+  { id:'tech',     label:'Tech',      n:'430' },
+  { id:'culture',  label:'Culture',   n:'318' },
+  { id:'economy',  label:'Economy',   n:'266' },
+  { id:'weather',  label:'Weather',   n:'90' },
+  { id:'elections',label:'Elections', n:'3.1K' },
+  { id:'mentions', label:'Mentions',  n:'57' },
+  { id:'breaking', label:'Breaking',  n:'20' },
+  { id:'earnings', label:'Earnings',  n:'142' },
+];
+
+const CHIPS = ['All','Trump','Russia','Greenland','Fed','NFL','AI Safety','Yemen','Brazil','Clarity Act','Iran','Gaza','Oil','AI','Earnings','Movies','Commodities','Midterms'];
+const POLITICS = [['All','3.5K'],['Trump','318'],['Midterms','1.2K'],['Global Elections','666'],['Primaries','9'],['Congress','35'],['Courts','26'],['Russia Election','15'],['Israel Election','40'],['US Election','665'],['Brazil','139'],['Canada','117'],['China','55'],['Japan','17'],['Turkey','11']];
+const FINANCE  = [['All','1.2K'],['Daily','420'],['Weekly','180'],['Monthly','96'],['Stocks','310'],['Earnings','142'],['Indices','88'],['Commodities','64'],['Forex','52'],['Privates','22'],['Acquisitions','18'],['IPOs','31'],['Fed Rates','14'],['Treasuries','12'],['KPIs','26']];
+const SPORTS   = [
+  {slug:'world-cup',label:'World Cup',n:'210',children:[]},
+  {slug:'mlb',label:'MLB',n:'160',children:[]},
+  {slug:'nhl',label:'NHL',n:'120',children:[]},
+  {slug:'ufc',label:'UFC',n:'64',children:[]},
+  {slug:'football',label:'Football',n:'240',children:[['NFL','180'],['CFB','60']]},
+  {slug:'soccer',label:'Soccer',n:'480',children:[['All','480'],['EPL','120'],['MLS','80'],['UCL','70']]},
+  {slug:'tennis',label:'Tennis',n:'88',children:[['ATP','52'],['WTA','36']]},
+  {slug:'basketball',label:'Basketball',n:'210',children:[['NBA','160'],['WNBA','50']]},
+  {slug:'baseball',label:'Baseball',n:'160',children:[['MLB','160']]},
+  {slug:'hockey',label:'Hockey',n:'120',children:[['NHL','120']]},
+  {slug:'golf',label:'Golf',n:'36',children:[]},
+  {slug:'f1',label:'Formula 1',n:'28',children:[]},
+  {slug:'boxing',label:'Boxing',n:'18',children:[]},
+];
+const ESPORTS  = [
+  {slug:'cs2',label:'CS2',n:'188',children:[['BLAST','64'],['ESL','80'],['Major','44']]},
+  {slug:'lol',label:'League of Legends',n:'210',children:[['LEC','60'],['LCK','70'],['LPL','80']]},
+  {slug:'dota2',label:'Dota 2',n:'96',children:[['The International','40'],['ESL One','56']]},
+  {slug:'valorant',label:'Valorant',n:'88',children:[['VCT','88']]},
+  {slug:'overwatch',label:'Overwatch',n:'24',children:[]},
+];
+const SPORT_GAMES = [
+  {section:'live', league:'NFL', time:'Q3 · 4:21', cols:['Moneyline','Spread','Total'], teams:[['Kansas City Chiefs','KC',58,64,71],['Buffalo Bills','BUF',42,36,29]]},
+  {section:'live', league:'NBA', time:'Q2 · 2:10', cols:['Moneyline','Spread','Total'], teams:[['Los Angeles Lakers','LAL',51,55,48],['Boston Celtics','BOS',49,45,52]]},
+  {section:'soon', league:'Soccer', time:'Today 8:00 PM', cols:['Moneyline','Spread','Total'], teams:[['Arsenal','ARS',62,null,55],['Chelsea','CHE',38,null,45]]},
+  {section:'soon', league:'Tennis', time:'Tomorrow 9:00 AM', cols:['Moneyline','Spread','Total'], teams:[['C. Alcaraz','ALC',70,null,null],['J. Sinner','SIN',30,null,null]]},
+];
+const ESPORT_GAMES = [
+  {section:'live', league:'CS2', time:'Map 2 · 11:8', cols:['Match','Handicap','Total'], teams:[['Natus Vincere','NAVI',64,58,61],['FaZe Clan','FAZE',36,42,39]]},
+  {section:'live', league:'League of Legends', time:'Game 3 · 24:10', cols:['Match','Handicap','Total'], teams:[['T1','T1',71,55,48],['Gen.G','GEN',29,45,52]]},
+  {section:'soon', league:'Dota 2', time:'Today 6:00 PM', cols:['Match','Handicap','Total'], teams:[['Team Spirit','SPIR',55,52,null],['Gaimin Gladiators','GG',45,48,null]]},
+];
+const ELECTIONS= [['All','3.1K'],['Global','666'],['US','665'],['Brazil','139'],['Canada','117'],['Germany','71'],['France','5'],['UK','4'],['Israel','40'],['Sweden','37']];
+const COINS    = ['All','BTC','ETH','SOL','XRP','DOGE','BNB','HYPE','ZEC'];
+
+const CARDS = {
+  crypto:[
+    {name:'Bitcoin',tag:'5M',vol:'$1.3K',price:'$81,326.35',d:'+2.49',t:'3:21',up:52,dn:49,stat:'live'},
+    {name:'Bitcoin',tag:'5M',vol:'$42.9',price:'$81,200.00',d:null,t:'4:11',up:75,dn:26,stat:'live'},
+    {name:'Bitcoin',tag:'5M',vol:'—',price:'$81,200.00',d:null,t:'Window closed',up:0,dn:100,stat:'closed'},
+    {name:'Ethereum',tag:'5M',vol:'$8.2K',price:'$2,514.10',d:'-1.20',t:'3:21',up:44,dn:57,stat:'live'},
+  ],
+  generic:[
+    {name:'Will Trump sign the Clarity Act this year?',tag:'POL',vol:'$420K',price:'38¢',d:null,t:'Ends Nov',up:38,dn:62,stat:'live'},
+    {name:'US government shutdown before Dec?',tag:'POL',vol:'$1.1M',price:'12¢',d:null,t:'Ends Dec 31',up:12,dn:88,stat:'live'},
+    {name:'Russia–Ukraine ceasefire in 2026?',tag:'POL',vol:'$2.4M',price:'54¢',d:null,t:'Ends Dec 31',up:54,dn:46,stat:'live'},
+    {name:'Midterms: Democrats win the House?',tag:'POL',vol:'$9.8M',price:'61¢',d:null,t:'Ends Nov 3',up:61,dn:39,stat:'live'},
+  ],
+  sports:[
+    {name:'Chiefs vs Bills — Winner',tag:'NFL',vol:'$210K',price:'KC 58%',d:null,t:'Sun 8:20 PM',up:58,dn:42,stat:'live'},
+    {name:'Lakers vs Celtics — Spread',tag:'NBA',vol:'$96K',price:'LAL -3.5',d:null,t:'Tonight 10 PM',up:51,dn:49,stat:'live'},
+  ],
+  breaking:[
+    {name:'Will the Fed cut rates in September?',tag:'ECO',vol:'$3.2M',price:'72¢',d:'+14.0%',t:'',up:72,dn:28,stat:'live'},
+    {name:'Bitcoin above $85k on Friday?',tag:'CRY',vol:'$880K',price:'31¢',d:'-11.5%',t:'',up:31,dn:69,stat:'live'},
+  ],
+};
+
+let active = 'crypto';
+let subSel = 'All';
+let sportView = 'live';
+let expandedLeagues = new Set();
+
+function rail(kind){
+  if(kind==='chips') return `<div class="sub-label">Topic</div><div class="chips">${CHIPS.map(c=>`<button class="chip ${c===subSel?'on':''}" data-sub="${c}">${c}</button>`).join('')}</div>`;
+  if(kind==='nav')   return `<div class="sub-label">Sub-category</div><div class="navlist">${POLITICS.map(([l,n])=>`<button class="navrow ${l===subSel?'on':''}" data-sub="${l}"><span class="lbl">${l}</span><span class="n mono">${n}</span></button>`).join('')}</div>`;
+  if(kind==='finance')return `<div class="sub-label">Market type</div><div class="navlist">${FINANCE.map(([l,n])=>`<button class="navrow ${l===subSel?'on':''}" data-sub="${l}"><span class="lbl">${l}</span><span class="n mono">${n}</span></button>`).join('')}</div>`;
+  if(kind==='leagues'){
+    const data = active==='sports'?SPORTS:ESPORTS;
+    const allLabel = active==='sports'?'All Sports':'All Games';
+    const allCount = active==='sports'?'1.8K':'642';
+    const rows = data.map(l=>{
+      if(l.children.length){
+        const open = expandedLeagues.has(l.slug) || subSel===l.label || l.children.some(([cl])=>cl===subSel);
+        return `<button class="navrow ${l.label===subSel?'on':''}" data-exp="${l.slug}"><span class="lbl">${l.label}</span><span class="n mono">${l.n}</span><span class="chev">${open?'▾':'▸'}</span></button>`+
+          (open?l.children.map(([cl,cn])=>`<button class="navrow child ${cl===subSel?'on':''}" data-sub="${cl}"><span class="lbl">${cl}</span><span class="n mono">${cn}</span></button>`).join(''):'');
+      }
+      return `<button class="navrow ${l.label===subSel?'on':''}" data-sub="${l.label}"><span class="lbl">${l.label}</span><span class="n mono">${l.n}</span></button>`;
+    }).join('');
+    return `<div class="navlist" style="margin-bottom:8px">
+        <button class="navrow ${sportView==='live'?'on':''}" data-sportview="live"><span class="lbl">Live</span></button>
+        <button class="navrow ${sportView==='futures'?'on':''}" data-sportview="futures"><span class="lbl">Futures</span></button>
+      </div>
+      <div class="sub-label">${allLabel}</div>
+      <div class="navlist">
+        <button class="navrow ${subSel==='All'?'on':''}" data-sub="All"><span class="lbl">All</span><span class="n mono">${allCount}</span></button>
+        ${rows}
+      </div>`;
+  }
+  if(kind==='coins') return `<div class="sub-label">Coin</div><div class="coins">${COINS.map(c=>`<button class="coin ${c===subSel?'on':''}" data-sub="${c}">${c}</button>`).join('')}</div>`;
+  if(kind==='elections')return `<div class="sub-label">Country</div><div class="navlist">${ELECTIONS.map(([l,n])=>`<button class="navrow ${l===subSel?'on':''}" data-sub="${l}"><span class="lbl">${l}</span><span class="n mono">${n}</span></button>`).join('')}</div>`;
+  return `<div class="sub-label">No sub-categories</div><div class="hint">This category renders a dedicated feature panel (see right).</div>`;
+}
+
+function kindFor(id){
+  if(id==='hot'||id==='new') return 'chips';
+  if(id==='crypto') return 'coins';
+  if(id==='sports'||id==='esports') return 'leagues';
+  if(id==='finance') return 'finance';
+  if(id==='elections') return 'elections';
+  if(id==='breaking'||id==='earnings') return 'none';
+  return 'nav';
+}
+
+function cardsFor(id){
+  if(id==='crypto') return CARDS.crypto;
+  if(id==='sports'||id==='esports') return CARDS.sports;
+  if(id==='breaking') return CARDS.breaking;
+  return CARDS.generic;
+}
+
+function cardHTML(c){
+  const p = c.stat==='closed'
+    ? `<div class="mid"><span class="price dim">Down won</span><span class="time dim">Window closed</span></div>`
+    : `<div class="mid"><span class="price mono">${c.price}</span><span class="time mono">${c.t}</span></div>`;
+  return `<div class="card">
+    <div class="top"><span class="ico">${c.name.slice(0,1)}</span><span class="name">${c.name}</span><span class="tag">${c.tag}</span><span class="vol mono">${c.vol}</span></div>
+    ${p}
+    <div class="sides"><div class="side up"><span>Up</span><span class="mono">${c.up}¢</span></div><div class="side down"><span>Down</span><span class="mono">${c.dn}¢</span></div></div>
+  </div>`;
+}
+
+function mainHTML(id){
+  const title = CATS.find(c=>c.id===id).label;
+  document.getElementById('mTitle').textContent = title;
+  document.getElementById('mBadge').textContent =
+    id==='crypto' ? 'Chainlink TWAP 60s · 5M'
+    : id==='earnings' ? 'Week of Sep 15 · pre / post market'
+    : id==='elections' ? 'Country rail · globe'
+    : id==='sports'||id==='esports' ? 'Live / Futures · league rail'
+    : 'tag_slug filter · cursor feed';
+
+  let body = '';
+  if(id==='crypto'){
+    body = `<div class="panel"><h3>Price / Target</h3>
+      <div class="hint">Chart goes here — Price | Odds, Opening TWAP, Go To Live. The sidebar's coin + interval selection scopes it.</div>
+      <div class="stat-row" style="margin-top:12px">
+        <div class="stat"><div class="k">Opening TWAP</div><div class="v mono">$81,324.81</div></div>
+        <div class="stat"><div class="k">Now</div><div class="v mono green">$81,326.35</div></div>
+        <div class="stat"><div class="k">Δ</div><div class="v mono green">+2.49</div></div>
+      </div></div>
+      <div class="panel"><h3>Intervals</h3><div class="chips"><button class="chip">5M</button><button class="chip on">15M</button><button class="chip">1H</button><button class="chip">4H</button><button class="chip">1D</button></div>
+      <h3 style="margin-top:14px">Sections</h3><div class="hint">Up / Down · Forecast · Theme (3 stacked grids, like stance's crypto page).</div></div>`;
+  } else if(id==='earnings'){
+    body = `<div class="panel" style="grid-column:1/-1"><h3>Earnings calendar</h3>
+      <div class="cal">
+        ${['Mon 15','Tue 16','Wed 17','Thu 18','Fri 19'].map((d,i)=>`<div class="d"><div class="dh">${d}</div>
+          <div class="row"><span>NVDA</span><span class="green mono">${70+i}%</span></div>
+          <div class="row"><span>TSLA</span><span class="red mono">${42-i}%</span></div>
+          <div class="row"><span>MU</span><span class="green mono">58%</span></div></div>`).join('')}
+      </div></div>`;
+  } else if(id==='breaking'){
+    body = `<div class="panel"><h3>Biggest 24h movers</h3>
+      <div class="mov"><span class="rk mono">1</span><span class="q">Fed cut in September?</span><span class="p mono green">72¢ +14</span></div>
+      <div class="mov"><span class="rk mono">2</span><span class="q">Bitcoin above $85k Friday?</span><span class="p mono red">31¢ −11</span></div>
+      <div class="mov"><span class="rk mono">3</span><span class="q">Government shutdown before Dec?</span><span class="p mono green">12¢ +6</span></div></div>
+      <div class="panel"><h3>How it works</h3><div class="hint">Ranked list of the largest |1-day| price changes across all active markets. No sub-categories.</div></div>`;
+  } else if(id==='elections'){
+    body = `<div class="panel"><h3>Country rail</h3><div class="hint">Selecting a country filters the grid on the right. A globe sits above the rail (ClientOnly) on the real page.</div>
+      <div class="navlist" style="margin-top:10px">${ELECTIONS.slice(1,7).map(([l,n])=>`<button class="navrow"><span class="lbl">${l}</span><span class="n mono">${n}</span></button>`).join('')}</div></div>
+      <div class="panel"><h3>Heading + grid</h3><div class="hint">Title follows the selected country; grid is cursor-paginated by country tag.</div></div>`;
+  } else if(id==='sports'||id==='esports'){
+    const isSports = id==='sports';
+    const games = isSports?SPORT_GAMES:ESPORT_GAMES;
+    document.getElementById('mTitle').textContent = (sportView==='live'?'Live ':'Futures ')+(isSports?'Sports':'Esports');
+    const sec = (key,label,live)=>{
+      const list = games.filter(g=>g.section===key);
+      if(!list.length) return '';
+      return `<div class="hub-sec">${live?'<span class="dot-live"></span>':''}${label}</div>` + list.map(g=>`
+        <div class="grp">
+          <div class="grp-head">${g.league}<span class="cols">${g.cols.map(c=>`<span>${c}</span>`).join('')}</span></div>
+          <div class="game">
+            <div class="game-top"><span class="${live?'live':''}">${g.time}</span><span class="link">Order book ›</span></div>
+            ${g.teams.map(t=>`<div class="team"><span class="badge">${t[1]}</span><span class="nm">${t[0]}</span><div class="odds">${t.slice(2).map(v=>v==null?`<button class="ob na">—</button>`:`<button class="ob">${v}¢</button>`).join('')}</div></div>`).join('')}
+          </div>
+        </div>`).join('');
+    };
+    body = `<div class="hub" style="grid-column:1/-1">
+      <div>${sec('live','Live',true)}${sec('soon','Starting Soon',false)}</div>
+      <aside><div class="ticket"><div style="font-size:15px;font-weight:700">Pick a line to trade</div><div class="hint">Tap any ${isSports?'moneyline, spread, or total':'match, handicap, or total'} to load the order ticket here.</div></div></aside>
+    </div>`;
+  } else {
+    body = `<div class="panel"><h3>Sub-category nav</h3><div class="hint">All + sub-tags with live counts. Selecting one filters the card list on the left via <span class="mono">tag_slug</span> (cursor feed).</div></div>
+      <div class="panel"><h3>Grid</h3><div class="hint">Same MarketCard grid; infinite scroll. Trending adds a featured block on top.</div></div>`;
+  }
+  document.getElementById('main').innerHTML = body;
+}
+
+function render(){
+  document.getElementById('cats').innerHTML = CATS.map(c=>`<button class="cat ${c.id===active?'on':''}" data-cat="${c.id}">${c.label}<span class="n mono">${c.n}</span></button>`).join('');
+  document.getElementById('sub').innerHTML = rail(kindFor(active));
+  document.getElementById('list').innerHTML = cardsFor(active).map(cardHTML).join('');
+  mainHTML(active);
+}
+
+document.addEventListener('click', (e)=>{
+  const cat = e.target.closest('[data-cat]');
+  if(cat){ active = cat.dataset.cat; subSel='All'; render(); return; }
+  const exp = e.target.closest('[data-exp]');
+  if(exp){ const s = exp.dataset.exp; expandedLeagues.has(s) ? expandedLeagues.delete(s) : expandedLeagues.add(s); document.getElementById('sub').innerHTML = rail(kindFor(active)); return; }
+  const sv = e.target.closest('[data-sportview]');
+  if(sv){ sportView = sv.dataset.sportview; render(); return; }
+  const sub = e.target.closest('[data-sub]');
+  if(sub){ subSel = sub.dataset.sub; document.getElementById('sub').innerHTML = rail(kindFor(active)); return; }
+});
+
+render();
+</script>
+</body>
+</html>

@@ -20,6 +20,9 @@ importers:
       lightweight-charts:
         specifier: 5.2.0
         version: 5.2.0
+      liveline-svelte:
+        specifier: 0.0.3
+        version: 0.0.3(svelte@5.56.4)
       lucide-svelte:
         specifier: 1.0.1
         version: 1.0.1(svelte@5.56.4)
@@ -1676,6 +1679,12 @@ packages:
 
   lightweight-charts@5.2.0:
     resolution: {integrity: sha512-ey3Vas8UhV06ni+LT9TA1nEe4y8So4Mi6CL/oarNHFMyTktz/xy8e8+oh04Q//eO3t6etvFXgayz2fClyFQb5w==}
+
+  liveline-svelte@0.0.3:
+    resolution: {integrity: sha512-Ip4xdGOrJPf+pp4ZPMkcTWckTRa+yXHZwmBoLcni72X9arw1DqPLfdJIOy+wSGhNi+bxRDd7MNreXQKvIcno6Q==}
+    engines: {node: '>=24'}
+    peerDependencies:
+      svelte: ^5.0.0
 
   locate-character@3.0.0:
     resolution: {integrity: sha512-SW13ws7BjaeJ6p7Q6CO2nchbYEc3X3J6WrmTTDto7yMPqVSZTUyY5Tjbid+Ab8gLnATtygYtiDIJGQRRn2ZOiA==}
@@ -3558,6 +3567,10 @@ snapshots:
   lightweight-charts@5.2.0:
     dependencies:
       fancy-canvas: 2.1.0
+
+  liveline-svelte@0.0.3(svelte@5.56.4):
+    dependencies:
+      svelte: 5.56.4
 
   locate-character@3.0.0: {}
 

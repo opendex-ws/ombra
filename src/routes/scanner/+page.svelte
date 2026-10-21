@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { HOOK_FILTERS, hookSecurityFilter, triFromString } from '$lib/utils/token-hook';
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import type { ScannerItem, Chain, TimeFrame, ScannerTokensRequest, components } from '$lib/api/types';
@@ -258,6 +259,14 @@
 		if (filters['freezeAuthorityDisabled'] === 'true') security.freezable = false;
 		if (filters['mintAuthorityDisabled'] === 'true') security.mintable = false;
 		if (filters['notProxy'] === 'true') security.proxy = false;
+		Object.assign(
+			security,
+			hookSecurityFilter({
+				hooked: triFromString(filters['hooked']),
+				unknownHook: triFromString(filters['unknownHook']),
+				unsafeHook: triFromString(filters['unsafeHook'])
+			})
+		);
 		if (Object.keys(security).length > 0) tf.security = security;
 
 		const holders: Record<string, unknown> = {};
@@ -561,7 +570,7 @@
 		if (section === 'customSignals') return draftIntegrationClauses.length;
 		if (section === 'market') return keys.filter(k => /MarketCap|Liquidity|AgeHours|CallCount|BuyTax|SellTax|TransferTax|TxPercent/i.test(k)).length;
 		if (section === 'activity') return keys.filter(k => /Volume|Fees|Buys\d|Sells\d|Txns|PriceChange|Traders/i.test(k)).length;
-		if (section === 'safety') return keys.filter(k => ['notHoneypot','lpLocked','isRenounced','isVerified','freezeAuthorityDisabled','mintAuthorityDisabled','hideBondingCurve','hideBondingCurveGraduated','dexPaid','notProxy'].includes(k)).length;
+		if (section === 'safety') return keys.filter(k => ['notHoneypot','lpLocked','isRenounced','isVerified','freezeAuthorityDisabled','mintAuthorityDisabled','hideBondingCurve','hideBondingCurveGraduated','dexPaid','notProxy','hooked','unknownHook','unsafeHook'].includes(k)).length;
 		if (section === 'holders') return keys.filter(k => /DevWallet|WalletPercent|Top10|Sniper|Bundler|Insider|TraderHolding/i.test(k)).length;
 		if (section === 'social') return keys.filter(k => /has(Website|Twitter|Telegram|Discord|AnySocial)/.test(k)).length;
 		return 0;
@@ -907,6 +916,13 @@
 						{@render chip('DEX Paid', 'dexPaid')}
 					</div>
 					<div class="h-px bg-bd my-1.5"></div>
+					<div class="space-y-1.5">
+						<span class="block text-[10px] font-medium uppercase tracking-wider text-g5">Transfer hook</span>
+						{#each HOOK_FILTERS as hf (hf.key)}
+							{@render triFilter(hf.label, hf.title, hf.key)}
+						{/each}
+					</div>
+					<div class="h-px bg-bd my-1.5"></div>
 					<div class="flex flex-wrap gap-2">
 						{@render chip('Hide Bonding Curve', 'hideBondingCurve')}
 						{@render chip('Hide Graduated', 'hideBondingCurveGraduated')}
@@ -1012,6 +1028,31 @@
 				fs(key, v >= max ? '' : String(v));
 			}}
 			class="slider-input w-full h-1.5 rounded-full appearance-none cursor-pointer bg-bd2 accent-grn outline-none" />
+	</div>
+{/snippet}
+
+{#snippet triFilter(label: string, title: string, key: string)}
+	{@const value = f(key)}
+	<div class="flex items-center gap-2" {title}>
+		<span class="min-w-0 flex-1 truncate text-[11px] text-g7">{label}</span>
+		<div class="flex shrink-0 gap-0.5 rounded-lg border border-bd bg-s4 p-0.5">
+			{#each [['', 'Any'], ['true', 'Only'], ['false', 'Hide']] as [v, text] (v)}
+				<button
+					type="button"
+					aria-pressed={value === v}
+					class="cursor-pointer rounded-md px-2 py-0.5 text-[10px] font-semibold transition-colors {value === v
+						? v === 'false'
+							? 'bg-red/10 text-red'
+							: v === 'true'
+								? 'bg-grn/10 text-grn'
+								: 'bg-wh/10 text-tx'
+						: 'text-g5 hover:text-g9'}"
+					onclick={() => fs(key, v)}
+				>
+					{text}
+				</button>
+			{/each}
+		</div>
 	</div>
 {/snippet}
 

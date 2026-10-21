@@ -3,6 +3,7 @@
 	import { formatPriceText } from '$lib/utils/format';
 	import Blocks from 'lucide-svelte/icons/blocks';
 	import Zap from 'lucide-svelte/icons/zap';
+	import { executionProgramBrand } from '$lib/utils/entity-icons';
 	import FundingEntityIcon from './FundingEntityIcon.svelte';
 
 	type ExecutionTrade = Pick<TokenSwap, 'txPlacePercent' | 'isBuilder'> & {
@@ -24,20 +25,26 @@
 	let hasMevFee = $derived(Number.isFinite(mevFeeUsd) && mevFeeUsd > 0);
 	let showAttribution = $derived(section !== 'details');
 	let showDetails = $derived(section !== 'attribution');
-	let hasAttribution = $derived(
+	let knownBrand = $derived(executionProgramBrand(trade.executionProgram?.id));
+	let apiNamesProgram = $derived(
 		Boolean(
 			trade.executionProgram &&
 				trade.executionProgram.kind !== 'UNKNOWN' &&
 				trade.executionProgram.name.trim().toUpperCase() !== 'OTHER'
 		)
 	);
+	let hasAttribution = $derived(apiNamesProgram || Boolean(knownBrand));
 	let hasVisibleMev = $derived(hasMevFee && (showMevAmount || trade.isBuilder === true));
 	let hasDetails = $derived(trade.txPlacePercent != null || trade.isBuilder === true || hasVisibleMev);
 	let executionName = $derived(
-		trade.executionProgram?.name === 'GENERIC BOT' ? 'GENERIC' : (trade.executionProgram?.name ?? '')
+		trade.executionProgram?.name === 'GENERIC BOT'
+			? 'GENERIC'
+			: apiNamesProgram
+				? (trade.executionProgram?.name ?? '')
+				: (knownBrand?.name ?? '')
 	);
 	let executionTone = $derived(
-		trade.executionProgram?.kind === 'INTERFACE'
+		trade.executionProgram?.kind === 'INTERFACE' || (!apiNamesProgram && knownBrand)
 			? 'text-blu'
 			: trade.executionProgram?.kind === 'AGGREGATOR'
 				? 'text-pnk'
@@ -56,7 +63,7 @@
 				aria-label={`Execution via ${executionName}`}
 			>
 				<FundingEntityIcon
-					label={executionName}
+					label={executionName.startsWith('0x') ? '' : executionName}
 					entityType={trade.executionProgram.kind}
 					programId={trade.executionProgram.id}
 					class="h-3 w-3"

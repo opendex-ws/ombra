@@ -1,4 +1,5 @@
 import type { components } from '$lib/api/v2.d.ts';
+import { chainDisplayName } from '$lib/utils/chain-brand';
 
 export type PnlRange = components['schemas']['PnlRange'];
 export type UserPnlResponse = components['schemas']['UserPnlResponse'];
@@ -33,7 +34,7 @@ export function launchpadPlatform(row: { platformType: string }): string {
 export function chainRows(data: UserPnlResponse | null): PnlBreakdownRow[] {
 	return (data?.byChain ?? []).map((r) => ({
 		key: r.chain,
-		label: r.chain,
+		label: chainDisplayName(r.chain),
 		platform: null,
 		metrics: metricsOf(r)
 	}));

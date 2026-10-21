@@ -20,7 +20,7 @@ const routerMap: Record<string, RouterInfo> = {
 	RAYDIUM_CLMM: { name: 'Raydium CLMM', icon: ri('raydium.svg'), color: '#5b7eff' },
 	WHIRLPOOL: { name: 'Orca Whirlpool', icon: ri('whirlpool.svg'), color: '#ffc83d' },
 	RAYDIUM_LAUNCH: { name: 'Raydium Launchlab', icon: ri('raydium-launchlab.svg'), color: '#5b7eff' },
-	// Official unicorn, with the version drawn on so v2/v3/v4 are not the same chip.
+	// Pink circle and the version. The unicorn made v2/v3/v4 one blob at badge size.
 	UNISWAP_V2: { name: 'Uniswap V2', icon: ri('uniswap-v2.svg'), color: '#ff007a' },
 	UNISWAP_V3: { name: 'Uniswap V3', icon: ri('uniswap-v3.svg'), color: '#ff007a' },
 	UNISWAP_V4: { name: 'Uniswap V4', icon: ri('uniswap-v4.svg'), color: '#ff007a' },

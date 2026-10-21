@@ -14,7 +14,9 @@
 		const wallet = page.url.searchParams.get('wallet');
 		const error = page.url.searchParams.get('error');
 		if (!token || error) {
-			message = 'Google sign-in failed.';
+			message = error === 'venue_wallets_preparing' || error === 'setup_error'
+				? 'Your wallets are being prepared. Wait a moment, then try signing in again.'
+				: 'Google sign-in failed.';
 			return;
 		}
 		completeGoogleLogin(token, wallet);

@@ -3,6 +3,7 @@
 	import { api } from '$lib/api/client';
 	import { formatUsd } from '$lib/utils/format';
 	import { getRouterInfo } from '$lib/utils/routers';
+	import ChainBrandIcon from './ChainBrandIcon.svelte';
 	import ChainIcon from './ChainIcon.svelte';
 	import TriangleAlert from 'lucide-svelte/icons/triangle-alert';
 	import LoaderCircle from 'lucide-svelte/icons/loader-circle';
@@ -169,7 +170,9 @@
 				{#each rows as row (row.key)}
 					{@const info = row.platform ? getRouterInfo(row.platform) : null}
 					<div class="flex items-center gap-2 bg-s2 px-2.5 py-1.5">
-						{#if info?.icon}
+						{#if breakdown === 'chain'}
+							<ChainBrandIcon chain={row.key} class="h-4 w-4" />
+						{:else if info?.icon}
 							<img src={info.icon} alt="" class="h-4 w-4 shrink-0 rounded-full" loading="lazy" />
 						{:else}
 							<ChainIcon chain={row.label} class="h-4 w-4 shrink-0 text-g6" />

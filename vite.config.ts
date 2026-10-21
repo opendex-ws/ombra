@@ -5,6 +5,27 @@ import { defineConfig } from 'vitest/config';
 import fs from 'node:fs';
 import path from 'node:path';
 
+// Vitest paints its summary even when stdout is not a terminal. The toast check
+// matches the plain line `Tests  3 passed`, so strip those codes while testing.
+if (process.env.VITEST) {
+	const stream = process.stdout as NodeJS.WriteStream & { plainSummary?: boolean };
+	if (!stream.plainSummary) {
+		stream.plainSummary = true;
+		const write = stream.write.bind(stream);
+		const strip = (value: string) => value.replace(/\u001b\[[0-9;]*m/g, '');
+		stream.write = ((
+			chunk: string | Uint8Array,
+			encoding?: BufferEncoding | ((err?: Error | null) => void),
+			cb?: (err?: Error | null) => void
+		) => {
+			if (typeof chunk === 'string') chunk = strip(chunk);
+			else chunk = Buffer.from(strip(Buffer.from(chunk).toString()));
+			if (typeof encoding === 'function') return write(chunk, encoding);
+			return write(chunk, encoding, cb);
+		}) as typeof stream.write;
+	}
+}
+
 function asyncChunkSkipList(): Plugin {
 	const jsonPath = path.resolve('.svelte-kit/async-chunks.json');
 	const tsPath = path.resolve('src/lib/generated/async-chunks.ts');
@@ -83,6 +104,11 @@ const stripIdentityHeaders = (proxy: any) => {
 
 export default defineConfig({
 	plugins: [tailwindcss(), sveltekit(), asyncChunkSkipList()],
+	// liveline-svelte ships raw `.svelte` files in dist; let Vite compile it
+	// during SSR instead of externalizing it to Node (which can't parse .svelte).
+	ssr: {
+		noExternal: ['liveline-svelte']
+	},
 	// Only force browser conditions on the client. Top-level `browser` breaks
 	// SSR (e.g. `__SVELTEKIT_APP_VERSION__ is not defined` via $app/env).
 	environments: {

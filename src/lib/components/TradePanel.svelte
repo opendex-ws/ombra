@@ -21,6 +21,9 @@
 	import { authenticate } from '$lib/ws/client';
 	import { formatUsd, fmtVal, formatCompactNumber, formatPriceText } from '$lib/utils/format';
 	import { isUsd } from '$lib/stores/currency.svelte';
+	import TradeQuotePreview from './TradeQuotePreview.svelte';
+	import { buyQuoteQuery, sellQuoteQuery } from '$lib/utils/trade-quote';
+	import { depositAssetLabel, findFiatAsset, fundingChoice, needsTradeDeposit } from '$lib/utils/deposit-gate';
 	import {
 		getActiveTradeTab, setActiveTradeTab, getOrderType, setOrderType,
 		getBuyAmount, setBuyAmount, getSellPercent, setSellPercent,
@@ -181,6 +184,7 @@
 	let showMobileScan = $state(false);
 
 	const slipValue = $derived(getActiveTradeTab() === 'buy' ? getSlippageBuy() : getSlippageSell());
+
 	const presetLocked = $derived(getActiveTradeTab() === 'buy' && getSelectedConfigId() !== null);
 
 	function copyAddress() {
@@ -199,16 +203,42 @@
 	});
 	const managedWallet = $derived(getManagedWalletForChain(chain));
 	const nativeBalance = $derived(managedWallet?.assets.find(b => b.isNative || b.token.symbol === nativeSymbol) ?? null);
-	// `isFiat` marks the chain's USD stablecoin, which is what funds a FIAT buy.
-	const fiatBalance = $derived(managedWallet?.assets.find((b) => b.isFiat) ?? null);
+	// `isFiat` marks the chain's USD stablecoin. Robinhood leaves that flag off, so USDG is matched by mint too.
+	const fiatBalance = $derived(findFiatAsset(chain, managedWallet?.assets));
 	const buyWith = $derived(getBuyWith());
-	// Affordability has to be measured against the pot the buy actually spends.
-	const fundingBalance = $derived(buyWith === 'FIAT' ? fiatBalance : nativeBalance);
+	// On Robinhood the buy spends whichever of ETH and USDG is worth more.
+	const spendWith = $derived(fundingChoice({ chain, buyWith, native: nativeBalance, fiat: fiatBalance }));
+	const fundingBalance = $derived(spendWith === 'FIAT' ? fiatBalance : nativeBalance);
 	const fundingValueUsd = $derived(fundingBalance ? fundingBalance.valueUsd : 0);
 	const fundingSymbol = $derived(
-		buyWith === 'FIAT' ? (fiatBalance?.token.symbol ?? 'USDC') : nativeSymbol
+		spendWith === 'FIAT' ? (fiatBalance?.token.symbol ?? (chain === 'RH' ? 'USDG' : 'USDC')) : nativeSymbol
 	);
 	const hasBalance = $derived(fundingValueUsd > 0);
+	// Robinhood spends either ETH (7702) or USDG. One of those balances is enough to trade.
+	const needsDeposit = $derived(
+		needsTradeDeposit({
+			chain,
+			hasSelectedBalance: hasBalance,
+			native: nativeBalance,
+			fiat: fiatBalance
+		})
+	);
+	const depositLabel = $derived(depositAssetLabel(chain, fundingSymbol));
+	const buyQuote = $derived(
+		getOrderType() === 'MARKET'
+			? buyQuoteQuery({ amount: getBuyAmount(), usd: isUsd(), buyWith: spendWith, slippagePct: getSlippageBuy() })
+			: null
+	);
+	const sellQuote = $derived(
+		existingTrade
+			? sellQuoteQuery({
+					pct: getSellPercent(),
+					tokensRemaining: Number(existingTrade.tokensRemaining),
+					buyWith,
+					slippagePct: getSlippageSell()
+				})
+			: null
+	);
 
 	$effect(() => {
 		if (getIsLoggedIn()) {
@@ -235,7 +265,7 @@
 
 	async function handleBuy() {
 		try {
-			await executeBuy(chain, tokenAddress, getSelectedConfigId());
+			await executeBuy(chain, tokenAddress, getSelectedConfigId(), spendWith);
 		} catch (e: any) {
 			addToast('error', 'Buy Failed', e?.message ?? 'Unknown error', 8000);
 		}
@@ -313,7 +343,7 @@
 
 {#snippet panelBody()}
 	{@const bodyVisible = mobile || getTradePanelPopout() || !getTradePanelCollapsed()}
-	{@const gated = bodyVisible && (!getIsLoggedIn() || (getActiveTradeTab() === 'buy' && managedWallet && !hasBalance))}
+	{@const gated = bodyVisible && (!getIsLoggedIn() || (getActiveTradeTab() === 'buy' && managedWallet && needsDeposit))}
 	{#if bodyVisible && !getIsLoggedIn()}
 		<div class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-s4/40 p-6">
 			<div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-s4 ring-1 ring-bd">
@@ -343,14 +373,14 @@
 				</button>
 			{/if}
 		</div>
-	{:else if bodyVisible && getActiveTradeTab() === 'buy' && managedWallet && !hasBalance}
+	{:else if bodyVisible && getActiveTradeTab() === 'buy' && managedWallet && needsDeposit}
 		<div class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-s4/40 p-6">
 			<div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-s4 ring-1 ring-bd">
 				<Plus class="h-6 w-6 text-g5" strokeWidth={1.5} />
 			</div>
 			<div class="text-center">
-				<div class="text-sm font-medium text-tx">Deposit {fundingSymbol} to Trade</div>
-				<div class="mt-0.5 text-xs text-g6">Send {fundingSymbol} to your managed wallet</div>
+				<div class="text-sm font-medium text-tx">Deposit {depositLabel} to Trade</div>
+				<div class="mt-0.5 text-xs text-g6">Send {depositLabel} to your managed wallet</div>
 			</div>
 			<button
 				onclick={copyAddress}
@@ -483,16 +513,20 @@
 						<span>
 							Avail
 							<span class="{hasBalance ? 'text-g8' : 'text-red'} font-semibold">
-								{#if buyWith === 'FIAT'}
+								{#if chain === 'RH' || spendWith === 'FIAT'}
 									{formatUsd(fundingBalance?.valueUsdStr ?? '0')}
 								{:else}
 									{@html fmtVal(fundingBalance?.valueUsdStr ?? '0', fundingBalance?.tokensBalanceStr ?? '0', chain)}
 								{/if}
 							</span>
-							<span class="text-g5">{buyWith === 'FIAT' ? fiatBalance?.token.symbol ?? 'USD' : ''}</span>
+							<span class="text-g5">{chain === 'RH' ? fundingSymbol : spendWith === 'FIAT' ? fiatBalance?.token.symbol ?? 'USD' : ''}</span>
 						</span>
 					{/if}
 				</div>
+			</div>
+
+			<div class="mt-1.5">
+				<TradeQuotePreview {chain} {tokenAddress} {tokenSymbol} query={buyQuote} />
 			</div>
 
 			{#if getOrderType() === 'DIP'}
@@ -612,10 +646,13 @@
 							</div>
 						</div>
 					</div>
-					<div class="flex items-center justify-between border-t border-bd bg-red/[0.04] px-2.5 py-1.5">
+					<div class="flex items-center justify-between border-t border-bd bg-red/10 px-2.5 py-1.5">
 						<span class="text-[10px] text-g6">Selling {getSellPercent()}%</span>
 						<span class="text-xs font-bold text-red">&approx; {@html fmtVal(existingTrade.currentValue.usd * getSellPercent() / 100, existingTrade.currentValue.native * getSellPercent() / 100, chain)}</span>
 					</div>
+				</div>
+				<div class="mt-1.5">
+					<TradeQuotePreview {chain} {tokenAddress} {tokenSymbol} query={sellQuote} />
 				</div>
 			{/if}
 		{/if}
@@ -718,7 +755,7 @@
 	</div>
 
 	<div class="shrink-0 border-t border-bd bg-transparent p-2">
-		{#if getActiveTradeTab() === 'buy' && managedWallet && !hasBalance}
+		{#if getActiveTradeTab() === 'buy' && managedWallet && needsDeposit}
 			<button onclick={copyAddress} class="btn-primary flex w-full items-center justify-center gap-2 py-2.5 text-sm">
 				{#if copied}
 					Copied!

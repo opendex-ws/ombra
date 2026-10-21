@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { tokenImage } from '$lib/api/config';
+	import { hookBadge } from '$lib/utils/token-hook';
+	import TokenAvatar from './TokenAvatar.svelte';
 	import { onDestroy } from 'svelte';
 	import { onVisibility, FLASH_MS, FLASH_COOLDOWN_MS, ROW_FLASH_MS } from '$lib/utils/visibility';
 	import type { ScannerItem } from '$lib/api/types';
@@ -178,6 +179,7 @@
 	let act24h = $derived(token.stats.timeframes['24h']);
 	let vol24h = $derived(act24h?.volume ?? 0);
 	let sec = $derived(token.audit);
+	let hook = $derived(hookBadge(sec?.hook, sec?.hookAddress));
 	let h = $derived(token.holders);
 	// A price-only WS update hands us a fresh token object (and a fresh sparkline
 	// array) even when the series itself is unchanged, so rebuilding the path on
@@ -274,13 +276,13 @@
 						? `background: conic-gradient(var(--t-grn) ${gradPercent * 3.6}deg, var(--t-bd2) ${gradPercent * 3.6}deg)`
 						: 'background: var(--t-s5)'}
 			>
-				{#if token.tokenAddress}
-					<img src={tokenImage(token.chain, token.tokenAddress)} alt="" class="h-full w-full rounded-[10px] object-cover" />
-				{:else}
-					<div class="flex h-full w-full items-center justify-center rounded-[10px] bg-s7">
-						<span class="text-sm font-bold text-g6">{token.tokenSymbol?.[0] ?? '?'}</span>
-					</div>
-				{/if}
+				<TokenAvatar
+					chain={token.chain}
+					address={token.tokenAddress}
+					symbol={token.tokenSymbol}
+					class="h-full w-full rounded-[10px] object-cover"
+					fallbackClass="rounded-[10px] bg-s7 text-sm font-bold text-g6"
+				/>
 				<TokenChainBadge chain={token.chain}>
 					{#if routerIconUrl}
 						<img src={routerIconUrl} alt={displayRouter.name} title={displayRouter.name} class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" />
@@ -317,6 +319,14 @@
 							<span class="inline-block h-1.5 w-1.5 rounded-full {!sec.freezable ? 'bg-grn' : 'bg-red'}"></span>
 							<span class="text-[9px] font-medium {!sec.freezable ? 'text-g8' : 'text-red'}">Frz</span>
 						</span>
+						<!-- The card's chip row is tight, so only tokens that actually carry a
+						     hook get one; the scanner table always shows the dot. -->
+						{#if hook.hasHook}
+							<span class="flex shrink-0 items-center gap-0.5" title={hook.title}>
+								<span class="inline-block h-1.5 w-1.5 rounded-full {hook.dotClass}"></span>
+								<span class="text-[9px] font-medium {hook.textClass}">Hook</span>
+							</span>
+						{/if}
 						<span class="flex shrink-0 items-center gap-0.5" title={sec.honeypot ? 'Honeypot detected' : 'Not honeypot'}>
 							<span class="inline-block h-1.5 w-1.5 rounded-full {sec.honeypot ? 'bg-red' : 'bg-grn'}"></span>
 							<span class="text-[9px] font-medium {sec.honeypot ? 'text-red' : 'text-g8'}">HP</span>
