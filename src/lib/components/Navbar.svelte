@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { tokenImage } from '$lib/api/config';
+	import TokenAvatar from './TokenAvatar.svelte';
 	import ChainIcon from './ChainIcon.svelte';
 	import TokenChainBadge from './TokenChainBadge.svelte';
 	import { goto } from '$app/navigation';
@@ -706,11 +706,13 @@
 									? `background: conic-gradient(var(--t-grn) ${migPct * 3.6}deg, var(--t-bd2) ${migPct * 3.6}deg)`
 									: 'background: var(--t-bd)'}
 						>
-							{#if result.tokenAddress}
-								<img src={tokenImage(result.chain, result.tokenAddress)} alt="" class="h-full w-full rounded-[10px] object-cover" />
-							{:else}
-								<div class="flex h-full w-full items-center justify-center rounded-[10px] bg-s7 text-xs font-bold text-g6">{result.tokenSymbol?.[0] ?? '?'}</div>
-							{/if}
+							<TokenAvatar
+								chain={result.chain}
+								address={result.tokenAddress}
+								symbol={result.tokenSymbol}
+								class="h-full w-full rounded-[10px] object-cover"
+								fallbackClass="rounded-[10px] bg-s7 text-xs font-bold text-g6"
+							/>
 							<TokenChainBadge chain={result.chain} class="h-3 w-3" />
 							{#if migState === 'Migrated'}
 								<span class="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded bg-s6 px-1 py-px text-[8px] font-bold leading-none text-yel ring-1 ring-yel/20">GRAD</span>

@@ -91,12 +91,15 @@ function scheduleRetry(): void {
   refreshTimer = setTimeout(() => { void refreshToken(); }, REFRESH_RETRY_MS);
 }
 
-/**
- * Refresh the current JWT via POST /v2/auth/refresh. Concurrent callers share a
- * single in-flight request. On success the new token is stored (which reschedules
- * the next refresh); on failure the session is disconnected. Returns the new token
- * or null.
- */
+async function authFailure(response: Response, fallback: string): Promise<string> {
+  const body = await response.json().catch(() => null) as { code?: string; error?: string; message?: string } | null;
+  if (response.status === 503 && (body?.code === 'venue_wallets_preparing' || body?.error === 'venue_wallets_preparing'
+      || body?.code === 'setup_error' || body?.error === 'setup_error')) {
+    return 'Your wallets are being prepared. Wait a moment, then try signing in again.';
+  }
+  return typeof body?.message === 'string' && body.message ? body.message : fallback;
+}
+
 export function refreshToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
   const current = token;
@@ -107,15 +110,22 @@ export function refreshToken(): Promise<string | null> {
         method: 'POST',
         headers: { Authorization: `Bearer ${current}` }
       });
+      if (current !== token) return null;
       if (!resp.ok) {
+        if (resp.status === 401 || resp.status === 403) disconnect();
+        else {
+          error = await authFailure(resp, 'Session refresh is delayed. Please retry shortly.');
+          scheduleRetry();
+        }
+        return null;
+      }
+      const { token: next } = await resp.json() as { token?: unknown };
+      if (current !== token) return null;
+      if (typeof next !== 'string' || !next.trim()) {
         disconnect();
         return null;
       }
-      const { token: next } = await resp.json() as { token: string };
-      if (!next) {
-        disconnect();
-        return null;
-      }
+      error = null;
       setAuthToken(next);
       return next;
     } catch {
@@ -168,8 +178,8 @@ export function setAuthToken(t: string | null): void {
 }
 
 export function completeGoogleLogin(jwt: string, wallet: string | null): void {
-  setAuthToken(jwt);
   setWallet(wallet);
+  setAuthToken(jwt);
 }
 
 function setWallet(addr: string | null): void {
@@ -261,7 +271,7 @@ export async function connectWallet(kind: SolanaWalletKind = 'phantom'): Promise
         }
       })
     });
-    if (!msgResp.ok) throw new Error('Failed to get sign-in message');
+    if (!msgResp.ok) throw new Error(await authFailure(msgResp, 'Failed to get sign-in message'));
     const challenge = await msgResp.json() as AuthChallenge;
 
     const signatureBytes = await signSolanaMessage(provider, challenge.message);
@@ -287,13 +297,13 @@ export async function connectWallet(kind: SolanaWalletKind = 'phantom'): Promise
     });
 
     if (!loginResp.ok) {
-      const body = await loginResp.json().catch(() => ({})) as { message?: string };
-      throw new Error(body.message ?? 'Login failed');
+      throw new Error(await authFailure(loginResp, 'Login failed'));
     }
 
-    const { token: jwt } = await loginResp.json() as { token: string };
-    setAuthToken(jwt);
+    const { token: jwt } = await loginResp.json() as { token?: unknown };
+    if (typeof jwt !== 'string' || !jwt.trim()) throw new Error('Sign-in did not return a token. Please try again.');
     setWallet(pubkey);
+    setAuthToken(jwt);
   } catch (e: unknown) {
     error = errorText(e, 'Connection failed');
     throw e instanceof Error ? e : new Error(error);
