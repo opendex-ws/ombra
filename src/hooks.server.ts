@@ -95,6 +95,7 @@ function applySecurityHeaders(headers: Headers): void {
 }
 
 function withSecurityHeaders(response: Response, cacheControl?: string): Response {
+	if (response.status === 101) return response;
 	const headers = new Headers(response.headers);
 	applySecurityHeaders(headers);
 	if (cacheControl) headers.set('cache-control', cacheControl);
