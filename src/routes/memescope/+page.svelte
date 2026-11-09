@@ -11,7 +11,7 @@
 	import { getIsDesktop } from '$lib/stores/viewport.svelte';
 	import MemescopeCard from '$lib/components/MemescopeCard.svelte';
 	import { formatMarketCap } from '$lib/utils/format';
-	import { getRouterInfo } from '$lib/utils/routers';
+	import { getRouterInfo, RH_VENUES, getRouterIconForChain } from '$lib/utils/routers';
 	import ChainIcon from '$lib/components/ChainIcon.svelte';
 	import Inbox from 'lucide-svelte/icons/inbox';
 	import TrendingUp from 'lucide-svelte/icons/trending-up';
@@ -326,6 +326,8 @@
 		const scope: Record<string, unknown> = {};
 		if (chain !== 'All') scope.chain = [chain];
 		if (p.size > 0) scope.platforms = [...p];
+		if (f.currentVenue) scope.currentVenues = [f.currentVenue];
+		if (f.launchOrigin) scope.launchOrigins = [f.launchOrigin];
 		if (Object.keys(scope).length > 0) tf.scope = scope;
 
 		const market: Record<string, unknown> = {};
@@ -371,6 +373,8 @@
 		if (Object.keys(holders).length > 0) tf.holders = holders;
 
 		const security: Record<string, unknown> = {};
+		if (f.poolReviewState) security.poolReviewStates = [f.poolReviewState];
+		if (f.poolHookPresence) security.poolHookPresence = [f.poolHookPresence];
 		if (f['notHoneypot'] === 'true') security.honeypot = false;
 		if (f['lpLocked'] === 'true') security.lpLocked = true;
 		if (f['isRenounced'] === 'true') security.renounced = true;
@@ -561,7 +565,7 @@
 </script>
 
 <div class="flex flex-col pb-24 md:pb-0 h-[calc(100dvh-48px)] md:h-[calc(100dvh-48px-28px)]">
-	<div class="flex shrink-0 items-center border-b border-bd bg-s0 px-3 py-2">
+	<div class="flex shrink-0 flex-wrap items-center gap-2 border-b border-bd bg-s0 px-3 py-2">
 		<div class="flex gap-0.5 rounded-xl border border-bd bg-s4 p-0.5">
 			{#each SCANNER_CHAIN_FILTERS as c}
 				<button
@@ -576,6 +580,7 @@
 				</button>
 			{/each}
 		</div>
+		<a href="/scanner?chain=RH&view=new" class="btn-secondary ml-auto px-2.5 py-1.5 text-[11px]" title="Discover direct pool launches and active Robinhood Chain markets">New RH markets</a>
 	</div>
 	{#if getIsDesktop()}
 	<div class="grid flex-1 grid-cols-3 gap-0 overflow-hidden">
@@ -713,18 +718,34 @@
 						<div class="flex flex-wrap gap-1">
 							{#each getPlatformsForPhase(phase) as p}
 								{@const active = draftPlatforms.size === 0 || draftPlatforms.has(p)}
-								{@const info = getRouterInfo(p)}
+								{@const info = getRouterInfo(p, draftChain === 'All' ? 'RH' : draftChain)}
+								{@const icon = getRouterIconForChain(p, draftChain === 'All' ? 'RH' : draftChain)}
 								<button
 									class="cursor-pointer flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-all {active
 										? 'bg-grn/10 text-grn ring-1 ring-grn/20'
 										: 'bg-s7 text-g3 ring-1 ring-bd'}"
 									onclick={() => toggleDraftPlatform(p)}
 								>
-									{#if info.icon}<img src={info.icon} alt="" class="h-3 w-3 rounded" />{/if}
+									{#if icon}<img src={icon} alt="" class="h-3 w-3 rounded" />{/if}
 									{info.name}
 								</button>
 							{/each}
 						</div>
+					</div>
+
+					<div class="space-y-2">
+						{@render venueFilter('Current venue', 'currentVenue')}
+						{@render venueFilter('Launch origin', 'launchOrigin')}
+						<label class="block text-[10px] font-medium uppercase tracking-wider text-g5">Pool review
+							<select value={df('poolReviewState')} onchange={(e) => dfs('poolReviewState', e.currentTarget.value)} class="mt-1 w-full rounded-lg border border-bd bg-s4 px-2.5 py-1.5 text-xs text-tx outline-none">
+								<option value="">All reviews</option><option value="UNKNOWN">Unassessed</option><option value="REVIEWED">Reviewed</option><option value="UNSAFE">Unsafe</option>
+							</select>
+						</label>
+						<label class="block text-[10px] font-medium uppercase tracking-wider text-g5">Pool hook presence
+							<select value={df('poolHookPresence')} onchange={(e) => dfs('poolHookPresence', e.currentTarget.value)} class="mt-1 w-full rounded-lg border border-bd bg-s4 px-2.5 py-1.5 text-xs text-tx outline-none">
+								<option value="">All observations</option><option value="UNKNOWN">Unknown</option><option value="NONE">None observed</option><option value="PRESENT">Present</option>
+							</select>
+						</label>
 					</div>
 
 					<div>
@@ -912,4 +933,15 @@
 	>
 		{label}
 	</button>
+{/snippet}
+
+{#snippet venueFilter(label: string, key: string)}
+	<label class="block text-[10px] font-medium uppercase tracking-wider text-g5">{label}
+		<select value={df(key)} onchange={(e) => dfs(key, e.currentTarget.value)} class="mt-1 w-full rounded-lg border border-bd bg-s4 px-2.5 py-1.5 text-xs text-tx outline-none">
+			<option value="">All</option>
+			{#each [...memePlatforms, ...dexPlatforms, ...RH_VENUES] as platform}
+				<option value={platform}>{getRouterInfo(platform, 'RH').name}</option>
+			{/each}
+		</select>
+	</label>
 {/snippet}

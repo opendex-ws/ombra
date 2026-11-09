@@ -1,0 +1,158 @@
+{
+  "node": "H4",
+  "groups": [
+    [
+      {
+        "input": {
+          "pool": {
+            "chainId": 4663,
+            "manager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "poolId": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "protocol": "UNISWAP_V4",
+            "token0": "0x1111111111111111111111111111111111111111",
+            "token1": "0x2222222222222222222222222222222222222222"
+          },
+          "hookPresence": "PRESENT",
+          "component": {
+            "address": "0x1111111111111111111111111111111111111111",
+            "codeHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+            "implementation": "0x2222222222222222222222222222222222222222",
+            "implementationCodeHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+            "configHash": "0x3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "reviewState": "REVIEWED",
+          "reviewedIdentity": {
+            "address": "0x1111111111111111111111111111111111111111",
+            "codeHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+            "implementation": "0x2222222222222222222222222222222222222222",
+            "implementationCodeHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+            "configHash": "0x3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "identityVerified": true,
+          "stamp": {
+            "blockNumber": 100,
+            "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+            "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+            "logIndex": 3,
+            "eventTime": 1730000000,
+            "observedAt": 1730000010
+          },
+          "reviewSource": "fixture-review",
+          "reviewVersion": 1
+        },
+        "expect": {
+          "label": "Reviewed pool component",
+          "reviewState": "REVIEWED",
+          "hookPresence": "PRESENT",
+          "blocksTrade": false
+        },
+        "error": null
+      },
+      {
+        "input": {
+          "pool": {
+            "chainId": 4663,
+            "manager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "poolId": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "protocol": "UNISWAP_V4",
+            "token0": "0x1111111111111111111111111111111111111111",
+            "token1": "0x2222222222222222222222222222222222222222"
+          },
+          "hookPresence": "PRESENT",
+          "component": {
+            "address": "0x1111111111111111111111111111111111111111",
+            "codeHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+            "implementation": "0x2222222222222222222222222222222222222222",
+            "implementationCodeHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+            "configHash": "0x3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "reviewState": "UNKNOWN",
+          "reviewedIdentity": {
+            "address": "0x1111111111111111111111111111111111111111",
+            "codeHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+            "implementation": "0x2222222222222222222222222222222222222222",
+            "implementationCodeHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+            "configHash": "0x3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "identityVerified": true,
+          "stamp": {
+            "blockNumber": 100,
+            "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+            "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+            "logIndex": 3,
+            "eventTime": 1730000000,
+            "observedAt": 1730000010
+          },
+          "reviewSource": "fixture-review",
+          "reviewVersion": 1
+        },
+        "expect": {
+          "label": "Unassessed pool component",
+          "reviewState": "UNKNOWN",
+          "hookPresence": "PRESENT",
+          "blocksTrade": false
+        },
+        "error": null
+      }
+    ],
+    [
+      {
+        "input": null,
+        "expect": {
+          "label": "Unassessed pool component",
+          "reviewState": "UNKNOWN",
+          "hookPresence": "UNKNOWN",
+          "blocksTrade": false
+        },
+        "error": null
+      }
+    ],
+    [
+      {
+        "input": {
+          "pool": {
+            "chainId": 4663,
+            "manager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+            "poolId": "0x3333333333333333333333333333333333333333333333333333333333333333",
+            "protocol": "UNISWAP_V4",
+            "token0": "0x1111111111111111111111111111111111111111",
+            "token1": "0x2222222222222222222222222222222222222222"
+          },
+          "hookPresence": "PRESENT",
+          "component": {
+            "address": "0x1111111111111111111111111111111111111111",
+            "codeHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+            "implementation": "0x2222222222222222222222222222222222222222",
+            "implementationCodeHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+            "configHash": "0x3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "reviewState": "UNSAFE",
+          "reviewedIdentity": {
+            "address": "0x1111111111111111111111111111111111111111",
+            "codeHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+            "implementation": "0x2222222222222222222222222222222222222222",
+            "implementationCodeHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+            "configHash": "0x3333333333333333333333333333333333333333333333333333333333333333"
+          },
+          "identityVerified": true,
+          "stamp": {
+            "blockNumber": 100,
+            "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+            "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+            "logIndex": 3,
+            "eventTime": 1730000000,
+            "observedAt": 1730000010
+          },
+          "reviewSource": "fixture-review",
+          "reviewVersion": 1
+        },
+        "expect": {
+          "label": "Unsafe pool component",
+          "reviewState": "UNSAFE",
+          "hookPresence": "PRESENT"
+        },
+        "error": null
+      }
+    ]
+  ]
+}

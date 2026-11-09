@@ -789,6 +789,18 @@ function markCompleted(id: number) {
 	}
 }
 
+// Trade ids the user dismissed. The cancel POST succeeding is enough to drop
+// the row: the WS removal frame can be missed, and a late ACTIVE frame or
+// in-flight page must not bring a dismissed trade back.
+const dismissedTradeIds = new Set<number>();
+function markDismissed(id: number) {
+	dismissedTradeIds.add(id);
+	if (dismissedTradeIds.size > 500) {
+		const oldest = dismissedTradeIds.values().next().value;
+		if (oldest !== undefined) dismissedTradeIds.delete(oldest);
+	}
+}
+
 function patchTrade(updated: TradeWsTrade) {
 	if (updated.status === 'COMPLETED') {
 		markCompleted(updated.id);
@@ -799,7 +811,7 @@ function patchTrade(updated: TradeWsTrade) {
 
 	// A trade already known to be completed must never re-enter the active list,
 	// regardless of frame ordering.
-	if (completedTradeIds.has(updated.id)) {
+	if (completedTradeIds.has(updated.id) || dismissedTradeIds.has(updated.id)) {
 		activeTrades = activeTrades.filter((t) => t.id !== updated.id);
 		return;
 	}
@@ -823,7 +835,7 @@ function assignCompletedCursorTriplet(page: CursorTriplet | undefined | null) {
 }
 
 function mergeActiveTrades(current: ActiveTrade[], incoming: ActiveTrade[]): ActiveTrade[] {
-	return mergeUniqueById(current, incoming);
+	return mergeUniqueById(current, incoming).filter((t) => !dismissedTradeIds.has(t.id));
 }
 
 function reconcileActiveTotals() {
@@ -1277,9 +1289,17 @@ export async function dismissTrade(tradeId: number) {
 			body: { tradeId }
 		});
 		if (error) throw new Error((error as ErrorResponse)?.message ?? 'Dismiss failed');
-		// Abort + tracking stop is asynchronous; the trade removal arrives via the
-		// USER_TRADE_UPDATE frame (removedTradeIds / status change). An immediate
-		// REST refetch would race that and could momentarily restore the trade.
+		// The backend confirmed the cancel. Drop the row now instead of waiting
+		// for the USER_TRADE_UPDATE removal frame, which can be missed (trade
+		// 367928 stayed until a reload); markDismissed keeps later frames from
+		// restoring it.
+		markDismissed(tradeId);
+		const before = activeTrades.length;
+		activeTrades = activeTrades.filter((t) => t.id !== tradeId);
+		if (activeTrades.length < before) {
+			if (trade.status === 'ACTIVE' && activePositionsTotal) activePositionsTotal -= 1;
+			if (trade.status === 'PENDING' && pendingTradesTotal) pendingTradesTotal -= 1;
+		}
 	} catch (e: unknown) {
 		tradeError = e instanceof Error ? e.message : 'Dismiss failed';
 	}

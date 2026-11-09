@@ -1,0 +1,336 @@
+{
+  "node": "F2",
+  "groups": [
+    [
+      {
+        "input": {
+          "chain": "RH",
+          "platformType": "SUSHISWAP_V3",
+          "executionProtocol": "UNISWAP_V3",
+          "launchOrigin": {
+            "platformType": "LONG",
+            "launchMode": "DIRECT_POOL",
+            "tokenAddress": "0x2222222222222222222222222222222222222222",
+            "sourceAddress": "0x1111111111111111111111111111111111111111",
+            "stamp": {
+              "blockNumber": 100,
+              "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+              "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+              "logIndex": 3,
+              "eventTime": 1730000000,
+              "observedAt": 1730000010
+            },
+            "ruleVersion": 1,
+            "chainId": 4663
+          },
+          "executionApp": "FOMO",
+          "capability": {
+            "executable": true
+          }
+        },
+        "expect": {
+          "currentLabel": "SushiSwap V3",
+          "originLabel": "Long",
+          "protocolLabel": "Uniswap V3",
+          "executionApp": "FOMO"
+        },
+        "error": null
+      },
+      {
+        "input": {
+          "chain": "RH",
+          "platformType": "LONG",
+          "executionProtocol": "UNISWAP_V4",
+          "launchOrigin": {
+            "platformType": "LONG",
+            "launchMode": "DIRECT_POOL",
+            "tokenAddress": "0x2222222222222222222222222222222222222222",
+            "sourceAddress": "0x1111111111111111111111111111111111111111",
+            "stamp": {
+              "blockNumber": 100,
+              "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+              "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+              "logIndex": 3,
+              "eventTime": 1730000000,
+              "observedAt": 1730000010
+            },
+            "ruleVersion": 1,
+            "chainId": 4663
+          },
+          "executionApp": "FOMO",
+          "capability": {
+            "executable": true
+          }
+        },
+        "expect": {
+          "currentLabel": "Long",
+          "originLabel": "Long",
+          "protocolLabel": "Uniswap V4",
+          "executionApp": "FOMO"
+        },
+        "error": null
+      },
+      {
+        "input": {
+          "chain": "RH",
+          "platformType": "BANKR",
+          "executionProtocol": "UNISWAP_V4",
+          "launchOrigin": {
+            "platformType": "LONG",
+            "launchMode": "DIRECT_POOL",
+            "tokenAddress": "0x2222222222222222222222222222222222222222",
+            "sourceAddress": "0x1111111111111111111111111111111111111111",
+            "stamp": {
+              "blockNumber": 100,
+              "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+              "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+              "logIndex": 3,
+              "eventTime": 1730000000,
+              "observedAt": 1730000010
+            },
+            "ruleVersion": 1,
+            "chainId": 4663
+          },
+          "executionApp": "FOMO",
+          "capability": {
+            "executable": true
+          }
+        },
+        "expect": {
+          "currentLabel": "Bankr",
+          "originLabel": "Long"
+        },
+        "error": null
+      },
+      {
+        "input": {
+          "chain": "RH",
+          "platformType": "FLYWHEEL",
+          "executionProtocol": "UNISWAP_V4",
+          "launchOrigin": {
+            "platformType": "LONG",
+            "launchMode": "DIRECT_POOL",
+            "tokenAddress": "0x2222222222222222222222222222222222222222",
+            "sourceAddress": "0x1111111111111111111111111111111111111111",
+            "stamp": {
+              "blockNumber": 100,
+              "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+              "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+              "logIndex": 3,
+              "eventTime": 1730000000,
+              "observedAt": 1730000010
+            },
+            "ruleVersion": 1,
+            "chainId": 4663
+          },
+          "executionApp": "FOMO",
+          "capability": {
+            "executable": true
+          }
+        },
+        "expect": {
+          "currentLabel": "Flywheel",
+          "originLabel": "Long"
+        },
+        "error": null
+      },
+      {
+        "input": {
+          "chain": "RH",
+          "platformType": "AERO_SLIPSTREAM",
+          "executionProtocol": "SLIPSTREAM",
+          "launchOrigin": {
+            "platformType": "LONG",
+            "launchMode": "DIRECT_POOL",
+            "tokenAddress": "0x2222222222222222222222222222222222222222",
+            "sourceAddress": "0x1111111111111111111111111111111111111111",
+            "stamp": {
+              "blockNumber": 100,
+              "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+              "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+              "logIndex": 3,
+              "eventTime": 1730000000,
+              "observedAt": 1730000010
+            },
+            "ruleVersion": 1,
+            "chainId": 4663
+          },
+          "executionApp": "FOMO",
+          "capability": {
+            "executable": true
+          }
+        },
+        "expect": {
+          "currentLabel": "Aero Slipstream",
+          "originLabel": "Long"
+        },
+        "error": null
+      },
+      {
+        "input": {
+          "chain": "RH",
+          "platformType": "METRIC_V1",
+          "executionProtocol": "METRIC_V1",
+          "launchOrigin": {
+            "platformType": "LONG",
+            "launchMode": "DIRECT_POOL",
+            "tokenAddress": "0x2222222222222222222222222222222222222222",
+            "sourceAddress": "0x1111111111111111111111111111111111111111",
+            "stamp": {
+              "blockNumber": 100,
+              "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+              "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+              "logIndex": 3,
+              "eventTime": 1730000000,
+              "observedAt": 1730000010
+            },
+            "ruleVersion": 1,
+            "chainId": 4663
+          },
+          "executionApp": "FOMO",
+          "capability": {
+            "executable": true
+          }
+        },
+        "expect": {
+          "currentLabel": "Metric V1",
+          "originLabel": "Long"
+        },
+        "error": null
+      },
+      {
+        "input": {
+          "chain": "RH",
+          "platformType": "RAMSES_CL",
+          "executionProtocol": "SLIPSTREAM",
+          "launchOrigin": {
+            "platformType": "LONG",
+            "launchMode": "DIRECT_POOL",
+            "tokenAddress": "0x2222222222222222222222222222222222222222",
+            "sourceAddress": "0x1111111111111111111111111111111111111111",
+            "stamp": {
+              "blockNumber": 100,
+              "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+              "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+              "logIndex": 3,
+              "eventTime": 1730000000,
+              "observedAt": 1730000010
+            },
+            "ruleVersion": 1,
+            "chainId": 4663
+          },
+          "executionApp": "FOMO",
+          "capability": {
+            "executable": true
+          }
+        },
+        "expect": {
+          "currentLabel": "Ramses CL",
+          "originLabel": "Long"
+        },
+        "error": null
+      },
+      {
+        "input": {
+          "chain": "RH",
+          "platformType": "UP_SLIPSTREAM",
+          "executionProtocol": "SLIPSTREAM",
+          "launchOrigin": {
+            "platformType": "LONG",
+            "launchMode": "DIRECT_POOL",
+            "tokenAddress": "0x2222222222222222222222222222222222222222",
+            "sourceAddress": "0x1111111111111111111111111111111111111111",
+            "stamp": {
+              "blockNumber": 100,
+              "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+              "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+              "logIndex": 3,
+              "eventTime": 1730000000,
+              "observedAt": 1730000010
+            },
+            "ruleVersion": 1,
+            "chainId": 4663
+          },
+          "executionApp": "FOMO",
+          "capability": {
+            "executable": true
+          }
+        },
+        "expect": {
+          "currentLabel": "Up Slipstream",
+          "originLabel": "Long"
+        },
+        "error": null
+      }
+    ],
+    [
+      {
+        "input": {
+          "chain": "RH",
+          "platformType": "UNRECOGNIZED",
+          "executionProtocol": "UNISWAP_V3",
+          "launchOrigin": {
+            "platformType": "LONG",
+            "launchMode": "DIRECT_POOL",
+            "tokenAddress": "0x2222222222222222222222222222222222222222",
+            "sourceAddress": "0x1111111111111111111111111111111111111111",
+            "stamp": {
+              "blockNumber": 100,
+              "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+              "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+              "logIndex": 3,
+              "eventTime": 1730000000,
+              "observedAt": 1730000010
+            },
+            "ruleVersion": 1,
+            "chainId": 4663
+          },
+          "executionApp": "FOMO",
+          "capability": {
+            "executable": true
+          }
+        },
+        "expect": {
+          "currentLabel": "Unknown",
+          "icon": null
+        },
+        "error": null
+      }
+    ],
+    [
+      {
+        "input": {
+          "chain": "BSC",
+          "platformType": "UNISWAP_V3",
+          "executionProtocol": "UNISWAP_V3",
+          "launchOrigin": {
+            "platformType": "LONG",
+            "launchMode": "DIRECT_POOL",
+            "tokenAddress": "0x2222222222222222222222222222222222222222",
+            "sourceAddress": "0x1111111111111111111111111111111111111111",
+            "stamp": {
+              "blockNumber": 100,
+              "blockHash": "0x4444444444444444444444444444444444444444444444444444444444444444",
+              "transactionHash": "0x5555555555555555555555555555555555555555555555555555555555555555",
+              "logIndex": 3,
+              "eventTime": 1730000000,
+              "observedAt": 1730000010
+            },
+            "ruleVersion": 1,
+            "chainId": 4663
+          },
+          "executionApp": "FOMO",
+          "capability": {
+            "executable": true
+          }
+        },
+        "expect": {
+          "currentLabel": "Uniswap V3",
+          "icon": "/router-icons/pancake.svg",
+          "originLabel": null
+        },
+        "error": null
+      }
+    ]
+  ]
+}

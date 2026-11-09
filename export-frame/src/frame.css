@@ -1,0 +1,101 @@
+@import 'tailwindcss' source('..');
+
+@theme {
+	--color-s0: var(--t-s0);
+	--color-s1: var(--t-s1);
+	--color-s2: var(--t-s2);
+	--color-s3: var(--t-s3);
+	--color-s4: var(--t-s4);
+	--color-s5: var(--t-s5);
+	--color-s6: var(--t-s6);
+	--color-s7: var(--t-s7);
+	--color-s8: var(--t-s8);
+	--color-s9: var(--t-s9);
+	--color-bd: var(--t-bd);
+	--color-bd2: var(--t-bd2);
+	--color-bd3: var(--t-bd3);
+	--color-g1: var(--t-g1);
+	--color-g2: var(--t-g2);
+	--color-g3: var(--t-g3);
+	--color-g4: var(--t-g4);
+	--color-g5: var(--t-g5);
+	--color-g6: var(--t-g6);
+	--color-g7: var(--t-g7);
+	--color-g8: var(--t-g8);
+	--color-g9: var(--t-g9);
+	--color-g10: var(--t-g10);
+	--color-g11: var(--t-g11);
+	--color-tx: var(--t-tx);
+	--color-wh: var(--t-wh);
+	--color-grn: var(--t-grn);
+	--color-grn-dim: var(--t-grn-dim);
+	--color-grn-dark: var(--t-grn-dark);
+	--color-grn-darker: var(--t-grn-darker);
+	--color-red: var(--t-red);
+	--color-red-bright: var(--t-red-bright);
+	--color-red-light: var(--t-red-light);
+	--color-red-light2: var(--t-red-light2);
+	--color-red-dark: var(--t-red-dark);
+	--color-yel: var(--t-yel);
+	--color-yel-dark: var(--t-yel-dark);
+	--color-org: var(--t-org);
+	--color-blu: var(--t-blu);
+	--color-blu-light: var(--t-blu-light);
+	--color-pnk: var(--t-pnk);
+}
+
+:root {
+	--t-s0: #000000;
+	--t-s1: #060606;
+	--t-s2: #0c0c0c;
+	--t-s3: #111111;
+	--t-s4: #161616;
+	--t-s5: #1a1a1a;
+	--t-s6: #1f1f1f;
+	--t-s7: #252525;
+	--t-s8: #2a2a2a;
+	--t-s9: #303030;
+	--t-bd: #2a2a2a;
+	--t-bd2: #333333;
+	--t-bd3: #3d3d3d;
+	--t-g1: #333333;
+	--t-g2: #3a3a3a;
+	--t-g3: #444444;
+	--t-g4: #555555;
+	--t-g5: #666666;
+	--t-g6: #777777;
+	--t-g7: #888888;
+	--t-g8: #999999;
+	--t-g9: #aaaaaa;
+	--t-g10: #bbbbbb;
+	--t-g11: #cccccc;
+	--t-tx: #e0e0e0;
+	--t-wh: #ffffff;
+	--t-hover: rgba(255, 255, 255, 0.05);
+	--t-grn: #00ff88;
+	--t-grn-dim: #00dd77;
+	--t-grn-dark: #00cc6a;
+	--t-grn-darker: #009955;
+	--t-red: #ff4466;
+	--t-red-bright: #ff3355;
+	--t-red-light: #ff6677;
+	--t-red-light2: #ff6688;
+	--t-red-dark: #aa2244;
+	--t-yel: #ffaa00;
+	--t-yel-dark: #cc8800;
+	--t-org: #ff8800;
+	--t-blu: #0088cc;
+	--t-blu-light: #00bbff;
+	--t-pnk: #ff6b9d;
+}
+
+@utility btn-secondary {
+	cursor: pointer;
+	border-radius: var(--radius-lg);
+	border: 1px solid var(--color-bd);
+	background-color: var(--color-s4);
+	color: var(--color-g7);
+	font-weight: 500;
+	transition: all 0.15s;
+	&:hover { color: var(--color-tx); }
+}

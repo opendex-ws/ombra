@@ -1,0 +1,86 @@
+{
+  "venues": [
+    {
+      "venue": "LONG",
+      "status": "TEXT_FALLBACK",
+      "reason": "No accessible official mark has been verified; retain the Long text label without an icon.",
+      "evidence": [
+        "https://long.xyz/ returned HTTP 403 to the bounded direct GET on 2026-11-02T11:58:23Z.",
+        "sources/official-assets-evidence.md (2026-10-30) records HTTP 403 for the Long homepage and favicon paths and HTTP 404 for www.long.xyz. The browser-readable app page does not verify a downloadable badge asset."
+      ]
+    },
+    {
+      "venue": "BANKR",
+      "status": "LOCAL",
+      "sourceUrl": "https://bankr.bot/favicon.svg",
+      "localFilename": "bankr.svg",
+      "sha256": "8eedd1126113ed0900433ef0c9705f599b0a57505263af38815cc8a47a75fe35",
+      "retrievedAt": "2026-11-02T11:58:23Z",
+      "reviewedVariant": "Official full-color 150×150 favicon: purple square and terminal mark; original SVG geometry and fills retained.",
+      "svgReview": "Inspected complete XML before copying: only static paths/shapes, groups and local clip paths; no scripts, event handlers, foreignObject, external references, stylesheets or embedded remote resources. Original bytes retained."
+    },
+    {
+      "venue": "FLYWHEEL",
+      "status": "LOCAL",
+      "sourceUrl": "https://flywheel.cash/flywheel-mark.png?v=20261016",
+      "localFilename": "flywheel.png",
+      "sha256": "c21980a67201c9a249688d2b6a6bf39fbd024688c30c133a1b1e463c1a152bf3",
+      "retrievedAt": "2026-11-02T11:58:23Z",
+      "reviewedVariant": "Official green circular flywheel mark on transparency; original PNG retained."
+    },
+    {
+      "venue": "AERO_SLIPSTREAM",
+      "status": "LOCAL",
+      "sourceUrl": "https://aero.xyz/brand-kit/aero-token.svg",
+      "localFilename": "aero.svg",
+      "sha256": "afd0d884a17e79d36fc626e25b31bc1c2b8c23ba7b1bf913ab4b33f1466c9c02",
+      "retrievedAt": "2026-11-02T11:58:23Z",
+      "reviewedVariant": "Official brand-kit Token SVG, linked from https://aero.xyz/brand/: colored pinwheel on supplied light circle. Preferred over the favicon and unchanged.",
+      "svgReview": "Inspected complete XML before copying: only static paths/shapes, groups and local clip paths; no scripts, event handlers, foreignObject, external references, stylesheets or embedded remote resources. Original bytes retained."
+    },
+    {
+      "venue": "METRIC_V1",
+      "status": "LOCAL",
+      "sourceUrl": "https://app.metric.xyz/favicon.svg",
+      "localFilename": "metric.svg",
+      "sha256": "c634d24766c60937f77c13025c8c71419981cef2d0d648a63ce45e0615a92247",
+      "retrievedAt": "2026-11-02T11:58:23Z",
+      "reviewedVariant": "Official 100×100 light-blue Metric mark; original SVG geometry and fills retained.",
+      "svgReview": "Inspected complete XML before copying: only static paths/shapes, groups and local clip paths; no scripts, event handlers, foreignObject, external references, stylesheets or embedded remote resources. Original bytes retained."
+    },
+    {
+      "venue": "RAMSES_CL",
+      "status": "LOCAL",
+      "sourceUrl": "https://ramses.xyz/favicon/favicon.svg?v=2",
+      "localFilename": "ramses.svg",
+      "sha256": "30c7c57aa095e7c6e2eb2eb9775b51453d84c17616d748faf0df5ce542c649ab",
+      "retrievedAt": "2026-11-02T11:58:23Z",
+      "reviewedVariant": "Current Ramses X favicon, linked by https://www.ramses.xyz/: white pharaoh on a dark rounded square. Compared with the current 96×96 favicon and the old.ramses.xyz turquoise hexagon; current mark selected, legacy asset not served. Original SVG retained.",
+      "svgReview": "Inspected complete XML before copying: only static paths/shapes, groups and local clip paths; no scripts, event handlers, foreignObject, external references, stylesheets or embedded remote resources. Original bytes retained.",
+      "evidence": [
+        "https://www.ramses.xyz/ advertises /favicon/favicon.svg?v=2 and /favicon/favicon-96x96.png?v=2.",
+        "https://ramses.xyz/favicon/favicon.svg?v=2 redirects to the current official www.ramses.xyz asset.",
+        "https://old.ramses.xyz/favicon/192x192_App_Icon.png has the distinct turquoise legacy mark; not selected."
+      ]
+    },
+    {
+      "venue": "SUSHISWAP_V3",
+      "status": "LOCAL",
+      "sourceUrl": "https://www.sushi.com/favicon-32x32.png?v=1",
+      "localFilename": "sushi.png",
+      "sha256": "70f6e829f9ce548981595f07716f88954b541c3ac82f18d7930e3dc0017b4d8b",
+      "retrievedAt": "2026-11-02T11:58:23Z",
+      "reviewedVariant": "Current official colored 32×32 sushi-roll favicon. Compared with the black safari-pinned-tab SVG and selected the full-color variant for small badges; original PNG retained."
+    },
+    {
+      "venue": "UP_SLIPSTREAM",
+      "status": "LOCAL",
+      "sourceUrl": "https://up33.xyz/favicon.svg",
+      "localFilename": "up.svg",
+      "sha256": "fccdb1948b28d81bb81032094ddd63de91747ef4f1a0b9d5c2facc419721b9b6",
+      "retrievedAt": "2026-11-02T11:58:23Z",
+      "reviewedVariant": "Official 64×64 upward arrow on a dark rounded square; original green/white strokes and geometry retained.",
+      "svgReview": "Inspected complete XML before copying: only static paths/shapes, groups and local clip paths; no scripts, event handlers, foreignObject, external references, stylesheets or embedded remote resources. Original bytes retained."
+    }
+  ]
+}

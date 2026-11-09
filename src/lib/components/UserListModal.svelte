@@ -5,7 +5,7 @@
 	import { api } from '$lib/api/client';
 	import type { WatchlistSourceItem, TokenFilter, TokenMarketFilter, TokenSecurityFilter, TokenSocialFilter, TokenSourceFilter, TokenSourceGroup, TokenTaxFilter, Chain, TokenActivityFilter, TokenActivityWindowFilter, TokenHolderFilter, ScannerGraduation, ErrorResponse } from '$lib/api/types';
 	import type { PlatformType } from '$lib/api/types';
-	import { getRouterInfo } from '$lib/utils/routers';
+	import { getRouterInfo, getRouterIconForChain, isRhChain, RH_VENUES } from '$lib/utils/routers';
 	import { DISPLAY_CHAINS } from '$lib/utils/chains';
 	import X from 'lucide-svelte/icons/x';
 	import Trash2 from 'lucide-svelte/icons/trash-2';
@@ -121,6 +121,10 @@
 	let ulImagePreview = $state<string | null>(null);
 	let showImageCropper = $state(false);
 	let ulPlatforms = $state<PlatformType[]>([]);
+	let ulCurrentVenues = $state<PlatformType[]>([]);
+	let ulLaunchOrigins = $state<PlatformType[]>([]);
+	let ulPoolReviewStates = $state<NonNullable<TokenSecurityFilter['poolReviewStates']>>([]);
+	let ulPoolHookPresence = $state<NonNullable<TokenSecurityFilter['poolHookPresence']>>([]);
 	let ulGraduation = $state<ScannerGraduation | ''>('');
 	let ulLpBurned = $state<boolean | null>(null);
 	let ulProxy = $state<boolean | null>(null);
@@ -149,7 +153,8 @@
 	let ulPriceChangeMin = $state('');
 	let ulPriceChangeMax = $state('');
 
-	const platformOptions: PlatformType[] = ['RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'RAYDIUM_LAUNCH', 'PUMPFUN', 'PUMPSWAP', 'METEORA_DYN', 'METEORA_DLMM', 'METEORA_BONDING_CURVE', 'METEORA_DYN_V2', 'HEAVEN', 'LETS_BONK', 'BELIEVE', 'BAGS', 'PRINTR', 'MOONSHOT'];
+	const platformOptions: PlatformType[] = ['RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'RAYDIUM_LAUNCH', 'PUMPFUN', 'PUMPSWAP', 'METEORA_DYN', 'METEORA_DLMM', 'METEORA_BONDING_CURVE', 'METEORA_DYN_V2', 'WHIRLPOOL', 'HEAVEN', 'LETS_BONK', 'BELIEVE', 'BAGS', 'PRINTR', 'MOONSHOT', 'STONKFUN', 'OTCDESKS', 'PURPS', 'EMBERCURVE', 'UNISWAP_V2', 'UNISWAP_V3', 'UNISWAP_V4', 'PONS', 'FLAP'];
+	const venueOptions = $derived([...platformOptions, ...(!ulChain || isRhChain(ulChain) ? RH_VENUES : [])]);
 	const activityTimeframes = [
 		{ key: 'fiveMin' as const, label: '5m' },
 		{ key: 'oneHour' as const, label: '1h' },
@@ -208,6 +213,10 @@
 		ulSelectedTheses = [];
 		ulSourceGroups = {};
 		ulPlatforms = [];
+		ulCurrentVenues = [];
+		ulLaunchOrigins = [];
+		ulPoolReviewStates = [];
+		ulPoolHookPresence = [];
 		ulGraduation = '';
 		ulLpBurned = null;
 		ulProxy = null;
@@ -284,6 +293,10 @@
 		ulMaxSellTax = f.tax?.sellTaxPct?.max?.toString() ?? '';
 		ulMaxTransferTax = f.tax?.transferTaxPct?.max?.toString() ?? '';
 		ulPlatforms = (f.scope?.platforms as PlatformType[]) ?? [];
+		ulCurrentVenues = f.scope?.currentVenues ?? [];
+		ulLaunchOrigins = f.scope?.launchOrigins ?? [];
+		ulPoolReviewStates = f.security?.poolReviewStates ?? [];
+		ulPoolHookPresence = f.security?.poolHookPresence ?? [];
 		ulGraduation = (f.scope?.graduation as ScannerGraduation) ?? '';
 		ulLpBurned = f.security?.lpBurned ?? null;
 		ulProxy = f.security?.proxy === false ? true : null;
@@ -321,6 +334,8 @@
 		const scope: Record<string, unknown> = {};
 		if (ulChain) scope.chain = [ulChain as Chain];
 		if (ulPlatforms.length > 0) scope.platforms = ulPlatforms;
+		if (ulCurrentVenues.length > 0) scope.currentVenues = ulCurrentVenues;
+		if (ulLaunchOrigins.length > 0) scope.launchOrigins = ulLaunchOrigins;
 		if (ulGraduation) scope.graduation = ulGraduation;
 		if (Object.keys(scope).length > 0) filter.scope = scope as TokenFilter['scope'];
 		const market: TokenMarketFilter = {};
@@ -350,6 +365,8 @@
 		if (ulIsVerified !== null) sec.contractVerified = ulIsVerified;
 		if (ulProxy !== null) sec.proxy = ulProxy === true ? false : null;
 		Object.assign(sec, hookSecurityFilter(ulHook));
+		if (ulPoolReviewStates.length > 0) sec.poolReviewStates = ulPoolReviewStates;
+		if (ulPoolHookPresence.length > 0) sec.poolHookPresence = ulPoolHookPresence;
 		if (Object.keys(sec).length > 0) filter.security = sec;
 		const tax: TokenTaxFilter = {};
 		if (ulMaxBuyTax) tax.buyTaxPct = { max: parseFloat(ulMaxBuyTax) };
@@ -647,19 +664,23 @@
 					<div class="flex flex-wrap gap-1.5">
 						{#each platformOptions as plat}
 							{@const selected = ulPlatforms.includes(plat)}
-							{@const info = getRouterInfo(plat)}
+							{@const info = getRouterInfo(plat, ulChain || 'RH')}
+							{@const icon = getRouterIconForChain(plat, ulChain || 'RH')}
 							<button
 								onclick={() => { ulPlatforms = selected ? ulPlatforms.filter(p => p !== plat) : [...ulPlatforms, plat]; }}
 								class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors {selected
 									? 'border-tx text-tx'
 									: 'border-bd text-g6 hover:text-g9'}"
 							>
-								{#if info.icon}<img src={info.icon} alt="" class="h-3.5 w-3.5 rounded" />{/if}
+								{#if icon}<img src={icon} alt="" class="h-3.5 w-3.5 rounded" />{/if}
 								{info.name}
 							</button>
 						{/each}
 					</div>
 				</div>
+
+				{@render venueFilter('Current venue', ulCurrentVenues, (values) => { ulCurrentVenues = values; })}
+				{@render venueFilter('Launch origin', ulLaunchOrigins, (values) => { ulLaunchOrigins = values; })}
 
 				<div class="rounded-lg border border-bd bg-s1 p-3 space-y-3">
 					<span class="text-[10px] font-medium uppercase tracking-wider text-g5">Market</span>
@@ -673,6 +694,21 @@
 				{/if}
 
 				{#if ulTab === 'safety'}
+				<div class="rounded-lg border border-bd bg-s1 p-3 space-y-3">
+					<label class="block text-[10px] font-medium uppercase tracking-wider text-g5" for="ul-pool-review">Pool review</label>
+					<select id="ul-pool-review" multiple bind:value={ulPoolReviewStates} class="w-full rounded-lg border border-bd bg-s4 px-2.5 py-1.5 text-xs text-tx outline-none">
+						<option value="UNKNOWN">Unknown</option>
+						<option value="REVIEWED">Reviewed</option>
+						<option value="UNSAFE">Unsafe</option>
+					</select>
+					<label class="block text-[10px] font-medium uppercase tracking-wider text-g5" for="ul-pool-hook">Pool hook presence</label>
+					<select id="ul-pool-hook" multiple bind:value={ulPoolHookPresence} class="w-full rounded-lg border border-bd bg-s4 px-2.5 py-1.5 text-xs text-tx outline-none">
+						<option value="UNKNOWN">Unknown</option>
+						<option value="NONE">None observed</option>
+						<option value="PRESENT">Present</option>
+					</select>
+					<p class="text-[11px] text-g5">No selection includes all pools. Missing assessments are unknown. Pool review does not grant execution support.</p>
+				</div>
 				<div class="rounded-lg border border-bd bg-s1 p-3 space-y-2">
 					<span class="text-[10px] font-medium uppercase tracking-wider text-g5">Safety</span>
 					<div class="flex flex-wrap gap-2">
@@ -902,6 +938,26 @@
 
 
 {/if}
+
+{#snippet venueFilter(label: string, selected: PlatformType[], onset: (values: PlatformType[]) => void)}
+	<div class="rounded-lg border border-bd bg-s1 p-3 space-y-2">
+		<div class="flex items-center justify-between">
+			<span class="text-[10px] font-medium uppercase tracking-wider text-g5">{label}</span>
+			{#if selected.length > 0}<button type="button" onclick={() => onset([])} class="cursor-pointer text-[10px] font-medium text-red transition-colors hover:text-red-light">Show All</button>{/if}
+		</div>
+		<div class="flex flex-wrap gap-1.5" role="group" aria-label={label}>
+			{#each [...new Set([...venueOptions, ...selected])] as platform (platform)}
+				{@const info = getRouterInfo(platform, ulChain || 'RH')}
+				{@const icon = getRouterIconForChain(platform, ulChain || 'RH')}
+				{@const active = selected.includes(platform)}
+				<button type="button" aria-pressed={active} onclick={() => onset(active ? selected.filter((value) => value !== platform) : [...selected, platform])} class="flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition-colors {active ? 'border-tx text-tx' : 'border-bd text-g6 hover:text-g9'}">
+					{#if icon}<img src={icon} alt="" class="h-3.5 w-3.5 rounded" />{/if}
+					{info.name}
+				</button>
+			{/each}
+		</div>
+	</div>
+{/snippet}
 
 {#snippet rangeInput(label: string, minVal: string, maxVal: string, onset: (min: string, max: string) => void)}
 	<div>

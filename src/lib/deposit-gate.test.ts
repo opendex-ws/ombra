@@ -112,7 +112,7 @@ describe('Robinhood funding choice', () => {
 		).toBe('NATIVE');
 		expect(
 			fundingChoice({
-				chain: 'SOL',
+				chain: 'BASE',
 				buyWith: 'NATIVE',
 				native: { ...eth, valueUsd: 1 },
 				fiat: { ...usdg, valueUsd: 50, isFiat: true }
@@ -121,13 +121,68 @@ describe('Robinhood funding choice', () => {
 	});
 });
 
+const SOL_USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
+const sol = asset({ symbol: 'SOL', address: 'So11111111111111111111111111111111111111112', isNative: true });
+const usdc = asset({ symbol: 'USDC', address: SOL_USDC });
+
+describe('Solana deposit gate', () => {
+	it('asks for USDC or SOL when both balances are empty', () => {
+		expect(depositAssetLabel('SOL', 'SOL')).toBe('USDC or SOL');
+		expect(needsTradeDeposit({ chain: 'SOL', hasSelectedBalance: false, native: sol, fiat: usdc })).toBe(true);
+	});
+
+	it('opens the form with 0 SOL when USDC is held and Buy With is SOL', () => {
+		const held = { ...usdc, isFiat: true, valueUsd: 20, tokensBalanceStr: '20', tokensBalance: 20 };
+		expect(needsTradeDeposit({ chain: 'SOL', hasSelectedBalance: false, native: sol, fiat: held })).toBe(false);
+		expect(fundingChoice({ chain: 'SOL', buyWith: 'NATIVE', native: sol, fiat: held })).toBe('FIAT');
+	});
+
+	it('finds USDC by mint when isFiat is unset, and only that mint', () => {
+		const held = { ...usdc, valueUsd: 20, tokensBalanceStr: '20', tokensBalance: 20 };
+		expect(findFiatAsset('SOL', [sol, held])?.token.address).toBe(SOL_USDC);
+		expect(findFiatAsset('SOL', [sol, { ...held, token: { symbol: 'USDC', address: SOL_USDC.toLowerCase() } }])).toBeNull();
+		expect(findFiatAsset('SOL', [usdg])).toBeNull();
+	});
+
+	it('prefers the isFiat flag over the mint fallback', () => {
+		const flagged = { ...usdc, isFiat: true };
+		expect(findFiatAsset('SOL', [sol, flagged])).toBe(flagged);
+	});
+
+	it('spends SOL when it is worth more than USDC', () => {
+		expect(
+			fundingChoice({
+				chain: 'SOL',
+				buyWith: 'FIAT',
+				native: { ...sol, valueUsd: 30, tokensBalanceStr: '0.2', tokensBalance: 0.2 },
+				fiat: { ...usdc, isFiat: true, valueUsd: 5, tokensBalanceStr: '5', tokensBalance: 5 }
+			})
+		).toBe('NATIVE');
+	});
+
+	it('keeps Buy With when SOL and USDC are worth the same', () => {
+		const native = { ...sol, valueUsd: 10, tokensBalanceStr: '0.07', tokensBalance: 0.07 };
+		const fiat = { ...usdc, isFiat: true, valueUsd: 10, tokensBalanceStr: '10', tokensBalance: 10 };
+		expect(fundingChoice({ chain: 'SOL', buyWith: 'NATIVE', native, fiat })).toBe('NATIVE');
+		expect(fundingChoice({ chain: 'SOL', buyWith: 'FIAT', native, fiat })).toBe('FIAT');
+	});
+});
+
 describe('other chains', () => {
 	it('keeps the selected Buy With pot and its symbol', () => {
-		expect(depositAssetLabel('SOL', 'SOL')).toBe('SOL');
-		expect(findFiatAsset('SOL', [usdg])).toBeNull();
+		expect(depositAssetLabel('BASE', 'ETH')).toBe('ETH');
+		expect(findFiatAsset('BASE', [usdg])).toBeNull();
+		expect(
+			fundingChoice({
+				chain: 'BASE',
+				buyWith: 'NATIVE',
+				native: eth,
+				fiat: { ...usdg, isFiat: true, valueUsd: 10, tokensBalanceStr: '10', tokensBalance: 10 }
+			})
+		).toBe('NATIVE');
 		expect(
 			needsTradeDeposit({
-				chain: 'SOL',
+				chain: 'BASE',
 				hasSelectedBalance: false,
 				native: null,
 				fiat: { ...usdg, isFiat: true, valueUsd: 10, tokensBalanceStr: '10', tokensBalance: 10 }

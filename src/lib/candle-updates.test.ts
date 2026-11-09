@@ -44,11 +44,46 @@ describe('candle updates', () => {
 
 		const result = applyCandleBatch([raw(5, 5), raw(10, 11), raw(20, 20), raw(40, 40)], candles, volumes, areas, index, colors);
 
-		expect(result.changes.map((change) => change.kind)).toEqual(['correct', 'insert', 'append']);
+		// The insert at 20 moves the close before 30, so 30 reopens there.
+		expect(result.changes.map((change) => change.kind)).toEqual(['correct', 'insert', 'append', 'correct']);
 		expect(candles.map((candle) => candle.time)).toEqual([10, 20, 30, 40]);
 		expect([...index.entries()]).toEqual([[10, 0], [20, 1], [30, 2], [40, 3]]);
 		expect(volumes.map((volume) => volume.time)).toEqual(candles.map((candle) => candle.time));
 		expect(areas.map((area) => area.time)).toEqual(candles.map((candle) => candle.time));
+		expect(candles.map((candle) => candle.open)).toEqual([9, 11, 20, 30]);
+	});
+
+	it('opens a live bar at the previous close, as REST does, on a thin market', () => {
+		// Robinhood: one trade per bucket, so the WS open equals its close.
+		const single = (time: number, price: number) => ({ time, open: price, high: price, low: price, close: price });
+		const first = normalizeCandle(single(60, 0.51), colors);
+		const candles: CandlePoint[] = [first.candle];
+		const volumes: VolumePoint[] = [first.volume];
+		const areas: AreaPoint[] = [first.area];
+		const index = buildCandleIndex(candles);
+
+		applyCandleBatch([single(120, 0.44), single(180, 0.42)], candles, volumes, areas, index, colors);
+
+		expect(candles).toEqual([
+			{ time: 60, open: 0.51, high: 0.51, low: 0.51, close: 0.51 },
+			{ time: 120, open: 0.51, high: 0.51, low: 0.44, close: 0.44 },
+			{ time: 180, open: 0.44, high: 0.44, low: 0.42, close: 0.42 }
+		]);
+		expect(volumes.map((volume) => volume.color)).toEqual(['down', 'down', 'down']);
+	});
+
+	it('keeps a live bar open where it opened when the bucket gets more trades', () => {
+		const single = (time: number, price: number) => ({ time, open: price, high: price, low: price, close: price });
+		const first = normalizeCandle(single(60, 10), colors);
+		const candles: CandlePoint[] = [first.candle];
+		const volumes: VolumePoint[] = [first.volume];
+		const areas: AreaPoint[] = [first.area];
+		const index = buildCandleIndex(candles);
+
+		applyCandleBatch([single(120, 8)], candles, volumes, areas, index, colors);
+		applyCandleBatch([{ time: 120, open: 8, high: 12, low: 8, close: 12 }], candles, volumes, areas, index, colors);
+
+		expect(candles[1]).toEqual({ time: 120, open: 10, high: 12, low: 8, close: 12 });
 	});
 });
 

@@ -120,14 +120,22 @@ export function applyCandleBatch(
 ): { changes: CandleChange[]; rebuiltIndex: boolean } {
 	const changes: CandleChange[] = [];
 	let rebuiltIndex = false;
+	// Candles whose close may have moved, so the bar after each must reopen there.
+	const closed = new Set<number>();
 
 	for (const raw of latestCandlesByTime(rawCandles)) {
 		const classification = classifyCandleTime(raw.time, candles, index);
 		if (classification.kind === 'drop') continue;
+		// REST snaps every open to the previous close (backend candles handler).
+		// A live bucket opens at its own first trade, which on a thin market sits
+		// far from the last close and leaves floating bars. Open where REST would.
 		const effectiveOpen = classification.kind === 'correct'
 			? candles[classification.index]?.open
-			: undefined;
+			: classification.kind === 'append'
+				? candles[candles.length - 1]?.close
+				: candles[classification.index - 1]?.close;
 		const point = normalizeCandle(raw, colors, effectiveOpen);
+		closed.add(raw.time);
 
 		if (classification.kind === 'append') {
 			candles.push(point.candle);
@@ -149,6 +157,31 @@ export function applyCandleBatch(
 			rebuiltIndex = true;
 		}
 		changes.push({ ...classification, point });
+	}
+
+	for (const time of [...closed].sort((a, b) => a - b)) {
+		const at = index.get(time);
+		if (at === undefined || at + 1 >= candles.length) continue;
+		const prevClose = candles[at].close;
+		const next = candles[at + 1];
+		if (next.open === prevClose) continue;
+		const candle = {
+			...next,
+			open: prevClose,
+			high: Math.max(next.high, prevClose),
+			low: Math.min(next.low, prevClose)
+		};
+		candles[at + 1] = candle;
+		const volume = {
+			...volumes[at + 1],
+			color: candle.close > candle.open ? colors.upVolume : colors.downVolume
+		};
+		volumes[at + 1] = volume;
+		changes.push({
+			kind: 'correct',
+			index: at + 1,
+			point: { candle, volume, area: areas[at + 1], rawClose: String(candle.close) }
+		});
 	}
 
 	return { changes, rebuiltIndex };

@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { venueView } from '$lib/utils/venue-attribution';
+	import { isRhChain } from '$lib/utils/routers';
+	import PoolSafetyBadge from './PoolSafetyBadge.svelte';
 	import { tokenImage } from '$lib/api/config';
 	import {
 		isNetProfit,
@@ -11,7 +14,7 @@
 	import X from 'lucide-svelte/icons/x';
 	import LoaderCircle from 'lucide-svelte/icons/loader-circle';
 	import PanelTop from 'lucide-svelte/icons/panel-top';
-	import type { Chain } from '$lib/api/types';
+	import type { Chain, TokenSnapshot } from '$lib/api/types';
 	import type { TokenPopout } from '$lib/stores/tokenTabs.svelte';
 	import { closePopout, closePopoutAndTab, focusPopout, setPopoutPos, setPopoutSize, updatePopoutSymbol, getFocusedPopoutId, suppressPopoutRedirect } from '$lib/stores/tokenTabs.svelte';
 	import { getMultiTab } from '$lib/stores/feSettings.svelte';
@@ -62,6 +65,13 @@
 	let sells = $state(0);
 	let volStr = $state('');
 
+	let snapshot = $state<TokenSnapshot | null>(null);
+	let venue = $derived(venueView(snapshot ?? { chain: popout.chain }));
+	let isRh = $derived(isRhChain(popout.chain));
+	let directPool = $derived(!!venue.originLabel && snapshot?.launchOrigin?.launchMode === 'DIRECT_POOL');
+	let executionUnavailable = $derived(isRh && (!snapshot?.capability?.executable || !!snapshot.capability.disabled));
+	let capabilityReason = $derived(executionUnavailable ? snapshot?.capability?.reason || 'Execution capability unavailable' : null);
+
 	let socialLinks = $state<{ website?: string | null; twitter?: string | null; twitterHandle?: string | null; telegram?: string | null; instagram?: string | null; discord?: string | null } | null>(null);
 	let aiNarrative = $state<string | null>(null);
 	let isMayhem = $state(false);
@@ -108,6 +118,14 @@
 	const buyLoading = $derived(getQuickTradeLoading(popout.chain, popout.address));
 	const tradeErr = $derived(getQuickTradeError(popout.chain, popout.address));
 
+	function updateVenueMetadata(data: Partial<TokenSnapshot>) {
+		if (!snapshot || !isRhChain(popout.chain)) return;
+		if (data.correctionVersion != null && snapshot.correctionVersion != null && data.correctionVersion < snapshot.correctionVersion) return;
+		for (const key of ['platformType', 'platformAddress', 'platformName', 'executionProtocol', 'launchOrigin', 'poolAssessment', 'capability', 'correctionVersion'] as const) {
+			if (data[key] !== undefined) snapshot = { ...snapshot, [key]: data[key] };
+		}
+	}
+
 	let wsKey = '';
 	$effect(() => {
 		const chain = popout.chain;
@@ -117,6 +135,7 @@
 		if (wsKey) { unsubscribe(wsKey); wsKey = ''; }
 		wsKey = subscribe(`token:${chain}:${address}:price`, (event, data) => {
 			if (event !== 'TOKEN_PRICE') return;
+			updateVenueMetadata(data as Partial<TokenSnapshot>);
 			const p = data?.quote?.priceUsdStr ?? data?.quote?.priceUsd;
 			const mc = data?.quote?.marketCapUsdStr ?? data?.quote?.marketCapUsd;
 			const sym = data?.tokenSymbol;
@@ -138,6 +157,7 @@
 		const chain = popout.chain;
 		const address = popout.address;
 		let cancelled = false;
+		snapshot = null;
 		athPriceStr = null;
 		athMcapStr = null;
 		callCount = 0;
@@ -157,6 +177,7 @@
 					params: { path: { chain, address } }
 				});
 				if (cancelled || !data) return;
+				snapshot = data;
 				athPriceStr = data.athPriceUsdStr ?? null;
 				athMcapStr = data.athMarketCapUsdStr ?? null;
 				callCount = data.calls ?? 0;
@@ -236,6 +257,7 @@
 	});
 
 	async function doBuy() {
+		if (executionUnavailable) return;
 		const amt = parseFloat(buyAmount);
 		if (isNaN(amt) || amt <= 0) return;
 		await quickBuy(popout.chain, popout.address, amt, isUsd() ? 'USD' : 'NATIVE');
@@ -243,6 +265,7 @@
 	}
 
 	async function doSell() {
+		if (executionUnavailable) return;
 		await quickSell(popout.chain, popout.address, sellPct);
 	}
 
@@ -258,7 +281,7 @@
 
 <div
 	bind:this={winEl}
-	class="fixed flex flex-col overflow-hidden rounded-xl border bg-s2 shadow-2xl glass-strong {focused ? 'border-grn/40' : 'border-bd'}"
+	class="fixed flex flex-col overflow-hidden rounded-xl border bg-s5 shadow-2xl glass-strong {focused ? 'border-grn/40' : 'border-bd'}"
 	style="left: {popout.x}px; top: {popout.y}px; width: {popout.w}px; height: {popout.h}px; z-index: {getPanelZ(popout.id)}; resize: both; min-width: 320px; min-height: 320px;"
 	role="dialog"
 	tabindex="-1"
@@ -301,23 +324,34 @@
 		</button>
 	</div>
 
+	{#if isRh}
+		<div data-no-drag class="flex shrink-0 flex-wrap items-center gap-1 border-b border-bd px-2.5 py-1 text-[10px] text-g7">
+			<span class="inline-flex items-center gap-1 rounded bg-s6 px-1" title={venue.title} aria-label="Current venue: {venue.currentLabel}">
+				{#if venue.icon}<img src={venue.icon} alt="" class="h-3 w-3" />{/if}{venue.currentLabel}
+			</span>
+			{#if venue.originLabel}<span class="rounded bg-s6 px-1" aria-label="Launch origin: {venue.originLabel}">Origin: {venue.originLabel}</span>{/if}
+			{#if directPool}<span>Direct pool · Active trading</span>{/if}
+			<PoolSafetyBadge assessment={snapshot?.poolAssessment} />
+		</div>
+	{/if}
+
 	{#if hasMetaRow}
-		<div data-no-drag class="shrink-0 border-b border-bd bg-s1/60 px-2.5 py-1">
+		<div data-no-drag class="shrink-0 border-b border-bd bg-s1 px-2.5 py-1">
 			<div class="flex flex-wrap items-center gap-1.5">
 				{#if socialLinks?.website}
-					<a href={socialLinks.website} target="_blank" rel="noopener" title="Website" class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><Globe class="h-3 w-3" strokeWidth={2.5} /></a>
+					<a href={socialLinks.website} target="_blank" rel="noopener" title="Website" class="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><Globe class="h-3 w-3" strokeWidth={2.5} /></a>
 				{/if}
 				{#if socialLinks?.twitter}
-					<a href={socialLinks.twitter} target="_blank" rel="noopener" title={socialLinks.twitterHandle ? `@${socialLinks.twitterHandle}` : 'Twitter'} class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path}/></svg></a>
+					<a href={socialLinks.twitter} target="_blank" rel="noopener" title={socialLinks.twitterHandle ? `@${socialLinks.twitterHandle}` : 'Twitter'} class="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siX.path}/></svg></a>
 				{/if}
 				{#if socialLinks?.telegram}
-					<a href={socialLinks.telegram} target="_blank" rel="noopener" title="Telegram" class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siTelegram.path}/></svg></a>
+					<a href={socialLinks.telegram} target="_blank" rel="noopener" title="Telegram" class="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siTelegram.path}/></svg></a>
 				{/if}
 				{#if socialLinks?.instagram}
-					<a href={socialLinks.instagram} target="_blank" rel="noopener" title="Instagram" class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siInstagram.path}/></svg></a>
+					<a href={socialLinks.instagram} target="_blank" rel="noopener" title="Instagram" class="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siInstagram.path}/></svg></a>
 				{/if}
 				{#if socialLinks?.discord}
-					<a href={socialLinks.discord} target="_blank" rel="noopener" title="Discord" class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siDiscord.path}/></svg></a>
+					<a href={socialLinks.discord} target="_blank" rel="noopener" title="Discord" class="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-g5 transition-colors hover:bg-s7 hover:text-grn md:h-4 md:w-4"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d={siDiscord.path}/></svg></a>
 				{/if}
 				{#if aiNarrative}
 					<button onclick={() => (aiOpen = !aiOpen)} title="AI summary" class="cursor-pointer text-g5 transition-colors hover:text-grn {aiOpen ? 'text-grn' : ''}"><Sparkles class="h-3 w-3" /></button>
@@ -341,7 +375,7 @@
 		</div>
 	{/if}
 
-	<div data-no-drag class="flex shrink-0 items-center gap-2 border-b border-bd bg-s1/60 px-2.5 py-1 text-[10px]">
+	<div data-no-drag class="flex shrink-0 items-center gap-2 border-b border-bd bg-s1 px-2.5 py-1 text-[10px]">
 		<button onclick={copyAddress} class="flex cursor-pointer items-center gap-1 rounded px-1 py-0.5 font-mono text-g6 transition-colors hover:bg-s7 hover:text-tx" title="Copy address">
 			{shortAddress(popout.address)}
 			{#if copied}<Check class="h-3 w-3 text-grn" />{:else}<Copy class="h-3 w-3" />{/if}
@@ -401,6 +435,7 @@
 	</div>
 
 	<div data-no-drag class="shrink-0 border-t border-bd bg-s0 p-2">
+		{#if capabilityReason}<div class="mb-1.5 rounded bg-yel/10 px-2 py-1 text-[10px] text-yel">Execution unavailable: {capabilityReason}</div>{/if}
 		{#if !getIsLoggedIn()}
 			<div class="py-1 text-center text-[11px] text-g5">Connect wallet to trade</div>
 		{:else}
@@ -419,7 +454,7 @@
 				</div>
 				<button
 					onclick={doBuy}
-					disabled={buyLoading || !buyAmount}
+					disabled={buyLoading || !buyAmount || executionUnavailable}
 					class="btn-primary flex items-center gap-1 px-3 py-1.5 text-xs disabled:opacity-50"
 				>
 					{#if buyLoading}<LoaderCircle class="h-3 w-3 animate-spin" />{/if}
@@ -438,7 +473,7 @@
 					</div>
 					<button
 						onclick={doSell}
-						disabled={buyLoading}
+						disabled={buyLoading || executionUnavailable}
 						class="btn-danger-outline px-3 py-1.5 text-xs disabled:opacity-50"
 					>
 						Sell {sellPct}%
@@ -452,7 +487,7 @@
 {#if previewPos}
 	<div
 		use:portal
-		class="pointer-events-none fixed z-[300] rounded-xl border border-bd bg-s4 p-1 shadow-2xl"
+		class="pointer-events-none fixed z-[300] rounded-xl border border-bd bg-s5 p-1 shadow-2xl"
 		style="left: {previewPos.x}px; top: {previewPos.y}px; width: {PREVIEW_SIZE}px; height: {PREVIEW_SIZE}px;"
 	>
 		<img src={tokenImage(popout.chain, popout.address, 256)} alt="" class="h-full w-full rounded-lg object-cover" onerror={(e: Event) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />

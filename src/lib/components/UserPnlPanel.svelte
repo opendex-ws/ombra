@@ -2,9 +2,8 @@
 	import { untrack } from 'svelte';
 	import { api } from '$lib/api/client';
 	import { formatUsd } from '$lib/utils/format';
-	import { getRouterInfo } from '$lib/utils/routers';
+	import { venueView } from '$lib/utils/venue-attribution';
 	import ChainBrandIcon from './ChainBrandIcon.svelte';
-	import ChainIcon from './ChainIcon.svelte';
 	import TriangleAlert from 'lucide-svelte/icons/triangle-alert';
 	import LoaderCircle from 'lucide-svelte/icons/loader-circle';
 	import {
@@ -58,6 +57,11 @@
 	const totals = $derived(data?.totals ?? null);
 	const points = $derived(totalSeries(data));
 	const partial = $derived(historyIsPartial(data));
+	const rowChains = $derived(new Map(
+		[...(data?.byDexProtocol ?? []), ...(data?.byLaunchpad ?? [])].map((row) => [
+			`${row.chain}:${row.platformType}`, row.chain
+		])
+	));
 	const rows = $derived(
 		sortByImpact(
 			breakdown === 'chain' ? chainRows(data) : breakdown === 'dex' ? dexRows(data) : launchpadRows(data)
@@ -150,9 +154,9 @@
 			</div>
 		{/if}
 
-		{#if rows.length > 0}
+		{#if data.byChain.length > 0 || data.byLaunchpad.length > 0 || data.byDexProtocol.length > 0}
 			<div class="mt-3 flex gap-0.5 rounded-lg border border-bd bg-s4 p-0.5">
-				{#each [['launchpad', 'Launchpad'], ['dex', 'DEX'], ['chain', 'Chain']] as [value, label]}
+				{#each [['launchpad', 'Launch origin'], ['dex', 'DEX protocol'], ['chain', 'Chain']] as [value, label]}
 					<button
 						type="button"
 						onclick={() => (breakdown = value as typeof breakdown)}
@@ -167,17 +171,19 @@
 				{/each}
 			</div>
 			<div class="mt-1.5 space-y-px overflow-hidden rounded-lg">
+				{#if rows.length === 0}<div class="px-2.5 py-2 text-[11px] text-g5">No attributed P&amp;L in this category.</div>{/if}
 				{#each rows as row (row.key)}
-					{@const info = row.platform ? getRouterInfo(row.platform) : null}
+					{@const chain = rowChains.get(row.key)}
+					{@const venue = row.platform ? venueView({ platformType: row.platform, chain }) : null}
 					<div class="flex items-center gap-2 bg-s2 px-2.5 py-1.5">
 						{#if breakdown === 'chain'}
 							<ChainBrandIcon chain={row.key} class="h-4 w-4" />
-						{:else if info?.icon}
-							<img src={info.icon} alt="" class="h-4 w-4 shrink-0 rounded-full" loading="lazy" />
+						{:else if venue?.icon}
+							<img src={venue.icon} alt="" class="h-4 w-4 shrink-0 rounded-full" loading="lazy" />
 						{:else}
-							<ChainIcon chain={row.label} class="h-4 w-4 shrink-0 text-g6" />
+							<span class="h-4 w-4 shrink-0 rounded-full bg-s7" aria-hidden="true"></span>
 						{/if}
-						<span class="min-w-0 flex-1 truncate text-[11px] text-g8">{info?.name ?? row.label}</span>
+						<span class="min-w-0 flex-1 truncate text-[11px] text-g8">{venue?.currentLabel ?? row.label}</span>
 						<span class="shrink-0 text-[11px] font-semibold tabular-nums {row.metrics.totalPnlUsd >= 0 ? 'text-grn' : 'text-red'}">
 							{signed(row.metrics.totalPnlUsd)}
 						</span>

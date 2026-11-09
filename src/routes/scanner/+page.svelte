@@ -17,7 +17,7 @@
 	import Filter from 'lucide-svelte/icons/funnel';
 	import ChevronDown from 'lucide-svelte/icons/chevron-down';
 	import ChevronUp from 'lucide-svelte/icons/chevron-up';
-	import { getRouterInfo } from '$lib/utils/routers';
+	import { getRouterInfo, RH_VENUES, getRouterIconForChain } from '$lib/utils/routers';
 	import ChainIcon from '$lib/components/ChainIcon.svelte';
 	import ScannerCustomSignalFilters from '$lib/components/ScannerCustomSignalFilters.svelte';
 	import {
@@ -35,7 +35,7 @@
 		'PUMPFUN', 'PUMPSWAP', 'RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'RAYDIUM_LAUNCH',
 		'METEORA_BONDING_CURVE', 'METEORA_DYN', 'METEORA_DYN_V2', 'METEORA_DLMM', 'WHIRLPOOL',
 		'MOONSHOT', 'HEAVEN', 'BELIEVE', 'LETS_BONK', 'BAGS', 'PRINTR', 'STONKFUN', 'OTCDESKS', 'PURPS', 'EMBERCURVE',
-		'UNISWAP_V2', 'UNISWAP_V3', 'UNISWAP_V4', 'PONS', 'FLAP',
+		'UNISWAP_V2', 'UNISWAP_V3', 'UNISWAP_V4', 'PONS', 'FLAP', ...RH_VENUES,
 	] as const;
 	const scannerViews = [
 		{ value: 'new', label: 'New' },
@@ -209,6 +209,8 @@
 		const scope: Record<string, unknown> = {};
 		if (chain !== 'All') scope.chain = [chain];
 		if (platforms.size > 0) scope.platforms = [...platforms];
+		if (filters.currentVenue) scope.currentVenues = [filters.currentVenue];
+		if (filters.launchOrigin) scope.launchOrigins = [filters.launchOrigin];
 		if (filters['hideBondingCurve'] === 'true') scope.graduation = 'onlyGraduated';
 		else if (filters['hideBondingCurveGraduated'] === 'true') scope.graduation = 'ignoreGraduated';
 		if (Object.keys(scope).length > 0) tf.scope = scope;
@@ -252,6 +254,8 @@
 		if (Object.keys(activity).length > 0) tf.activity = activity;
 
 		const security: Record<string, unknown> = {};
+		if (filters.poolReviewState) security.poolReviewStates = [filters.poolReviewState];
+		if (filters.poolHookPresence) security.poolHookPresence = [filters.poolHookPresence];
 		if (filters['notHoneypot'] === 'true') security.honeypot = false;
 		if (filters['lpLocked'] === 'true') security.lpLocked = true;
 		if (filters['isRenounced'] === 'true') security.renounced = true;
@@ -566,11 +570,11 @@
 
 	function countSectionFilters(section: string): number {
 		const keys = Object.keys(filters).filter(k => !!filters[k]);
-		if (section === 'platform') return platforms.size > 0 ? platforms.size : 0;
+		if (section === 'platform') return platforms.size + keys.filter(k => ['currentVenue', 'launchOrigin'].includes(k)).length;
 		if (section === 'customSignals') return draftIntegrationClauses.length;
 		if (section === 'market') return keys.filter(k => /MarketCap|Liquidity|AgeHours|CallCount|BuyTax|SellTax|TransferTax|TxPercent/i.test(k)).length;
 		if (section === 'activity') return keys.filter(k => /Volume|Fees|Buys\d|Sells\d|Txns|PriceChange|Traders/i.test(k)).length;
-		if (section === 'safety') return keys.filter(k => ['notHoneypot','lpLocked','isRenounced','isVerified','freezeAuthorityDisabled','mintAuthorityDisabled','hideBondingCurve','hideBondingCurveGraduated','dexPaid','notProxy','hooked','unknownHook','unsafeHook'].includes(k)).length;
+		if (section === 'safety') return keys.filter(k => ['notHoneypot','lpLocked','isRenounced','isVerified','freezeAuthorityDisabled','mintAuthorityDisabled','hideBondingCurve','hideBondingCurveGraduated','dexPaid','notProxy','hooked','unknownHook','unsafeHook','poolReviewState','poolHookPresence'].includes(k)).length;
 		if (section === 'holders') return keys.filter(k => /DevWallet|WalletPercent|Top10|Sniper|Bundler|Insider|TraderHolding/i.test(k)).length;
 		if (section === 'social') return keys.filter(k => /has(Website|Twitter|Telegram|Discord|AnySocial)/.test(k)).length;
 		return 0;
@@ -818,7 +822,8 @@
 					<div class="flex flex-wrap gap-1.5">
 						{#each allPlatforms as p}
 							{@const active = platforms.size === 0 || platforms.has(p)}
-							{@const info = getRouterInfo(p)}
+							{@const info = getRouterInfo(p, chain === 'All' ? 'RH' : chain)}
+							{@const icon = getRouterIconForChain(p, chain === 'All' ? 'RH' : chain)}
 							<button
 								class="cursor-pointer flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold transition-all {active
 									? 'bg-grn/10 text-grn ring-1 ring-grn/20'
@@ -842,11 +847,14 @@
 									}
 								}}
 							>
-								{#if info.icon}<img src={info.icon} alt="" class="h-3.5 w-3.5 rounded" />{/if}
+								{#if icon}<img src={icon} alt="" class="h-3.5 w-3.5 rounded" />{/if}
 								{info.name}
 							</button>
 						{/each}
 					</div>
+
+					{@render venueFilter('Current venue', 'currentVenue')}
+					{@render venueFilter('Launch origin', 'launchOrigin')}
 
 				{:else if key === 'market'}
 					{@render rangeWithPresets('Market Cap', 'minMarketCap', 'maxMarketCap', [
@@ -927,6 +935,17 @@
 						{@render chip('Hide Bonding Curve', 'hideBondingCurve')}
 						{@render chip('Hide Graduated', 'hideBondingCurveGraduated')}
 					</div>
+
+					<label class="block text-[10px] font-medium uppercase tracking-wider text-g5">Pool review
+						<select value={f('poolReviewState')} onchange={(e) => fs('poolReviewState', e.currentTarget.value)} class="mt-1 w-full rounded-lg border border-bd bg-s4 px-2.5 py-1.5 text-xs text-tx outline-none">
+							<option value="">All reviews</option><option value="UNKNOWN">Unassessed</option><option value="REVIEWED">Reviewed</option><option value="UNSAFE">Unsafe</option>
+						</select>
+					</label>
+					<label class="block text-[10px] font-medium uppercase tracking-wider text-g5">Pool hook presence
+						<select value={f('poolHookPresence')} onchange={(e) => fs('poolHookPresence', e.currentTarget.value)} class="mt-1 w-full rounded-lg border border-bd bg-s4 px-2.5 py-1.5 text-xs text-tx outline-none">
+							<option value="">All observations</option><option value="UNKNOWN">Unknown</option><option value="NONE">None observed</option><option value="PRESENT">Present</option>
+						</select>
+					</label>
 
 				{:else if key === 'holders'}
 					<div class="grid grid-cols-3 gap-3">
@@ -1066,4 +1085,15 @@
 	>
 		{label}
 	</button>
+{/snippet}
+
+{#snippet venueFilter(label: string, key: string)}
+	<label class="block text-[10px] font-medium uppercase tracking-wider text-g5">{label}
+		<select value={f(key)} onchange={(e) => fs(key, e.currentTarget.value)} class="mt-1 w-full rounded-lg border border-bd bg-s4 px-2.5 py-1.5 text-xs text-tx outline-none">
+			<option value="">All</option>
+			{#each allPlatforms as platform}
+				<option value={platform}>{getRouterInfo(platform, 'RH').name}</option>
+			{/each}
+		</select>
+	</label>
 {/snippet}

@@ -13,7 +13,7 @@
 	import CircleUser from 'lucide-svelte/icons/circle-user';
 	import PanelLeftOpen from 'lucide-svelte/icons/panel-left-open';
 	import PanelLeftClose from 'lucide-svelte/icons/panel-left-close';
-	import type { ComponentType } from 'svelte';
+	import type { Component, ComponentType } from 'svelte';
 	import { initTheme, getTheme, getThemeVersion, tc } from '$lib/stores/theme.svelte';
 	import { initThemeBg } from '$lib/stores/themeBg.svelte';
 	import { initCurrency } from '$lib/stores/currency.svelte';
@@ -60,6 +60,7 @@
 	let memescopeRouteMounted = $state(page.url.pathname.startsWith('/memescope'));
 	let autobuysRouteMounted = $state(page.url.pathname.startsWith('/autobuys'));
 	let tradersRouteMounted = $state(page.url.pathname.startsWith('/trader-analytics'));
+	let terminalChromeMounted = $state(true);
 
 	let mobilePositionsOpen = $state(false);
 	let mobileWatchlistOpen = $state(false);
@@ -71,9 +72,9 @@
 	let SocialFeedPanel = $state<any>(null);
 	let SwapFeedPanel = $state<any>(null);
 	let ThesisFeedPanel = $state<any>(null);
-	let FeedWindow = $state<any>(null);
 	let PositionsPanel = $state<any>(null);
 	let FloatingTokenWindow = $state<any>(null);
+	let FeedWindow = $state<any>(null);
 	let TraderOverviewDrawer = $state<any>(null);
 	let TraderPortfolioModal = $state<any>(null);
 	let desktopWatchlistReady = $state(false);
@@ -87,12 +88,13 @@
 		if (!SwapFeedPanel) SwapFeedPanel = (await import('$lib/components/SwapFeedPanel.svelte')).default;
 		if (!ThesisFeedPanel) ThesisFeedPanel = (await import('$lib/components/ThesisFeedPanel.svelte')).default;
 	}
-	async function ensureFeedWindow() {
-		if (!FeedWindow) FeedWindow = (await import('$lib/components/FeedWindow.svelte')).default;
-	}
 	async function ensurePositionsPanel() {
 		if (!PositionsPanel) PositionsPanel = (await import('$lib/components/PositionsPanel.svelte')).default;
 	}
+	async function ensureFeedWindow() {
+		if (!FeedWindow) FeedWindow = (await import('$lib/components/FeedWindow.svelte')).default;
+	}
+
 	async function ensureFloatingTokenWindow() {
 		if (!FloatingTokenWindow) FloatingTokenWindow = (await import('$lib/components/FloatingTokenWindow.svelte')).default;
 	}
@@ -102,11 +104,11 @@
 	async function ensureTraderPortfolioModal() {
 		if (!TraderPortfolioModal) TraderPortfolioModal = (await import('$lib/components/trader-analytics/TraderPortfolioModal.svelte')).default;
 	}
-
 	/** Set before paint so keep-alive tabs never render an empty main for a frame. */
 	$effect.pre(() => {
 		if (isTerminal) {
 			terminalRouteMounted = true;
+			terminalChromeMounted = true;
 		}
 		if (isScanner) scannerRouteMounted = true;
 		if (isMemescope) memescopeRouteMounted = true;
@@ -171,7 +173,6 @@
 	$effect(() => {
 		if (getTraderPortfolioTarget()) void ensureTraderPortfolioModal();
 	});
-
 	beforeNavigate((nav) => {
 		if (consumePopoutRedirectSuppressed()) return;
 		if (!isDesktop || !getMultiTab()) return;
@@ -293,7 +294,11 @@
 		initAuth();
 		const unbindAuth = onAuthTokenChange((next) => authenticate(next));
 		startPegPrices();
-		if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+		if ('serviceWorker' in navigator) {
+			navigator.serviceWorker.getRegistrations().then((regs) => {
+				for (const r of regs) void r.unregister();
+			}).catch(() => {});
+		}
 		initTheme();
 		initThemeBg();
 		initCurrency();
@@ -368,7 +373,7 @@
 	const mobileNavLinks: {
 		href: string;
 		label: string;
-		icon: ComponentType;
+		icon: ComponentType | Component;
 	}[] = [
 		{ href: '/', label: 'Terminal', icon: Columns3 },
 		{ href: '/scanner', label: 'Scanner', icon: ScanSearch },
@@ -386,6 +391,7 @@
 
 <div class="flex min-h-screen flex-col bg-s0">
 	<Navbar />
+	{#if terminalChromeMounted}
 	<div
 		class="glass fixed top-12 bottom-0 md:bottom-7 left-0 z-10 flex-col border-bd bg-s0 transition-[width] duration-200 ease-in-out overflow-hidden {getWatchlistOpen()
 			? 'hidden w-80 border-r md:flex'
@@ -394,14 +400,15 @@
 		<div class="flex h-full w-80 flex-col overflow-hidden">
 			{#if isDesktop && desktopWatchlistReady && WatchlistPanel}
 				<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-					<WatchlistPanel selectedAddress={getActiveToken()} active={true} />
+					<WatchlistPanel selectedAddress={getActiveToken()} active />
 				</div>
 				{#if SocialFeedPanel}
-					<SocialFeedPanel active={true} />
+					<SocialFeedPanel active />
 				{/if}
 			{/if}
 		</div>
 	</div>
+	{/if}
 	<main 	class="flex-1 min-w-0 pt-12 pb-0 md:pb-7 transition-[padding-left] duration-200 ease-in-out {getWatchlistOpen() ? 'md:pl-80' : ''}">
 		{#if terminalRouteMounted}
 			<div
@@ -452,6 +459,7 @@
 			{@render children()}
 		{/if}
 	</main>
+	{#if terminalChromeMounted}
 	<button
 		onclick={toggleWatchlistOpen}
 		class="fixed top-1/2 z-20 h-12 w-4 -translate-y-1/2 cursor-pointer items-center justify-center rounded-r-md border border-l-0 border-bd bg-s1 text-g5 transition-all hover:bg-s7 hover:text-tx hidden md:flex {getWatchlistOpen() ? 'left-80' : 'left-0'}"
@@ -463,6 +471,7 @@
 			<PanelLeftOpen class="h-3 w-3" strokeWidth={1.5} />
 		{/if}
 	</button>
+	{/if}
 	<MarketStatusRail />
 </div>
 <ToastContainer />
@@ -472,7 +481,6 @@
 {#if TraderPortfolioModal}
 	<TraderPortfolioModal />
 {/if}
-
 {#if isDesktop && FloatingTokenWindow}
 	{#each getPopouts() as popout (popout.id)}
 		<FloatingTokenWindow {popout} />
@@ -541,15 +549,17 @@
 	>
 		Feed
 	</button>
-	{#if getIsLoggedIn() && page.url.pathname === '/'}
-		<button
-			onclick={() => window.dispatchEvent(new CustomEvent('mobile-trade-open'))}
-			class="ml-auto cursor-pointer rounded-xl bg-grn px-5 py-1.5 text-sm font-bold text-s0 transition-all active:scale-95"
-		>
-			Trade
-		</button>
-	{/if}
-	<MarketStatusRail mobile />
+	<div class="ml-auto flex shrink-0 items-center gap-2">
+		{#if getIsLoggedIn() && page.url.pathname === '/'}
+			<button
+				onclick={() => window.dispatchEvent(new CustomEvent('mobile-trade-open'))}
+				class="cursor-pointer rounded-xl bg-grn px-5 py-1.5 text-sm font-bold text-s0 transition-all active:scale-95"
+			>
+				Trade
+			</button>
+		{/if}
+		<MarketStatusRail mobile />
+	</div>
 </div>
 
 <nav class="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-stretch border-t border-bd bg-s0/95 backdrop-blur-md mobile-safe-bottom hide-desktop" data-app-bottom-nav>
@@ -560,9 +570,7 @@
 			data-sveltekit-preload-data="hover"
 			data-sveltekit-preload-code="hover"
 			class="relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors
-				{active
-					? 'text-grn'
-					: 'text-g5 active:text-g8'}"
+				{active ? 'text-grn' : 'text-g5 active:text-g8'}"
 		>
 			<link.icon size={20} strokeWidth={1.75} />
 			{link.label}
@@ -712,3 +720,4 @@
 		</div>
 	</div>
 </div>
+

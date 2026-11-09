@@ -25,7 +25,13 @@
 		TgManagedChat,
 		PaginatedProfileResponse,
 	} from '$lib/api/types';
-	import { DISPLAY_CHAINS } from '$lib/utils/chains';
+	import { WALLET_DISPLAY_CHAINS } from '$lib/utils/chains';
+	import { loadWaasAccount, sessionIdentity, type SignerProvider } from '$lib/waas/signer-provider';
+	import { getLoginMethod } from '$lib/waas/login-method';
+	import type { ConfirmedReward } from '$lib/waas/earnings';
+	import { isWithdrawChain } from '$lib/waas/withdraw-chain';
+	import type { WithdrawChain } from '$lib/waas/withdraw-chain';
+	import EarningsPanels from '$lib/components/EarningsPanels.svelte';
 	import { getIsLoggedIn, getWalletAddress, connectWallet, getIsConnecting, isPhantomInstalled, getAuthToken } from '$lib/stores/auth.svelte';
 	import ChainIcon from '$lib/components/ChainIcon.svelte';
 	import TokenChainBadge from '$lib/components/TokenChainBadge.svelte';
@@ -51,6 +57,7 @@
 	import UserPnlPanel from '$lib/components/UserPnlPanel.svelte';
 	import MobileScanModal from '$lib/components/MobileScanModal.svelte';
 	import WalletWithdrawModal from '$lib/components/WalletWithdrawModal.svelte';
+	import AssetActionButton from '$lib/components/AssetActionButton.svelte';
 	import { getSettings, fetchSettings as fetchGlobalSettings, updateSetting } from '$lib/stores/settings.svelte';
 	import { getProfile, fetchProfile as fetchProfileStore, setProfile } from '$lib/stores/profile.svelte';
 	type ProfileTab = 'wallets' | 'settings' | 'referrals' | 'favourites' | 'social' | 'telegram';
@@ -82,11 +89,24 @@
 	let referrerError = $state('');
 	let referrerSaving = $state(false);
 	let codeCopied = $state(false);
-	let withdrawing = $state(false);
-	let withdrawResult = $state<{ type: string; amount: string; chain: string; signature: number[] } | null>(null);
-	let withdrawError = $state('');
+	let confirmedReward = $state<ConfirmedReward | null>(null);
+	// Turnkey users keep the coupon endpoints; WaaS users claim commission to the managed wallet
+	// without signing. Until the provider of the current session is known, the earnings panels
+	// show a loading state, never the Turnkey variant.
+	let signerProvider = $state<SignerProvider | null>(null);
+	let signerProviderStatus = $state<'loading' | 'ready' | 'error'>('loading');
+	let googleEmail = $state<string | null>(null);
+	let signerProviderRun = 0;
+	const sessionId = $derived(sessionIdentity(getAuthToken()));
+	const managedAddresses = $derived(
+		Object.fromEntries(
+			Object.entries(walletsResponse?.appWallets ?? {}).flatMap(([chain, wallet]) =>
+				wallet?.address ? [[chain, wallet.address]] : []
+			)
+		) as Partial<Record<string, string>>
+	);
 	let depositAddress = $state('');
-	let depositChain = $state<Chain>('SOL');
+	let depositChain = $state('SOL');
 	let depositDetected = $state(false);
 
 	let socialSearch = $state('');
@@ -351,7 +371,7 @@
 		setTimeout(() => (codeCopied = false), 1500);
 	}
 
-	function startDepositWatch(address: string, chain: Chain) {
+	function startDepositWatch(address: string, chain: string) {
 		stopDepositWatch();
 		depositAddress = address;
 		depositChain = chain;
@@ -408,14 +428,12 @@
 
 	function applyUserEvent(event: string, data: any) {
 		if (event === 'REWARDS_CLAIMED_CONFIRMED' && data?.chain && Array.isArray(data?.signature)) {
-			withdrawResult = {
+			confirmedReward = {
 				type: data.rewardType === 'AFFILIATE' ? 'Commission' : 'Cashback',
 				amount: String(data.amount),
 				chain: data.chain,
 				signature: data.signature
 			};
-			withdrawError = '';
-			withdrawing = false;
 		} else if (event === 'USER_TG_ACTION') {
 			applyTgAction(data);
 		} else if (event === 'USER_TG_QR_LOGIN' && data?.eventType === 'success') {
@@ -561,38 +579,19 @@
 		} finally { tcSaving = false; }
 	}
 
-	async function withdrawCommissions(chain: Chain) {
-		const managed = walletsResponse?.appWallets[chain];
-		if (!managed) { withdrawError = `No managed wallet on ${chain}`; return; }
-		withdrawing = true;
-		withdrawError = '';
-		withdrawResult = null;
-		try {
-			const { data, error } = await api.POST('/v2/referral/withdraw', {
-				body: { address: managed.address, chain }
-			});
-			if (error) throw new Error((error as ErrorResponse)?.message ?? 'Withdrawal failed');
-			if (data) withdrawResult = { type: 'Commission', amount: String(data.amount), chain, signature: data.signature };
-		} catch (e: unknown) {
-			withdrawError = e instanceof Error ? e.message : 'Withdrawal failed';
-		} finally { withdrawing = false; }
-	}
-
-	async function withdrawCashback(chain: Chain) {
-		const managed = walletsResponse?.appWallets[chain];
-		if (!managed) { withdrawError = `No managed wallet on ${chain}`; return; }
-		withdrawing = true;
-		withdrawError = '';
-		withdrawResult = null;
-		try {
-			const { data, error } = await api.POST('/v2/referral/cashback', {
-				body: { address: managed.address, chain }
-			});
-			if (error) throw new Error((error as ErrorResponse)?.message ?? 'Cashback withdrawal failed');
-			if (data) withdrawResult = { type: 'Cashback', amount: String(data.amount), chain, signature: data.signature };
-		} catch (e: unknown) {
-			withdrawError = e instanceof Error ? e.message : 'Cashback withdrawal failed';
-		} finally { withdrawing = false; }
+	function resolveSignerProvider(identity: string | null) {
+		const run = ++signerProviderRun;
+		signerProvider = null;
+		googleEmail = null;
+		signerProviderStatus = 'loading';
+		if (!identity) return;
+		void loadWaasAccount(identity).then((account) => {
+			if (run !== signerProviderRun) return;
+			const provider = account?.provider ?? null;
+			signerProvider = provider;
+			googleEmail = provider === 'waas' && getLoginMethod() === 'google' ? (account?.googleEmail ?? null) : null;
+			signerProviderStatus = provider ? 'ready' : 'error';
+		});
 	}
 
 	async function fetchTgStatus() {
@@ -664,6 +663,13 @@
 		});
 	});
 
+	// Keyed on the session's user, not on the token: a refresh keeps the answer, an account
+	// switch drops it and asks again.
+	$effect(() => {
+		const identity = getIsLoggedIn() ? sessionId : null;
+		untrack(() => resolveSignerProvider(identity));
+	});
+
 	$effect(() => {
 		if (!getIsLoggedIn()) return;
 		const key = subscribe('user', (event, data) => {
@@ -706,25 +712,27 @@
 
 	onDestroy(() => stopDepositWatch());
 
-	type WalletEntry = { address: string; chain: Chain; kind: 'managed' | 'connected'; assets: WalletAsset[]; totalValueUsd: number };
-	type WalletWithdrawResult = { signature: string; status: string };
+	type WalletEntry = { address: string; chain: string; kind: 'managed' | 'connected'; assets: WalletAsset[]; totalValueUsd: number };
+	type WalletWithdrawResult = { signature: string; status: string; chain: WithdrawChain };
 
 	let sellingToken = $state<string | null>(null);
-	let withdrawingAsset = $state<{ chain: Chain; asset: WalletAsset } | null>(null);
+	let withdrawingAsset = $state<{ chain: WithdrawChain; asset: WalletAsset; chainAssets: WalletAsset[] } | null>(null);
 	let walletWithdrawResult = $state<WalletWithdrawResult | null>(null);
 
-	function openAssetWithdrawal(chain: Chain, asset: WalletAsset) {
+	function openAssetWithdrawal(chain: string, asset: WalletAsset, chainAssets: WalletAsset[]) {
+		if (!isWithdrawChain(chain)) return;
 		walletWithdrawResult = null;
-		withdrawingAsset = { chain, asset };
+		withdrawingAsset = { chain, asset, chainAssets };
 	}
 
-	function completeAssetWithdrawal(result: WalletWithdrawResult) {
-		walletWithdrawResult = result;
+	function completeAssetWithdrawal(result: { signature: string; status: string }) {
+		const withdrawnChain = withdrawingAsset?.chain;
+		walletWithdrawResult = withdrawnChain ? { ...result, chain: withdrawnChain } : null;
 		withdrawingAsset = null;
 		fetchWallets();
 	}
 
-	async function sellToken(chain: Chain, tokenAddress: string) {
+	async function sellToken(chain: string, tokenAddress: string) {
 		const key = `${chain}:${tokenAddress}`;
 		if (sellingToken) return;
 		sellingToken = key;
@@ -742,7 +750,7 @@
 		if (!walletsResponse) return [];
 		const result: WalletEntry[] = [];
 		for (const [chain, w] of Object.entries(walletsResponse.appWallets)) {
-			result.push({ address: w.address, chain: chain as Chain, kind: 'managed', assets: w.assets, totalValueUsd: w.totalValueUsd });
+			result.push({ address: w.address, chain, kind: 'managed', assets: w.assets, totalValueUsd: w.totalValueUsd });
 		}
 		for (const w of walletsResponse.connectedWallets) {
 			result.push({ address: w.address, chain: w.chain, kind: 'connected', assets: w.assets, totalValueUsd: w.totalValueUsd });
@@ -750,7 +758,7 @@
 		return result;
 	}
 
-	function walletsByChain(ch: Chain): WalletEntry[] {
+	function walletsByChain(ch: string): WalletEntry[] {
 		return allWallets().filter(w => w.chain === ch);
 	}
 
@@ -835,7 +843,7 @@
 							</div>
 							<div class="text-right shrink-0">
 								<div class="text-[9px] md:text-xs font-medium uppercase tracking-wider text-g5">Total Value</div>
-								<div class="text-base md:text-2xl font-bold text-tx">{formatUsd(totalValueAllWallets())}</div>
+								<div class="text-base md:text-2xl font-bold text-tx">{totalValueAllWallets() === null ? 'Unavailable' : formatUsd(totalValueAllWallets()!)}</div>
 							</div>
 						</div>
 					</div>
@@ -964,6 +972,7 @@
 				{ label: 'Telegram', value: 'telegram' as ProfileTab }
 			] as tab}
 					<button
+						data-testid={`profile-tab-${tab.value}`}
 						class="cursor-pointer relative shrink-0 flex-1 rounded-lg px-2 md:px-3 py-2 text-xs md:text-sm font-medium transition-all {activeTab === tab.value
 							? 'bg-s7 text-tx'
 							: 'text-g6 hover:text-g9'}"
@@ -1009,7 +1018,7 @@
 								</button>
 							</div>
 							<div class="mb-2 text-xs text-g7">
-								Send <span class="font-semibold text-tx">{depositChain}</span> tokens to:
+								Send tokens on <span class="font-semibold text-tx">{depositChain}</span> to:
 							</div>
 							<div class="flex items-center gap-2 rounded-lg border border-bd bg-s1 px-3 py-2">
 								<code class="flex-1 select-all text-sm text-tx">{depositAddress}</code>
@@ -1021,8 +1030,14 @@
 						</div>
 					{/if}
 
+					{#if googleEmail}
+						<div data-testid="profile-google-email" class="mb-3 break-all text-xs text-g6">
+							Signed in with Google: <span class="font-medium text-tx">{googleEmail}</span>
+						</div>
+					{/if}
+
 					<div class="space-y-3">
-						{#each DISPLAY_CHAINS as ch}
+						{#each WALLET_DISPLAY_CHAINS as ch}
 							{@const chainWallets = walletsByChain(ch)}
 							{#if chainWallets.length > 0}
 								<div class="rounded-xl border border-bd bg-s1">
@@ -1051,7 +1066,7 @@
 												{/if}
 											</div>
 										</div>
-										{#if walletWithdrawResult && wallet.kind === 'managed' && wallet.chain === 'SOL'}
+										{#if walletWithdrawResult && wallet.kind === 'managed' && wallet.chain === walletWithdrawResult.chain}
 											{@const withdrawalConfirmed = walletWithdrawResult.status === 'confirmed'}
 											<div class="mb-2 break-all rounded-lg border px-3 py-2 text-xs {withdrawalConfirmed ? 'border-grn/40 bg-grn/10 text-grn' : 'border-yel/40 bg-yel/10 text-yel'}">
 												{withdrawalConfirmed
@@ -1070,7 +1085,7 @@
 															<th class="pb-1 text-right font-medium">Balance</th>
 															<th class="pb-1 text-right font-medium">Price</th>
 															<th class="pb-1 text-right font-medium">Value</th>
-															{#if wallet.kind === 'managed'}<th class="pb-1 w-10"></th>{/if}
+															{#if wallet.kind === 'managed'}<th class="w-[5.5rem] pb-1 pl-4"><span class="sr-only">Actions</span></th>{/if}
 														</tr>
 													</thead>
 													<tbody>
@@ -1082,21 +1097,20 @@
 																<td class="py-1 text-right text-g7">{formatUsd(bal.priceUsdStr)}</td>
 																<td class="py-1 text-right text-tx">{formatUsd(bal.valueUsdStr)}</td>
 																{#if wallet.kind === 'managed'}
-																	<td class="py-1 text-right">
+																	<td class="py-1 pl-4 text-right">
 																		<div class="flex justify-end gap-1">
-																			{#if wallet.chain === 'SOL'}
-																				<button
-																					onclick={() => openAssetWithdrawal(wallet.chain, bal)}
-																					class="btn-secondary px-1.5 py-0.5 text-[9px]"
-																				>Withdraw</button>
-																			{/if}
-																			{#if !bal.isNative}
-																			<button
+																			<AssetActionButton
+																				kind="sell"
+																				available={!bal.isNative}
+																				busy={sellingToken === sellKey}
 																				onclick={() => sellToken(wallet.chain, bal.token.address)}
-																				disabled={sellingToken === sellKey}
-																				class="cursor-pointer rounded bg-red/10 px-1.5 py-1 text-[10px] font-semibold text-red transition-all hover:bg-red/20 disabled:opacity-50 md:py-0.5 md:text-[9px] md:opacity-0 md:group-hover/row:opacity-100 {sellingToken === sellKey ? '!opacity-100' : ''}"
-																			>{sellingToken === sellKey ? '...' : 'Sell'}</button>
-																			{/if}
+																			/>
+																			<AssetActionButton
+																				kind="withdraw"
+																				available={isWithdrawChain(wallet.chain)}
+																				testid={`profile-withdraw-${wallet.chain}-${bal.token.symbol}`}
+																				onclick={() => openAssetWithdrawal(wallet.chain, bal, wallet.assets)}
+																			/>
 																		</div>
 																	</td>
 																{/if}
@@ -1389,51 +1403,23 @@
 										<div class="text-base font-semibold text-tx">{Number(feeRate.affiliateRate).toFixed(2)}%</div>
 									</div>
 									<div class="rounded border border-bd bg-s1 px-3 py-2">
-										<div class="text-xs text-g7">Cashback Available</div>
-										<div class="text-base font-semibold text-grn">{formatUsd(feeRate.cashbackAvailable)}</div>
+										<div class="text-xs text-g7">Cashback Rate</div>
+										<div class="text-base font-semibold text-grn">{Number(feeRate.cashbackRate).toFixed(2)}%</div>
 									</div>
 								</div>
 							</div>
 						{/if}
 
-						<div class="rounded-xl border border-bd bg-s1 p-6">
-							<h2 class="mb-3 text-base font-semibold text-tx">Withdraw Earnings</h2>
-							<p class="mb-3 text-xs text-g6">Withdraw commissions or cashback to your managed wallet. Generates a signed coupon for on-chain claim.</p>
-							<div class="space-y-2">
-								{#each DISPLAY_CHAINS as ch}
-									<div class="flex items-center gap-2">
-										<span class="w-10 shrink-0 text-sm font-semibold text-tx">{ch}</span>
-										<button
-											onclick={() => withdrawCommissions(ch)}
-											disabled={withdrawing}
-											class="cursor-pointer rounded bg-wh/20 px-3 py-1.5 text-xs font-medium text-tx transition-colors hover:bg-wh/20 disabled:opacity-50"
-										>
-											Commission
-										</button>
-										<button
-											onclick={() => withdrawCashback(ch)}
-											disabled={withdrawing}
-											class="cursor-pointer rounded bg-grn/20 px-3 py-1.5 text-xs font-medium text-grn transition-colors hover:bg-grn/35 disabled:opacity-50"
-										>
-											Cashback
-										</button>
-									</div>
-								{/each}
-							</div>
-							{#if withdrawError}
-								<div class="mt-3 text-xs text-red">{withdrawError}</div>
-							{/if}
-							{#if withdrawResult}
-								<div class="mt-3 rounded border border-grn/40 bg-grn/10 p-3">
-									<div class="mb-1 text-xs font-medium text-grn">{withdrawResult.type} Withdrawal Coupon Generated</div>
-									<div class="space-y-0.5 text-xs text-g7">
-										<div class="flex items-center gap-1">Chain: <ChainIcon chain={withdrawResult.chain} class="h-3.5 w-3.5 text-tx" /></div>
-										<div>Amount: <span class="text-tx">{withdrawResult.amount}</span></div>
-										<div class="text-[11px] text-g6">Coupon signature ready. Submit to the on-chain claim contract to finalize withdrawal.</div>
-									</div>
-								</div>
-							{/if}
-						</div>
+						<EarningsPanels
+							provider={signerProvider}
+							providerStatus={signerProviderStatus}
+							onRetryProvider={() => resolveSignerProvider(sessionId)}
+							{commissionSummary}
+							{feeRate}
+							{managedAddresses}
+							{confirmedReward}
+							onClaimed={() => void fetchReferralData()}
+						/>
 
 						{#if commissionSummary}
 							<div class="rounded-xl border border-bd bg-s1 p-6">
@@ -1846,6 +1832,7 @@
 	<WalletWithdrawModal
 		chain={withdrawingAsset.chain}
 		asset={withdrawingAsset.asset}
+		chainAssets={withdrawingAsset.chainAssets}
 		onclose={() => (withdrawingAsset = null)}
 		oncomplete={completeAssetWithdrawal}
 	/>

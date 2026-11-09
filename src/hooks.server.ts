@@ -1,7 +1,9 @@
+import { exportFrameOrigin } from '$lib/waas/export-frame-url';
 import type { Handle } from '@sveltejs/kit';
 import { env as privateEnv } from '$env/dynamic/private';
 import { ASYNC_CHUNK_FILES } from '$lib/generated/async-chunks';
 import { API_BASE, API_PROXY } from '$lib/api/config';
+import { authBackendUrl } from '$lib/auth/google';
 
 // Optional API-key mode. Instead of pointing at a per-tenant whitelabel URL, the
 // proxy can talk to the shared API host and authenticate with a key. The key is
@@ -9,6 +11,7 @@ import { API_BASE, API_PROXY } from '$lib/api/config';
 // the browser — which is why this requires proxy mode and has no direct-mode
 // equivalent. Leave API_KEY unset to keep the whitelabel-URL behaviour.
 const API_KEY = privateEnv?.API_KEY ?? '';
+const AUTH_BACKEND_URL = authBackendUrl();
 const DEFAULT_API_KEY_ORIGIN = 'https://api-backend-new.opendex.ws';
 const API_KEY_ORIGIN = (privateEnv?.API_KEY_ORIGIN ?? DEFAULT_API_KEY_ORIGIN).replace(/\/$/, '');
 
@@ -56,17 +59,23 @@ function createProxyRequest(request: Request, target: URL): Request {
 	return new Request(target, init);
 }
 
+function pushOrigin(parts: string[], url: string): void {
+	try {
+		const origin = new URL(url).origin;
+		parts.push(origin, origin.replace(/^http/i, 'ws'));
+	} catch {
+		// The base URLs are optional in direct/dev setups.
+	}
+}
+
 function apiConnectSrc(): string {
 	const parts = ["'self'", 'https:', 'wss:'];
+	// The browser calls auth-backend directly in every mode (Google login, owner proofs, key export).
+	if (AUTH_BACKEND_URL) pushOrigin(parts, AUTH_BACKEND_URL);
 	// In key mode the browser only ever talks same-origin, so the upstream host
 	// does not belong in connect-src.
 	if (!API_BASE || API_KEY) return parts.join(' ');
-	try {
-		const origin = new URL(API_BASE).origin;
-		parts.push(origin, origin.replace(/^http/i, 'ws'));
-	} catch {
-		// PUBLIC_API_BASE is optional in direct/dev setups.
-	}
+	pushOrigin(parts, API_BASE);
 	return parts.join(' ');
 }
 
@@ -74,6 +83,7 @@ function contentSecurityPolicy(): string {
 	return [
 		"frame-ancestors 'none'",
 		"default-src 'self'",
+		`frame-src 'self' ${exportFrameOrigin()}`,
 		"script-src 'self' 'unsafe-inline'",
 		`connect-src ${apiConnectSrc()}`,
 		"img-src 'self' data: https: blob:",

@@ -20,15 +20,25 @@ export type QueryOf<P extends keyof paths, M extends keyof paths[P] = 'get'> = p
 
 const REFRESH_PATH = '/v2/auth/refresh';
 
+// A request body can be read only once. fetch() consumes it, so a 401 retry cannot
+// clone the sent request. Keep an unsent copy of every request that has a body.
+type MiddlewareRequest = Parameters<NonNullable<Middleware['onRequest']>>[0]['request'];
+const retryCopies = new WeakMap<MiddlewareRequest, MiddlewareRequest>();
+
 const authMiddleware: Middleware = {
   async onRequest({ request }) {
     const token = getAuthToken();
     if (token) {
       request.headers.set('Authorization', `Bearer ${token}`);
     }
+    if (request.body !== null && !retryCopies.has(request)) {
+      retryCopies.set(request, request.clone() as MiddlewareRequest);
+    }
     return request;
   },
-  async onResponse({ request, response }) {
+  async onResponse({ request, response, options }) {
+    const copy = retryCopies.get(request);
+    retryCopies.delete(request);
     if (response.status !== 401 || !getAuthToken()) return response;
     // Don't try to refresh the refresh call itself, or requests that already
     // carried a freshly refreshed token (retried once via `x-auth-retry`).
@@ -40,11 +50,16 @@ const authMiddleware: Middleware = {
     // Attempt a coalesced token refresh, then retry the original request once.
     const next = await refreshToken();
     if (!next) return response;
-    const retry = request.clone();
+    let retry: MiddlewareRequest;
+    try {
+      retry = copy ?? (request.clone() as MiddlewareRequest);
+    } catch {
+      return response;
+    }
     retry.headers.set('Authorization', `Bearer ${next}`);
     retry.headers.set('x-auth-retry', '1');
     try {
-      return await fetch(retry as unknown as Request);
+      return await (options?.fetch ?? fetch)(retry as unknown as Request);
     } catch {
       return response;
     }

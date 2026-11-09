@@ -1,11 +1,13 @@
 <script lang="ts">
+	import { venueView } from '$lib/utils/venue-attribution';
+	import { isRhChain } from '$lib/utils/routers';
+	import PoolSafetyBadge from './PoolSafetyBadge.svelte';
 	import TokenAvatar from './TokenAvatar.svelte';
 	import { onVisibility, FLASH_MS, FLASH_COOLDOWN_MS } from '$lib/utils/visibility';
 	import type { ScannerItem } from '$lib/api/types';
 	import type { RowFlashType } from '$lib/utils/scanner-ws';
 	import { formatPrice, formatPercent, formatMarketCap } from '$lib/utils/format';
 	import { feeShareholders, feeShareTitle } from '$lib/utils/fee-sharing';
-	import { getRouterInfo } from '$lib/utils/routers';
 	import Users from 'lucide-svelte/icons/users';
 	import TokenChainBadge from './TokenChainBadge.svelte';
 
@@ -16,9 +18,13 @@
 		onselect: () => void;
 	} = $props();
 
-	let migPct = $derived(token.launchPad?.bondingCurve?.progressPct ?? 0);
-	let isGraduated = $derived(token.launchPad?.bondingCurve?.state === 'Migrated');
-	let platformIcon = $derived(token.platformName ? getRouterInfo(token.platformName).icon : '');
+	let venue = $derived(venueView(token));
+	let isRh = $derived(isRhChain(token.chain));
+	let directPool = $derived(!!venue.originLabel && token.launchOrigin?.launchMode === 'DIRECT_POOL');
+	let curve = $derived(directPool ? null : token.launchPad?.bondingCurve);
+	let migPct = $derived(curve?.progressPct ?? 0);
+	let isGraduated = $derived(curve?.state === 'Migrated');
+	let platformIcon = $derived(venue.icon);
 	let feeShares = $derived(feeShareholders(token.launchPad?.pumpfun));
 
 	function percentColor(value: string | number | undefined | null): string {
@@ -76,6 +82,7 @@
 	});
 </script>
 
+<div>
 <button
 	use:onVisibility={(v) => (onScreen = v)}
 	class="group flex w-full cursor-pointer items-start gap-2.5 border-l-2 px-3 py-2.5 text-left text-sm transition-all duration-150
@@ -108,13 +115,14 @@
 	</div>
 	<div class="min-w-0 flex-1">
 		<div class="flex min-w-0 items-center gap-1.5">
-			{#if platformIcon}<img src={platformIcon} alt="" class="h-3.5 w-3.5 rounded" />{/if}
+			{#if platformIcon}<img src={platformIcon} alt={venue.currentLabel} title={venue.title} class="h-3.5 w-3.5 rounded" />{/if}
 			<span class="min-w-0 max-w-[60%] truncate font-semibold text-tx" title={token.tokenSymbol ?? ''}>{token.tokenSymbol}</span>
 			{#if feeShares.length > 0}
 				<span class="text-blu" title={feeShareTitle(feeShares)}><Users class="h-3 w-3" /></span>
 			{/if}
 			<span class="truncate text-xs text-g5">{token.tokenName}</span>
 		</div>
+		{@render venueLabels()}
 		<div class="mt-1 flex items-center justify-between text-xs">
 			<span class="font-medium text-g9 {fc('price')}">{@html formatPrice(token.quote.priceUsdStr)}</span>
 			<span class="font-medium {percentColor(token.stats.timeframes['1h'].priceChangePct)} {fc('pct')}">{formatPercent(token.stats.timeframes['1h'].priceChangePct)}</span>
@@ -122,3 +130,22 @@
 		<div class="mt-0.5 text-xs text-g6 {fc('mcap')}">MCap {formatMarketCap(token.quote.marketCapUsdStr)}</div>
 	</div>
 </button>
+{#if isRh}
+	<div class="px-3 pb-1"><PoolSafetyBadge assessment={token.poolAssessment} /></div>
+{/if}
+</div>
+
+{#snippet venueLabels()}
+	{#if isRh}
+		<span class="inline-flex flex-wrap items-center gap-1 text-[10px] text-g7">
+			<span class="rounded bg-s6 px-1" title={venue.title} aria-label="Current venue: {venue.currentLabel}">{venue.currentLabel}</span>
+			{#if venue.originLabel}
+				<span class="rounded bg-s6 px-1" aria-label="Launch origin: {venue.originLabel}" title="Launch origin: {venue.originLabel}">Origin: {venue.originLabel}</span>
+			{/if}
+			{#if directPool}<span class="text-g6">Direct pool · Active trading</span>{/if}
+			{#if token?.capability && (!token.capability.executable || token.capability.disabled)}
+				<span class="text-yel" title={token.capability.reason}>Execution unavailable: {token.capability.reason}</span>
+			{/if}
+		</span>
+	{/if}
+{/snippet}

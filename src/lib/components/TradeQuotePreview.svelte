@@ -6,7 +6,7 @@
 	import { subscribe, unsubscribe, updateParams } from '$lib/ws/client';
 	import { chainBrandArt } from '$lib/utils/chain-brand';
 	import { formatCompactNumber } from '$lib/utils/format';
-	import { getRouterInfo } from '$lib/utils/routers';
+	import { venueView } from '$lib/utils/venue-attribution';
 	import {
 		HIGH_PRICE_IMPACT_PCT,
 		noRouteMessage,
@@ -173,11 +173,11 @@
 			<!-- Route: one chip per token, carrying the venue icon of the hop that reached it. -->
 			<div class="mt-1 flex flex-wrap items-center gap-x-0.5 gap-y-0.5">
 				{#each stops as stop, i (i)}
-					{@const info = stop.via ? getRouterInfo(stop.via) : null}
+					{@const venue = i > 0 ? venueView({ platformType: stop.via, chain }) : null}
 					{#if i > 0}<ChevronRight class="h-3 w-3 shrink-0 text-g4" />{/if}
 					<span
 						class="flex items-center gap-1 rounded bg-s4 py-0.5 pl-0.5 pr-1.5 text-[10px] font-medium text-g8"
-						title={info ? `${stop.address} via ${info.name}` : stop.address}
+						title={venue ? `${stop.address} via ${venue.currentLabel}` : stop.address}
 					>
 						<span class="relative h-3.5 w-3.5 shrink-0">
 							<img
@@ -187,15 +187,16 @@
 								class="h-3.5 w-3.5 rounded-full bg-s7 object-cover"
 								onerror={(e: Event) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
 							/>
-							{#if info?.icon}
+							{#if venue?.icon}
 								<img
-									src={info.icon}
-									alt={info.name}
+									src={venue.icon}
+									alt={venue.currentLabel}
 									class="absolute -right-0.5 -bottom-0.5 h-2 w-2 rounded-full bg-s6 ring-1 ring-s6"
 								/>
 							{/if}
 						</span>
 						{tokenLabel(stop, symbols)}
+						{#if venue}<span class="text-g5">via {venue.currentLabel}</span>{/if}
 					</span>
 				{/each}
 				{#if quote.legs.length > 1}

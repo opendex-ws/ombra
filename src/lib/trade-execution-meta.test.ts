@@ -292,8 +292,8 @@ describe('trade execution metadata', () => {
 		['0xF5307745c61DE69bF033EDfE6A8771256275a323', 'ROUTER', '/entity-icons/rh-router.svg'],
 		['0xc33AcC93942105c57602e59E8E448C20ba718a85', 'ROUTER', '/entity-icons/rh-router.svg'],
 		['0x39b37fE004B9bCDa781784345d2fFc84ef4B8cE6', 'ROUTER', '/entity-icons/rh-router.svg'],
-		['0x673F40eDFA3f4692Cf0ad141b020F17F6A0EcB5B', 'OMBRA', '/entity-icons/ombra.webp'],
-		['0x2550441874098B3d6C7D588D5345D9047976e7Ef', 'OMBRA', '/entity-icons/ombra.webp']
+		['0x673F40eDFA3f4692Cf0ad141b020F17F6A0EcB5B', 'OMBRA', '/entity-icons/ombra.svg'],
+		['0x2550441874098B3d6C7D588D5345D9047976e7Ef', 'OMBRA', '/entity-icons/ombra.svg']
 	])('labels %s as %s with its official icon when the API says OTHER', (id, name, src) => {
 		const { container } = render(TradeExecutionMeta, {
 			props: {

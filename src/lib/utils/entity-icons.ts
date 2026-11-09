@@ -198,6 +198,7 @@ const knownSlugs = new Set<string>(ENTITY_ICON_SLUGS);
 const VECTOR_ENTITY_ICON_SLUGS = new Set<EntityIconSlug>([
 	'direct',
 	'generic-bot',
+	'ombra',
 	'open-dex',
 	'padre',
 	'solana-mev-bot',

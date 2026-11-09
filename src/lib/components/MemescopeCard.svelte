@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { venueView } from '$lib/utils/venue-attribution';
+	import { isRhChain } from '$lib/utils/routers';
+	import PoolSafetyBadge from './PoolSafetyBadge.svelte';
 	import { hookBadge } from '$lib/utils/token-hook';
 	import TokenAvatar from './TokenAvatar.svelte';
 	import { onDestroy } from 'svelte';
@@ -7,7 +10,7 @@
 	import { formatMarketCap, formatPercent, formatNumber, formatCompactNumber, formatCompactCount, liveAge } from '$lib/utils/format';
 	import { feeShareholders, feeShareTitle } from '$lib/utils/fee-sharing';
 	import { buildSparkline } from '$lib/utils/sparkline';
-	import { getRouterInfo, getRouterIconForChain } from '$lib/utils/routers';
+	import { getRouterIconForChain } from '$lib/utils/routers';
 	import { getNow } from '$lib/stores/tick.svelte';
 	import { siX, siTelegram, siDiscord, siInstagram } from 'simple-icons';
 	import DexPaidIcon from './DexPaidIcon.svelte';
@@ -140,17 +143,20 @@
 		}
 	});
 
-	let displayRouter = $derived(getRouterInfo(token.platformType ?? ''));
-	let routerIconUrl = $derived(token.platformType ? getRouterIconForChain(token.platformType, token.chain) : '');
+	let venue = $derived(venueView(token));
+	let isRh = $derived(isRhChain(token.chain));
+	let directPool = $derived(!!venue.originLabel && token.launchOrigin?.launchMode === 'DIRECT_POOL');
+	let curve = $derived(directPool ? null : token.launchPad?.bondingCurve);
+	let displayRouter = $derived({ name: venue.currentLabel });
+	let routerIconUrl = $derived(venue.icon);
 
 	let gradPercent = $derived.by(() => {
-		if (!token.launchPad?.bondingCurve) return null;
-		return token.launchPad.bondingCurve.progressPct ?? 0;
+		return curve?.progressPct ?? null;
 	});
 
-	let isGraduated = $derived(token.launchPad?.bondingCurve?.state === 'Migrated');
+	let isGraduated = $derived(curve?.state === 'Migrated');
 	let migratedFromIcon = $derived.by(() => {
-		const bc = token.launchPad?.bondingCurve;
+		const bc = curve;
 		if (bc?.state !== 'Migrated' || !bc.migratedFromPlatformType) return '';
 		return getRouterIconForChain(bc.migratedFromPlatformType, token.chain);
 	});
@@ -207,6 +213,7 @@
 	const statChip = 'flex shrink-0 items-center gap-0.5 text-[11px] font-semibold tabular-nums';
 </script>
 
+<div class="relative h-[152px]">
 <a
 	href="/?chain={token.chain}&token={token.tokenAddress}"
 	use:onVisibility={(v) => (onScreen = v)}
@@ -285,7 +292,7 @@
 				/>
 				<TokenChainBadge chain={token.chain}>
 					{#if routerIconUrl}
-						<img src={routerIconUrl} alt={displayRouter.name} title={displayRouter.name} class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" />
+						<img src={routerIconUrl} alt={displayRouter.name} title={venue.title} class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" />
 					{/if}
 					{#if migratedFromIcon}
 						<img src={migratedFromIcon} alt="Migrated from" class="absolute -top-1 left-0 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" title="Migrated from {(token.launchPad?.bondingCurve as any)?.migratedFromPlatformName ?? ''}" />
@@ -309,7 +316,10 @@
 					{/if}
 				</div>
 
-				<div class="flex h-4 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap pr-[42%]">
+				<div class="flex min-w-0 items-center gap-1 {isRh ? 'min-h-4' : 'h-4 overflow-hidden whitespace-nowrap pr-[42%]'}">
+					{#if isRh}
+						{@render venueLabels()}
+					{:else}
 					{#if sec}
 						<span class="flex shrink-0 items-center gap-0.5" title="Mint {!sec.mintable ? 'disabled' : 'enabled'}">
 							<span class="inline-block h-1.5 w-1.5 rounded-full {!sec.mintable ? 'bg-grn' : 'bg-red'}"></span>
@@ -363,6 +373,7 @@
 					{#if (token.holders?.insiders ?? 0) > 0}
 						<span class="flex shrink-0 items-center gap-0.5 font-semibold text-org"><InsiderIcon class="h-3 w-3" /><span class="text-[10px]">{token.holders?.insiders}</span></span>
 					{/if}
+					{/if}
 				</div>
 			</div>
 		</div>
@@ -383,6 +394,7 @@
 		</div>
 	</div>
 
+	{#if !isRh}
 	<div class="relative z-10 flex h-7 items-center gap-1.5 overflow-hidden whitespace-nowrap border-t border-bd/40 px-2.5 text-[11px] @min-[360px]:px-3">
 		{#if h}
 			<span class="{statChip} text-g9" title="Holders">
@@ -486,4 +498,25 @@
 			</div>
 		{/if}
 	</div>
+	{/if}
 </a>
+{#if isRh}
+	<div class="absolute inset-x-2.5 top-[96px] z-20"><PoolSafetyBadge assessment={token.poolAssessment} /></div>
+	<div class="absolute inset-x-3 bottom-1 truncate text-[10px] text-g6">
+		{#if token.capability && (!token.capability.executable || token.capability.disabled)}
+			<span class="text-yel" title={token.capability.reason}>Execution unavailable: {token.capability.reason}</span>
+		{:else if directPool}Direct pool · Active trading{/if}
+	</div>
+{/if}
+</div>
+
+{#snippet venueLabels()}
+	{#if isRh}
+		<span class="inline-flex flex-wrap items-center gap-1 text-[10px] text-g7">
+			<span class="rounded bg-s6 px-1" title={venue.title} aria-label="Current venue: {venue.currentLabel}">{venue.currentLabel}</span>
+			{#if venue.originLabel}
+				<span class="rounded bg-s6 px-1" aria-label="Launch origin: {venue.originLabel}" title="Launch origin: {venue.originLabel}">Origin: {venue.originLabel}</span>
+			{/if}
+		</span>
+	{/if}
+{/snippet}

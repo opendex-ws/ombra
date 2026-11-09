@@ -1,10 +1,10 @@
-import { env } from '$env/dynamic/public';
+import { authBackendUrl } from '$lib/auth/google';
 import { json, type RequestHandler } from '@sveltejs/kit';
 
 const empty = { enabled: false, mode: 'off', buttonLabel: '' };
 
 export const GET: RequestHandler = async ({ url, fetch }) => {
-	const base = (env.PUBLIC_AUTH_BACKEND_URL ?? '').replace(/\/$/, '');
+	const base = authBackendUrl();
 	const orgId = url.searchParams.get('orgId') ?? '';
 	if (!base || !orgId) return json(empty);
 	try {

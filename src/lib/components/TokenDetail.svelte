@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { venueView } from '$lib/utils/venue-attribution';
+	import { isRhChain } from '$lib/utils/routers';
+	import PoolSafetyBadge from './PoolSafetyBadge.svelte';
 	import { tokenImage } from '$lib/api/config';
 	import TokenAvatar from './TokenAvatar.svelte';
 	import { onDestroy, untrack } from 'svelte';
@@ -456,21 +459,22 @@
 	function communityTokenHref(t: { tokenAddress: string }): string {
 		return `/?chain=${chain}&token=${t.tokenAddress}`;
 	}
-	let displayRouter = $derived(getRouterInfo((token as TokenSnapshot | null)?.platformType ?? ''));
-	let routerIconUrl = $derived.by(() => {
-		const p = (token as TokenSnapshot | null)?.platformType;
-		return p ? getRouterIconForChain(p, chain as string) : '';
-	});
+	let venue = $derived(venueView((token as TokenSnapshot | null) ?? { chain }));
+	let isRh = $derived(isRhChain(chain));
+	let directPool = $derived(!!venue.originLabel && (token as TokenSnapshot | null)?.launchOrigin?.launchMode === 'DIRECT_POOL');
+	let curve = $derived(directPool ? null : (token as TokenSnapshot | null)?.launchPad?.bondingCurve);
+	let displayRouter = $derived({ name: venue.currentLabel });
+	let routerIconUrl = $derived(venue.icon);
 	let pumpfun = $derived((token as TokenSnapshot | null)?.launchPad?.pumpfun ?? null);
 	let isMayhem = $derived(pumpfun?.isMayhem ?? false);
 	let isHolderReward = $derived(pumpfun?.isHolderReward ?? false);
 	let cashbackPct = $derived(pumpfun?.cashbackPct ?? 0);
 	let feeShares = $derived(feeShareholders(pumpfun));
 	let feeSharing = $derived(pumpfun?.feeSharing);
-	let migPct = $derived((token as TokenSnapshot | null)?.launchPad?.bondingCurve?.progressPct ?? 0);
-	let isGraduated = $derived((token as TokenSnapshot | null)?.launchPad?.bondingCurve?.state === 'Migrated');
+	let migPct = $derived(curve?.progressPct ?? 0);
+	let isGraduated = $derived(curve?.state === 'Migrated');
 	let migratedFromIcon = $derived.by(() => {
-		const bc = (token as TokenSnapshot | null)?.launchPad?.bondingCurve;
+		const bc = curve;
 		if (bc?.state !== 'Migrated' || !bc.migratedFromPlatformType) return '';
 		return getRouterIconForChain(bc.migratedFromPlatformType, chain as string);
 	});
@@ -777,8 +781,19 @@
 		});
 	}
 
+	function mergeVenueMetadata(current: TokenSnapshot, data: Partial<TokenSnapshot>): TokenSnapshot {
+		if (!isRhChain(current.chain)) return current;
+		if (data.correctionVersion != null && current.correctionVersion != null && data.correctionVersion < current.correctionVersion) return current;
+		let updated = current;
+		for (const key of ['platformType', 'platformAddress', 'platformName', 'executionProtocol', 'launchOrigin', 'poolAssessment', 'capability', 'correctionVersion'] as const) {
+			if (data[key] !== undefined) updated = { ...updated, [key]: data[key] };
+		}
+		return updated;
+	}
+
 	function applyPriceUpdate(data: TokenMarketLiveSnapshot) {
 		if (!token) return;
+		token = mergeVenueMetadata(token, data);
 		if (data.quote) token = { ...token, quote: { ...token.quote, ...data.quote } as typeof token.quote };
 		if (data.stats) {
 			let updatedStats = { ...token.stats };
@@ -796,7 +811,7 @@
 
 	function applyStatsUpdate(data: TokenSnapshot) {
 		if (!token) return;
-		let updated = { ...token };
+		let updated = mergeVenueMetadata(token, data);
 		if (data.calls !== undefined) updated = { ...updated, calls: data.calls };
 		if (data.tweets !== undefined) updated = { ...updated, tweets: data.tweets };
 		if (data.theses !== undefined) {
@@ -851,34 +866,15 @@
 		const migrationKey = `${delta.chain}:${delta.pairAddress}:${delta.migratedToPairAddress}`;
 		if (handledMigrations.has(migrationKey)) return;
 		handledMigrations.add(migrationKey);
-		// The frame already carries the post-migration snapshot, and the backend
-		// reroutes our existing subscriptions to the destination pair — so there is
-		// nothing to refetch and nothing to resubscribe here. Only fall back to a
-		// synthesized bonding curve if the payload somehow omits one.
 		const snap = data.token;
-		const bc = snap?.launchPad?.bondingCurve ?? {
-			state: 'Migrated' as const,
-			progressPct: 100,
-			migratedFromPairAddress: token.pairAddress ?? delta.pairAddress,
-			migratedFromPlatformAddress: token.platformAddress,
-			migratedFromPlatformName: token.platformName,
-			migratedFromPlatformType: token.platformType,
-			migratedAtAgeSeconds: 0,
-			migratedAtTimestamp: Date.now(),
-			migratedAtTimestampStr: new Date().toISOString()
-		};
-
 		if (snap) {
 			token = {
 				...snap,
 				tokenSymbol: token.tokenSymbol ?? snap.tokenSymbol,
-				tokenName: token.tokenName ?? snap.tokenName,
-				launchPad: { bondingCurve: bc, pumpfun: snap.launchPad?.pumpfun ?? null }
+				tokenName: token.tokenName ?? snap.tokenName
 			};
 			isFav = !!snap.isFavourited;
 			if (snap.holders?.holderCount !== undefined) holdersCount = snap.holders.holderCount;
-		} else {
-			token = { ...token, launchPad: { bondingCurve: bc, pumpfun: token.launchPad?.pumpfun ?? null } };
 		}
 	}
 
@@ -1531,7 +1527,7 @@
 						<span class="relative inline-flex items-center ml-0.5 text-tx" title={chain}>
 							<ChainBrandIcon chain={chain} class="h-4 w-4" />
 							{#if routerIconUrl}
-								<img src={routerIconUrl} alt={displayRouter.name} class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" />
+								<img src={routerIconUrl} alt={displayRouter.name} title={venue.title} class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" />
 							{/if}
 						</span>
 						{#if (token.calls ?? 0) > 0}
@@ -1621,7 +1617,7 @@
 						<span class="text-[11px] text-g6">{liveAge(tokenBirth, getNow())}</span>
 						{#if pairs.length > 1}
 							<button onclick={() => (pairsOpen = !pairsOpen)} class="flex cursor-pointer items-center gap-0.5 rounded-md border border-bd bg-s4 px-2 py-1.5 text-[11px] text-g9 hover:text-tx md:px-1.5 md:py-0.5 md:text-[10px]">
-								{#if selectedPairIdx !== null && pairs[selectedPairIdx]}{getRouterInfo(pairs[selectedPairIdx].platformType ?? '').name}{:else}{pairs.find(p => p.isBestPair) ? getRouterInfo(pairs.find(p => p.isBestPair)!.platformType ?? '').name : 'Best'}{/if}
+								{#if selectedPairIdx !== null && pairs[selectedPairIdx]}{getRouterInfo(pairs[selectedPairIdx].platformType ?? '', chain).name}{:else}{pairs.find(p => p.isBestPair) ? getRouterInfo(pairs.find(p => p.isBestPair)!.platformType ?? '', chain).name : 'Best'}{/if}
 								<ChevronDown class="h-2.5 w-2.5" />
 							</button>
 						{/if}
@@ -1641,6 +1637,8 @@
 						<div class="rounded border border-bd/40 bg-s2 px-1.5 py-1"><div class="text-[8px] font-medium uppercase text-g7">ATH</div><CurrencyValue usd={liveAthDisplay.usdStr} native={liveAthDisplay.nativeStr} chain={chain} mode="price" class="text-[11px] font-bold text-tx" iconClass="h-3 w-3 text-tx" /></div>
 					</div>
 					<div class="flex items-center gap-1 flex-wrap">
+						{@render venueLabels()}
+						{#if isRh}<PoolSafetyBadge assessment={token.poolAssessment} />{/if}
 						<span class="flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded px-1 py-0.5 text-[9px] font-medium {token.audit.mintable ? 'bg-red/10 text-red' : 'bg-grn/10 text-grn'}">
 							{#if token.audit.mintable}<ShieldAlert size={9} />{:else}<ShieldCheck size={9} />{/if}
 							Mint {token.audit.mintable ? 'On' : 'Off'}
@@ -1695,7 +1693,7 @@
 									fallbackClass="rounded-[9px] bg-s7 text-lg font-bold text-tx"
 								/>
 								{#if token.tokenAddress}
-									<div class="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden h-[200px] w-[200px] rounded-xl border border-bd bg-s4 p-1 shadow-2xl group-hover:block">
+									<div class="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden h-[200px] w-[200px] rounded-xl border border-bd bg-s5 p-1 shadow-2xl group-hover:block">
 										<TokenAvatar
 											chain={token.chain}
 											address={token.tokenAddress}
@@ -1727,9 +1725,9 @@
 										>
 											{#if selectedPairIdx !== null && pairs[selectedPairIdx]}
 												{@const sp = pairs[selectedPairIdx]}
-												{getRouterInfo(sp.platformType ?? '').name}
+												{getRouterInfo(sp.platformType ?? '', chain).name}
 											{:else}
-												{pairs.find(p => p.isBestPair) ? getRouterInfo(pairs.find(p => p.isBestPair)!.platformType ?? '').name : 'Best'}
+												{pairs.find(p => p.isBestPair) ? getRouterInfo(pairs.find(p => p.isBestPair)!.platformType ?? '', chain).name : 'Best'}
 											{/if}
 											<ChevronDown class="h-3 w-3" strokeWidth={2} />
 										</button>
@@ -1738,7 +1736,7 @@
 											<div class="absolute left-0 top-full z-50 mt-1 w-64 rounded-lg border border-bd bg-s5 shadow-2xl">
 												<div class="max-h-60 overflow-y-auto py-1">
 													{#each pairs as pair, i (pair.pairAddress)}
-														{@const ri = getRouterInfo(pair.platformType ?? '')}
+														{@const ri = getRouterInfo(pair.platformType ?? '', chain)}
 														<div
 															role="button"
 															tabindex="0"
@@ -1774,7 +1772,7 @@
 								<span class="relative inline-flex items-center text-tx" title={chain}>
 									<ChainBrandIcon chain={chain} class="h-5 w-5" />
 									{#if routerIconUrl}
-										<img src={routerIconUrl} alt={displayRouter.name} class="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-s6 ring-1 ring-s6" title={displayRouter.name} />
+										<img src={routerIconUrl} alt={displayRouter.name} class="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-s6 ring-1 ring-s6" title={venue.title} />
 									{/if}
 									{#if migratedFromIcon}
 										<img src={migratedFromIcon} alt="Migrated from" class="absolute -top-1 -left-2 h-3 w-3 rounded-full bg-s6 ring-1 ring-s6" title="Migrated from {(token.launchPad?.bondingCurve as any)?.migratedFromPlatformName ?? ''}" />
@@ -1966,6 +1964,8 @@
 						<CurrencyValue usd={token.stats.timeframes['24h'].fees.totalFeeUsdStr} native={token.stats.timeframes['24h'].fees.totalFeeNativeStr} chain={chain} mode="value" class="text-xs font-bold text-tx" iconClass="h-3 w-3 text-tx" />
 					</div>
 					<div class="col-span-full flex flex-wrap items-center gap-1.5 pt-0.5">
+						{@render venueLabels()}
+						{#if isRh}<PoolSafetyBadge assessment={token.poolAssessment} />{/if}
 						<span class="flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium {token.audit.mintable ? 'bg-red/10 text-red' : 'bg-grn/10 text-grn'}" title="Mint Authority">
 							{#if token.audit.mintable}<ShieldAlert size={10} strokeWidth={2} />{:else}<ShieldCheck size={10} strokeWidth={2} />{/if}
 							Mint {token.audit.mintable ? 'On' : 'Off'}
@@ -2038,9 +2038,9 @@
 						</div>
 						<div class="min-h-0 flex-1 overflow-y-auto py-1">
 						{#each pairs as pair, i (pair.pairAddress)}
-							{@const ri = getRouterInfo(pair.platformType ?? '')}
+							{@const ri = getRouterInfo(pair.platformType ?? '', chain)}
 							<div role="button" tabindex="0" onclick={() => selectPair(pair.isBestPair ? null : i)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectPair(pair.isBestPair ? null : i); } }} class="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-wh/5 {(selectedPairIdx === null && pair.isBestPair) || selectedPairIdx === i ? 'bg-wh/5' : ''}">
-								{#if ri.icon}<img src={ri.icon} alt={ri.name} class="h-4 w-4 rounded-full" />{/if}
+								{#if getRouterIconForChain(pair.platformType ?? '', chain)}<img src={getRouterIconForChain(pair.platformType ?? '', chain)} alt={ri.name} class="h-4 w-4 rounded-full" />{/if}
 								<div class="min-w-0 flex-1">
 									<div class="flex items-center gap-1.5">
 										<span class="text-xs font-medium text-tx">{ri.name}</span>
@@ -2918,3 +2918,18 @@
 	</div>
 	</div>
 {/if}
+
+{#snippet venueLabels()}
+	{#if isRh}
+		<span class="inline-flex flex-wrap items-center gap-1 text-[10px] text-g7">
+			<span class="rounded bg-s6 px-1" title={venue.title} aria-label="Current venue: {venue.currentLabel}">{venue.currentLabel}</span>
+			{#if venue.originLabel}
+				<span class="rounded bg-s6 px-1" aria-label="Launch origin: {venue.originLabel}" title="Launch origin: {venue.originLabel}">Origin: {venue.originLabel}</span>
+			{/if}
+			{#if directPool}<span class="text-g6">Direct pool · Active trading</span>{/if}
+			{#if token?.capability && (!token.capability.executable || token.capability.disabled)}
+				<span class="text-yel" title={token.capability.reason}>Execution unavailable: {token.capability.reason}</span>
+			{/if}
+		</span>
+	{/if}
+{/snippet}

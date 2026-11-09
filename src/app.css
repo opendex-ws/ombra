@@ -173,6 +173,7 @@ input[type="number"] {
 	cursor: pointer;
 }
 
+
 .slider-input::-webkit-slider-thumb {
 	-webkit-appearance: none;
 	width: 14px;

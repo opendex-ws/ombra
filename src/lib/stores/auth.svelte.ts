@@ -1,11 +1,15 @@
 import { apiUrl } from '$lib/api/config';
+import { getLoginMethod, setLoginMethod, type LoginMethod } from '$lib/waas/login-method';
+import { shortAddress } from '$lib/utils/format';
 
 export type SolanaWalletKind = 'phantom' | 'brave';
 
 interface SolanaProvider {
+  publicKey?: { toString(): string } | null;
+  isConnected?: boolean;
   isPhantom?: boolean;
   isBraveWallet?: boolean;
-  connect(): Promise<{ publicKey: { toString(): string } }>;
+  connect(options?: { onlyIfTrusted?: boolean }): Promise<{ publicKey: { toString(): string } }>;
   disconnect(): void;
   signMessage(message: Uint8Array, encoding?: string): Promise<{ signature: Uint8Array } | Uint8Array>;
 }
@@ -26,6 +30,27 @@ interface AuthChallenge {
 let token = $state<string | null>(typeof window !== 'undefined' ? localStorage.getItem('ombra_token') : null);
 let walletAddress = $state<string | null>(typeof window !== 'undefined' ? localStorage.getItem('ombra_wallet') : null);
 let connecting = $state(false);
+
+function loginMethodFromToken(jwt: string): LoginMethod | null {
+  try {
+    const part = jwt.split('.')[1] ?? '';
+    const payload = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))) as {
+      user?: { id?: unknown; extension_id?: unknown };
+    };
+    const extension = payload.user?.extension_id;
+    if (typeof extension === 'string' && extension.startsWith('sso-')) {
+      return extension === 'sso-google' ? 'google' : null;
+    }
+    return typeof payload.user?.id === 'string' ? 'wallet' : null;
+  } catch {
+    return null;
+  }
+}
+
+function restoreStoredLoginMethod(): void {
+  if (token && getLoginMethod() === null) setLoginMethod(loginMethodFromToken(token));
+}
+restoreStoredLoginMethod();
 let error = $state<string | null>(null);
 
 let isLoggedIn = $derived(token !== null);
@@ -180,6 +205,7 @@ export function setAuthToken(t: string | null): void {
 export function completeGoogleLogin(jwt: string, wallet: string | null): void {
   setWallet(wallet);
   setAuthToken(jwt);
+  setLoginMethod('google');
 }
 
 function setWallet(addr: string | null): void {
@@ -190,7 +216,26 @@ function setWallet(addr: string | null): void {
   }
 }
 
-let activeWallet: SolanaWalletKind = 'phantom';
+const WALLET_KIND_KEY = 'ombra_wallet_kind';
+
+// The wallet the user signed in with, kept across reloads so signing asks that wallet.
+function storedWalletKind(): SolanaWalletKind {
+  if (typeof window === 'undefined') return 'phantom';
+  try {
+    return localStorage.getItem(WALLET_KIND_KEY) === 'brave' ? 'brave' : 'phantom';
+  } catch {
+    return 'phantom';
+  }
+}
+
+function setActiveWallet(kind: SolanaWalletKind): void {
+  activeWallet = kind;
+  try {
+    localStorage.setItem(WALLET_KIND_KEY, kind);
+  } catch {}
+}
+
+let activeWallet: SolanaWalletKind = storedWalletKind();
 
 export function getSolanaWallet(kind: SolanaWalletKind): SolanaProvider | null {
   if (typeof window === 'undefined') return null;
@@ -234,14 +279,53 @@ async function signSolanaMessage(provider: SolanaProvider, message: string): Pro
 }
 
 export async function signConnectedWalletMessageHex(message: string): Promise<string> {
-  const provider = activeProvider();
-  if (!provider) throw new Error('No Solana wallet is available');
-  const connected = await provider.connect();
-  if (walletAddress && connected.publicKey.toString() !== walletAddress) {
-    throw new Error('Connect the Solana wallet used to sign in');
+  // Ask the sign-in wallet first; if another installed wallet holds the sign-in address, use it.
+  const kinds: SolanaWalletKind[] = activeWallet === 'brave' ? ['brave', 'phantom'] : ['phantom', 'brave'];
+  const providers = kinds
+    .map((kind) => [kind, getSolanaWallet(kind)] as const)
+    .filter((entry): entry is readonly [SolanaWalletKind, SolanaProvider] => entry[1] !== null);
+  if (providers.length === 0) throw new Error('No Solana wallet is available');
+  const sign = async (kind: SolanaWalletKind, provider: SolanaProvider) => {
+    setActiveWallet(kind);
+    const signature = await signSolanaMessage(provider, message);
+    return Array.from(signature, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  };
+  // Use the established owner connection without another connect round trip.
+  // Sign with the matching owner directly, without another connect request.
+  for (const [kind, provider] of providers) {
+    if (provider.isConnected && walletAddress && provider.publicKey?.toString() === walletAddress) {
+      return sign(kind, provider);
+    }
   }
-  const signature = await signSolanaMessage(provider, message);
-  return Array.from(signature, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  // Silent pass: a wallet that already trusts this site answers without a popup.
+  for (const [kind, provider] of providers) {
+    try {
+      const trusted = await provider.connect({ onlyIfTrusted: true });
+      if (!walletAddress || trusted.publicKey.toString() === walletAddress) return sign(kind, provider);
+    } catch {
+      // Not connected to this site yet; the interactive pass below asks.
+    }
+  }
+  let connectedAddress = '';
+  let connectionError: unknown;
+  for (const [kind, provider] of providers) {
+    let connected: Awaited<ReturnType<SolanaProvider['connect']>>;
+    try {
+      connected = await provider.connect();
+    } catch (error) {
+      // A missing/unavailable remembered wallet must not block the other provider.
+      // Explicit cancellation must still stop the request.
+      if (error && typeof error === 'object' && 'code' in error && error.code === 4001) throw error;
+      connectionError = error;
+      continue;
+    }
+    connectedAddress = connected.publicKey.toString();
+    if (!walletAddress || connectedAddress === walletAddress) return sign(kind, provider);
+  }
+  if (!connectedAddress && connectionError) throw connectionError;
+  throw new Error(
+    `Switch your wallet to the account you signed in with (${shortAddress(walletAddress ?? '')}); it is on ${shortAddress(connectedAddress)}`
+  );
 }
 
 export async function connectWallet(kind: SolanaWalletKind = 'phantom'): Promise<void> {
@@ -250,7 +334,7 @@ export async function connectWallet(kind: SolanaWalletKind = 'phantom'): Promise
     window.open(kind === 'brave' ? 'https://brave.com/wallet/' : 'https://phantom.app/download', '_blank');
     return;
   }
-  activeWallet = kind;
+  setActiveWallet(kind);
 
   connecting = true;
   error = null;
@@ -304,6 +388,7 @@ export async function connectWallet(kind: SolanaWalletKind = 'phantom'): Promise
     if (typeof jwt !== 'string' || !jwt.trim()) throw new Error('Sign-in did not return a token. Please try again.');
     setWallet(pubkey);
     setAuthToken(jwt);
+    setLoginMethod('wallet');
   } catch (e: unknown) {
     error = errorText(e, 'Connection failed');
     throw e instanceof Error ? e : new Error(error);
@@ -319,5 +404,6 @@ export function disconnect(): void {
   }
   setAuthToken(null);
   setWallet(null);
+  setLoginMethod(null);
   error = null;
 }

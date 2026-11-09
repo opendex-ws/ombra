@@ -203,10 +203,10 @@
 	});
 	const managedWallet = $derived(getManagedWalletForChain(chain));
 	const nativeBalance = $derived(managedWallet?.assets.find(b => b.isNative || b.token.symbol === nativeSymbol) ?? null);
-	// `isFiat` marks the chain's USD stablecoin. Robinhood leaves that flag off, so USDG is matched by mint too.
+	// `isFiat` marks the chain's USD stablecoin. Robinhood leaves that flag off, so USDG (and Solana USDC) is matched by mint too.
 	const fiatBalance = $derived(findFiatAsset(chain, managedWallet?.assets));
 	const buyWith = $derived(getBuyWith());
-	// On Robinhood the buy spends whichever of ETH and USDG is worth more.
+	// On Robinhood and Solana the buy spends whichever of the native coin and the stable is worth more.
 	const spendWith = $derived(fundingChoice({ chain, buyWith, native: nativeBalance, fiat: fiatBalance }));
 	const fundingBalance = $derived(spendWith === 'FIAT' ? fiatBalance : nativeBalance);
 	const fundingValueUsd = $derived(fundingBalance ? fundingBalance.valueUsd : 0);
@@ -214,7 +214,7 @@
 		spendWith === 'FIAT' ? (fiatBalance?.token.symbol ?? (chain === 'RH' ? 'USDG' : 'USDC')) : nativeSymbol
 	);
 	const hasBalance = $derived(fundingValueUsd > 0);
-	// Robinhood spends either ETH (7702) or USDG. One of those balances is enough to trade.
+	// Robinhood spends ETH (7702) or USDG; Solana spends SOL or USDC (the gas sponsor pays a USDC buy's fees). One balance is enough.
 	const needsDeposit = $derived(
 		needsTradeDeposit({
 			chain,

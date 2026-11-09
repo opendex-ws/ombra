@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { resolveGoogleCallback } from '$lib/auth/google';
 	import { completeGoogleLogin } from '$lib/stores/auth.svelte';
 	import { authenticate } from '$lib/ws/client';
 	import { fetchSettings, fetchFavourites } from '$lib/stores/settings.svelte';
@@ -9,18 +10,14 @@
 
 	let message = $state('Signing in...');
 
-	onMount(() => {
-		const token = page.url.searchParams.get('token');
-		const wallet = page.url.searchParams.get('wallet');
-		const error = page.url.searchParams.get('error');
-		if (!token || error) {
-			message = error === 'venue_wallets_preparing' || error === 'setup_error'
-				? 'Your wallets are being prepared. Wait a moment, then try signing in again.'
-				: 'Google sign-in failed.';
+	onMount(async () => {
+		const result = await resolveGoogleCallback(page.url.searchParams);
+		if (!result.ok) {
+			message = result.message;
 			return;
 		}
-		completeGoogleLogin(token, wallet);
-		authenticate(token);
+		completeGoogleLogin(result.token, result.wallet);
+		authenticate(result.token);
 		fetchSettings();
 		fetchFavourites();
 		fetchProfile();

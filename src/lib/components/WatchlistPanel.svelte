@@ -12,7 +12,6 @@
 	import { isCursorRecoveryReason, subscribe, unsubscribe, authenticate, type WsErrorInfo } from '$lib/ws/client';
 	import { formatMultiplier, formatUsd, formatPriceText, formatCompactNumber, formatMarketCap, timeAgo, fullDateTime, shortAddress, explorerAddressUrl, fmtVal, parseTier, avatarUrl, isIntegrationSource } from '$lib/utils/format';
 	import { getWalletIconUrl, getWalletAddress } from '$lib/utils/walleticon';
-	import { getRouterInfo } from '$lib/utils/routers';
 	import { DISPLAY_CHAINS } from '$lib/utils/chains';
 	import { getNow } from '$lib/stores/tick.svelte';
 	import { onVisibility, FLASH_MS, FLASH_COOLDOWN_MS } from '$lib/utils/visibility';
@@ -444,7 +443,6 @@
 	let ulPriceChangeMin = $state('');
 	let ulPriceChangeMax = $state('');
 
-	const platformOptions: PlatformType[] = ['RAYDIUM', 'RAYDIUM_CP', 'RAYDIUM_CLMM', 'RAYDIUM_LAUNCH', 'PUMPFUN', 'PUMPSWAP', 'METEORA_DYN', 'METEORA_DLMM', 'METEORA_BONDING_CURVE', 'METEORA_DYN_V2', 'HEAVEN', 'LETS_BONK', 'BELIEVE', 'BAGS', 'PRINTR', 'MOONSHOT'];
 	const activityTimeframes = [
 		{ key: 'fiveMin' as const, label: '5m' },
 		{ key: 'oneHour' as const, label: '1h' },
@@ -2303,7 +2301,7 @@
 						<div class="group flex shrink-0 items-center gap-0.5">
 							<button onclick={() => toggleChannelFilter(getSourceId(src))} class="cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors {selectedChannelIds.has(getSourceId(src)) ? 'bg-grn/20 text-grn' : 'text-g6 hover:text-g9'}"><span class="max-w-[80px] truncate">{getSourceName(src)}</span></button>
 							{#if tgChat}
-								<button onclick={() => openEditModal(tgChat)} class="{sourceEditMode ? 'flex' : 'hidden group-hover:flex'} h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-g4 transition-colors hover:bg-s7 hover:text-tx md:h-5 md:w-5" title="Edit channel filters"><Settings class="h-3.5 w-3.5" strokeWidth={1.75} /></button>
+								<button onclick={() => openEditModal(tgChat)} class="{sourceEditMode ? 'flex' : 'flex md:hidden md:group-hover:flex'} h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-g4 transition-colors hover:bg-s7 hover:text-tx md:h-5 md:w-5" title="Edit channel filters"><Settings class="h-3.5 w-3.5" strokeWidth={1.75} /></button>
 							{/if}
 						</div>
 					{/each}
@@ -3327,7 +3325,7 @@
 						<input
 							id="ct-addr-wl"
 							type="text"
-							placeholder="base58..."
+							placeholder={ctChain === 'SOL' ? 'base58...' : '0x...'}
 							bind:value={ctAddress}
 							onkeydown={(e) => e.key === 'Enter' && saveCtWallet()}
 							class="w-full rounded-lg border border-bd bg-s4 px-3 py-2 text-sm text-tx placeholder-g4 outline-none focus:border-grn"

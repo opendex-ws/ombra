@@ -5,14 +5,18 @@
 	import TokenChainBadge from './TokenChainBadge.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
+	import { fetchSignerProvider, type SignerProvider } from '$lib/waas/signer-provider';
 	import { getIsLoggedIn, getWalletAddress, getIsConnecting, getAuthError, connectWallet, disconnect, isSolanaWalletInstalled, getAuthToken, type SolanaWalletKind } from '$lib/stores/auth.svelte';
 	import { googleStartUrl, orgIdFromApiBase } from '$lib/auth/google';
 	import { authenticate, subscribe, unsubscribe } from '$lib/ws/client';
 	import { addToast } from '$lib/stores/toast.svelte';
 	import { ageFromSeconds, shortAddress, formatNumber, formatPrice, formatMarketCap, formatPercent, formatUsd, pctColor, avatarUrl, fmtVal } from '$lib/utils/format';
 	import { api } from '$lib/api/client';
-	import type { ManagedWallet, ScannerItem, components, Chain, WalletAsset, TraderRankItem } from '$lib/api/types';
+	import type { ManagedWallet, ScannerItem, components, WalletAsset, TraderRankItem } from '$lib/api/types';
 	import WalletWithdrawModal from './WalletWithdrawModal.svelte';
+	import AssetActionButton from './AssetActionButton.svelte';
+	import { isWithdrawChain } from '$lib/waas/withdraw-chain';
+	import type { WithdrawChain } from '$lib/waas/withdraw-chain';
 	import { getManagedWallets, fetchManagedWallets } from '$lib/stores/trade.svelte';
 	import { fetchSettings, fetchFavourites, clearSettings } from '$lib/stores/settings.svelte';
 	import { getProfile, fetchProfile, clearProfile } from '$lib/stores/profile.svelte';
@@ -33,9 +37,10 @@
 
 	import Camera from 'lucide-svelte/icons/camera';
 	import X from 'lucide-svelte/icons/x';
+	import KeyRound from 'lucide-svelte/icons/key-round';
 	import { isDark } from '$lib/stores/theme.svelte';
 	import OmbraLogo from './OmbraLogo.svelte';
-	import type { ComponentType } from 'svelte';
+	import type { Component, ComponentType } from 'svelte';
 	import { openTraderPortfolio } from '$lib/stores/traderAnalytics.svelte';
 
 	type ScannerLookupSubscriptionParams = components['schemas']['ScannerLookupSubscriptionParams'];
@@ -80,7 +85,7 @@
 	const navLinks: {
 		href: string;
 		label: string;
-		icon: ComponentType;
+		icon: ComponentType | Component;
 	}[] = [
 		{ href: '/', label: 'Terminal', icon: Columns3 },
 		{ href: '/scanner', label: 'Scanner', icon: ScanSearch },
@@ -109,10 +114,22 @@
 	let expandedWallets = $state<Set<string>>(new Set());
 
 	let sellingToken = $state<string | null>(null);
-	let withdrawingAsset = $state<{ chain: Chain; asset: WalletAsset } | null>(null);
+	let RevealKeyModal = $state<typeof import('./RevealKeyModal.svelte').default | null>(null);
+	let showRevealKey = $state(false);
+	let signerProvider = $state<SignerProvider | null>(null);
 
-	function openWithdraw(chain: string, asset: WalletAsset) {
-		withdrawingAsset = { chain: chain as Chain, asset };
+	async function openRevealKey() {
+		showWalletPopover = false;
+		if (!RevealKeyModal) RevealKeyModal = (await import('./RevealKeyModal.svelte')).default;
+		showRevealKey = true;
+	}
+
+	let withdrawingAsset = $state<{ chain: WithdrawChain; asset: WalletAsset; chainAssets: WalletAsset[] } | null>(null);
+
+	function openWithdraw(chain: string, asset: WalletAsset, chainAssets: WalletAsset[]) {
+		if (!isWithdrawChain(chain)) return;
+		showWalletPopover = false;
+		withdrawingAsset = { chain, asset, chainAssets };
 	}
 
 	function onWithdrawComplete() {
@@ -143,6 +160,7 @@
 		if (showWalletPopover) {
 			fetchManagedWallets();
 			fetchProfile();
+			fetchSignerProvider().then((provider) => (signerProvider = provider));
 		}
 	}
 
@@ -363,10 +381,10 @@
 		}
 	}
 
-	function startGoogleLogin() {
+	async function startGoogleLogin() {
 		const orgId = orgIdFromApiBase();
 		if (!orgId) return;
-		window.location.href = googleStartUrl(orgId);
+		window.location.href = await googleStartUrl(orgId);
 	}
 
 	onMount(() => {
@@ -401,7 +419,7 @@
 		>
 			<Search size={14} strokeWidth={2} class="shrink-0" />
 			<span class="relative hidden min-w-0 flex-1 md:block">
-				<span class="truncate">Search tokens…</span>
+				<span class="absolute inset-0 truncate">Search tokens…</span>
 			</span>
 			<kbd class="ml-auto hidden shrink-0 rounded border border-bd bg-s1 px-1.5 py-0.5 text-[10px] text-g5 sm:inline">⌘K</kbd>
 		</button>
@@ -419,10 +437,7 @@
 					href={link.href}
 					data-sveltekit-preload-data="hover"
 					data-sveltekit-preload-code="hover"
-					class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors duration-150
-						{active
-							? 'text-tx'
-							: 'text-g5 hover:text-g8'}"
+					class="relative flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[13px] font-medium transition-colors duration-150 {active ? 'text-tx' : 'text-g5 hover:text-g8'}"
 				>
 					<Icon size={14} strokeWidth={1.75} class="shrink-0" />
 					<span class="hidden lg:inline">{link.label}</span>
@@ -448,6 +463,7 @@
 	{#if getIsLoggedIn()}
 		<div class="relative flex items-center gap-2" bind:this={walletPopoverEl}>
 			<button
+				data-testid="wallet-menu"
 				onclick={toggleWalletPopover}
 				class="flex max-w-[11rem] shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-bd bg-s4 px-2.5 py-1.5 transition-all hover:border-bd3 hover:bg-s7 {showWalletPopover ? 'border-grn/40 bg-grn/10' : ''}"
 			>
@@ -517,6 +533,7 @@
 									{@const isOpen = expandedWallets.has(wKey)}
 									<div class="rounded-lg px-3 py-2">
 										<button
+											data-testid={`wallet-row-${wallet.chain}`}
 											onclick={() => { const next = new Set(expandedWallets); if (next.has(wKey)) next.delete(wKey); else next.add(wKey); expandedWallets = next; }}
 											class="flex w-full cursor-pointer items-center justify-between"
 										>
@@ -546,18 +563,20 @@
 													<span class="text-g6">{asset.token.symbol}</span>
 													<div class="flex items-center gap-1.5">
 														<span class="font-mono text-g7">{parseFloat(asset.tokensBalanceStr).toFixed(4)} <span class="text-g5">({formatUsd(asset.valueUsdStr)})</span></span>
-														{#if !asset.isNative}
-															<button
+														<span class="ml-2 flex shrink-0 items-center gap-1">
+															<AssetActionButton
+																kind="sell"
+																available={!asset.isNative}
+																busy={sellingToken === sellKey}
 																onclick={(e) => { e.stopPropagation(); sellToken(wallet.chain, asset.token.address); }}
-																disabled={sellingToken === sellKey}
-																class="w-12 cursor-pointer rounded bg-red/10 px-1.5 py-1 md:py-0.5 text-[10px] font-semibold text-red transition-all hover:bg-red/20 disabled:opacity-50 md:text-[9px] md:opacity-0 md:group-hover/asset:opacity-100 {sellingToken === sellKey ? '!opacity-100' : ''}"
-															>{sellingToken === sellKey ? '...' : 'Sell'}</button>
-														{:else}
-															<button
-																onclick={(e) => { e.stopPropagation(); openWithdraw(wallet.chain, asset); }}
-																class="w-12 cursor-pointer rounded bg-s7 px-1.5 py-1 md:py-0.5 text-[10px] font-semibold text-g7 transition-all hover:bg-s6 hover:text-tx md:text-[9px] md:opacity-0 md:group-hover/asset:opacity-100"
-															>Withdraw</button>
-														{/if}
+															/>
+															<AssetActionButton
+																kind="withdraw"
+																available={isWithdrawChain(wallet.chain)}
+																testid={`withdraw-${wallet.chain}-${asset.token.symbol}`}
+																onclick={(e) => { e.stopPropagation(); openWithdraw(wallet.chain, asset, wallet.assets); }}
+															/>
+														</span>
 													</div>
 												</div>
 											{/each}
@@ -569,6 +588,14 @@
 								<div class="flex h-16 items-center justify-center text-xs text-g5">No managed wallets</div>
 							{/if}
 						</div>
+						{#if signerProvider !== 'turnkey'}
+						<div class="border-t border-bd p-2">
+							<button data-testid="reveal-key-open" class="btn-secondary flex w-full items-center justify-center gap-1.5 px-3 py-1.5 text-xs" onclick={openRevealKey}>
+								<KeyRound size={12} />
+								Reveal private key
+							</button>
+						</div>
+						{/if}
 					</div>
 				</div>
 			{/if}
@@ -662,9 +689,7 @@
 					oninput={onSearchInput}
 					onkeydown={onSearchKeydown}
 					type="text"
-					placeholder={searchMode === 'wallet'
-						? 'Search wallets by address or label...'
-						: 'Search tokens by name, symbol, or contract...'}
+					placeholder={searchMode === 'wallet' ? 'Search wallets by address or label...' : 'Search tokens by name, symbol, or contract...'}
 					class="flex-1 bg-transparent text-[15px] text-tx placeholder-g3 outline-none"
 				/>
 				{#if searching}
@@ -788,11 +813,7 @@
 						<span class="flex items-center gap-1"><kbd class="rounded border border-bd bg-s1 px-1 py-px text-[10px]">↑↓</kbd> Navigate</span>
 						<span class="flex items-center gap-1"><kbd class="rounded border border-bd bg-s1 px-1 py-px text-[10px]">↵</kbd> Select</span>
 					{/if}
-					<span class="ml-auto"
-						>{searchResults.length + walletResults.length} result{(searchResults.length + walletResults.length) !== 1
-							? 's'
-							: ''}</span
-					>
+					<span class="ml-auto">{searchResults.length + walletResults.length} result{searchResults.length + walletResults.length !== 1 ? 's' : ''}</span>
 				</div>
 			{/if}
 		</div>
@@ -812,10 +833,15 @@
 	<SettingsModal bind:show={showSettings} onConnectMobile={openMobileConnect} onDisconnect={handleDisconnect} />
 {/if}
 
+{#if showRevealKey && RevealKeyModal}
+	<RevealKeyModal onclose={() => (showRevealKey = false)} />
+{/if}
+
 {#if withdrawingAsset}
 	<WalletWithdrawModal
 		chain={withdrawingAsset.chain}
 		asset={withdrawingAsset.asset}
+		chainAssets={withdrawingAsset.chainAssets}
 		onclose={() => (withdrawingAsset = null)}
 		oncomplete={onWithdrawComplete}
 	/>

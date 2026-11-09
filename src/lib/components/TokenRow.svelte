@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { venueView } from '$lib/utils/venue-attribution';
+	import { isRhChain } from '$lib/utils/routers';
 	import { hookBadge } from '$lib/utils/token-hook';
 	import TokenAvatar from './TokenAvatar.svelte';
 	import { onDestroy } from 'svelte';
@@ -6,7 +8,7 @@
 	import type { ScannerItem } from '$lib/api/types';
 	import { formatPrice, formatMarketCap, formatPercent, formatNumber, formatCompactCount, liveAge, fmtVal, fmtPriceHtml, pctColor } from '$lib/utils/format';
 	import { feeShareholders, feeShareTitle } from '$lib/utils/fee-sharing';
-	import { getRouterInfo, getRouterIconForChain } from '$lib/utils/routers';
+	import { getRouterIconForChain } from '$lib/utils/routers';
 	import { siX, siTelegram, siDiscord, siInstagram } from 'simple-icons';
 	import { getNow } from '$lib/stores/tick.svelte';
 	import Globe from 'lucide-svelte/icons/globe';
@@ -132,12 +134,16 @@
 
 	let sparklineData = $derived(buildSparkline(token.sparkline, 100, 36, `sg-${token.pairAddress.slice(0, 8)}`));
 
-	let router = $derived(getRouterInfo(token.platformType ?? ''));
-	let routerIcon = $derived(token.platformType ? getRouterIconForChain(token.platformType, token.chain ?? '') : router.icon);
-	let migPct = $derived(token.launchPad?.bondingCurve?.progressPct ?? 0);
-	let isGraduated = $derived(token.launchPad?.bondingCurve?.state === 'Migrated');
+	let venue = $derived(venueView(token));
+	let router = $derived({ name: venue.currentLabel });
+	let routerIcon = $derived(venue.icon);
+	let isRh = $derived(isRhChain(token.chain));
+	let directPool = $derived(!!venue.originLabel && token.launchOrigin?.launchMode === 'DIRECT_POOL');
+	let curve = $derived(directPool ? null : token.launchPad?.bondingCurve);
+	let migPct = $derived(curve?.progressPct ?? 0);
+	let isGraduated = $derived(curve?.state === 'Migrated');
 	let migratedFromIcon = $derived.by(() => {
-		const bc = token.launchPad?.bondingCurve;
+		const bc = curve;
 		if (bc?.state !== 'Migrated' || !bc.migratedFromPlatformType) return '';
 		return getRouterIconForChain(bc.migratedFromPlatformType, token.chain ?? '');
 	});
@@ -188,6 +194,7 @@
 	}
 </script>
 
+<div class="relative">
 <a
 	href="/?chain={token.chain}&token={token.tokenAddress}"
 	use:onVisibility={(v) => (onScreen = v)}
@@ -225,7 +232,7 @@
 			{/if}
 			<TokenChainBadge chain={token.chain} class="h-3.5 w-3.5">
 				{#if routerIcon}
-					<img src={routerIcon} alt={router.name} title={router.name} class="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" />
+					<img src={routerIcon} alt={router.name} title={venue.title} class="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" />
 				{/if}
 				{#if migratedFromIcon}
 					<img src={migratedFromIcon} alt="Migrated from" class="absolute -top-1 left-0 h-2.5 w-2.5 rounded-full bg-s6 ring-1 ring-s6" title="Migrated from {(token.launchPad?.bondingCurve as any)?.migratedFromPlatformName ?? ''}" />
@@ -242,6 +249,7 @@
 				<span class="truncate text-[15px] font-semibold text-tx group-hover:text-wh">{token.tokenSymbol}</span>
 				{#if token.quoteTokenSymbol}<span class="shrink-0 text-[11px] text-g5">/{token.quoteTokenSymbol}</span>{/if}
 			</div>
+			{@render venueLabels()}
 			<div class="mt-0.5 flex items-center gap-1">
 				{#if token.calls > 0}
 					<span
@@ -375,20 +383,23 @@
 	</div>
 
 	<div class="flex items-center justify-center gap-1">
+		{#if !isRh}
 		<span class="inline-block h-2.5 w-2.5 rounded-full {!sec?.mintable ? 'bg-grn' : 'bg-red'}" title="Mint {!sec?.mintable ? 'disabled' : 'enabled'}"></span>
 		<span class="inline-block h-2.5 w-2.5 rounded-full {!sec?.freezable ? 'bg-grn' : 'bg-red'}" title="Freeze {!sec?.freezable ? 'disabled' : 'enabled'}"></span>
 		<span class="inline-block h-2.5 w-2.5 rounded-full {hook.dotClass}" title={hook.title}></span>
 		<span class="inline-block h-2.5 w-2.5 rounded-full {sec?.lpLocked ? 'bg-grn' : 'bg-red'}" title="{sec?.lpLocked ? 'LP locked' : 'LP not locked'}"></span>
 		<span class="inline-block h-2.5 w-2.5 rounded-full {sec?.honeypot ? 'bg-red' : 'bg-grn'}" title="{sec?.honeypot ? 'Honeypot detected' : 'Not a honeypot'}"></span>
+		{/if}
 	</div>
 
 
 </a>
+</div>
 
 {#if previewPos && showImage && token.tokenAddress}
 	<div
 		use:portal
-		class="pointer-events-none fixed z-[300] rounded-xl border border-bd bg-s4 p-1 shadow-2xl"
+		class="pointer-events-none fixed z-[300] rounded-xl border border-bd bg-s5 p-1 shadow-2xl"
 		style="left: {previewPos.x}px; top: {previewPos.y}px; width: {PREVIEW_SIZE}px; height: {PREVIEW_SIZE}px;"
 	>
 		<TokenAvatar
@@ -401,3 +412,18 @@
 		/>
 	</div>
 {/if}
+
+{#snippet venueLabels()}
+	{#if isRh}
+		<span class="inline-flex flex-wrap items-center gap-1 text-[10px] text-g7">
+			<span class="rounded bg-s6 px-1" title={venue.title} aria-label="Current venue: {venue.currentLabel}">{venue.currentLabel}</span>
+			{#if venue.originLabel}
+				<span class="rounded bg-s6 px-1" aria-label="Launch origin: {venue.originLabel}" title="Launch origin: {venue.originLabel}">Origin: {venue.originLabel}</span>
+			{/if}
+			{#if directPool}<span class="text-g6">Direct pool · Active trading</span>{/if}
+			{#if token?.capability && (!token.capability.executable || token.capability.disabled)}
+				<span class="text-yel" title={token.capability.reason}>Execution unavailable: {token.capability.reason}</span>
+			{/if}
+		</span>
+	{/if}
+{/snippet}
